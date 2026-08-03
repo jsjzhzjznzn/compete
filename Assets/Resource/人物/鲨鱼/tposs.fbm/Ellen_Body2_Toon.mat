@@ -1,0 +1,90 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: Ellen_Body2_Toon
+  m_Shader: {fileID: 4800000, guid: dbfab398bab503a4e87654d5c7bf6230, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords:
+  - _NORMAL_MAP
+  - _RIM
+  - _SPECULAR
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _BaseMap:
+        m_Texture: {fileID: 2800000, guid: 8d6c720203d30a1459e6d4704c291fa5, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _FaceLightMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _FaceShadow:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _LightMap:
+        m_Texture: {fileID: 2800000, guid: 7be4f8b3a56a4b544ae27f872eb3763d, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MetalMap:
+        m_Texture: {fileID: 2800000, guid: 56a63f8a72d6ec742ac832c14375e74f, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _NormalMap:
+        m_Texture: {fileID: 2800000, guid: 2d2eeab25c168c049a6ad3cfdb3afbce, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _ShadowRamp:
+        m_Texture: {fileID: 2800000, guid: a5a1977a71c13d74d9167d66a769b60c, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _Cull: 2
+    - _CustomMaterialType: 1
+    - _DoubleSided: 0
+    - _DstBlend: 0
+    - _EmissionIntensity: 1
+    - _FaceBlushStrength: 1
+    - _FaceShadowOffset: 0
+    - _IsDay: 1
+    - _IsFace: 0
+    - _MetallicIntensity: 1
+    - _NonmetallicIntensity: 0.8
+    - _OutlineWidth: 0.02
+    - _RimIntensity: 0.3
+    - _RimOffset: 0.5
+    - _RimThreshold: 0.3
+    - _ShadowOffset: 0
+    - _ShadowSmoothness: 0.1
+    - _SpecularSmoothness: 0.5
+    - _SrcBlend: 1
+    - _UseCustomMaterialType: 0
+    - _UseEmission: 0
+    - _UseNormalMap: 1
+    - _UseRim: 1
+    - _UseSpecular: 1
+    m_Colors:
+    - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
+    - _FaceBlushColor: {r: 1, g: 1, b: 1, a: 1}
+    - _FaceDirection: {r: 0, g: 0, b: 1, a: 0}
+    - _OutlineColor: {r: 0.1, g: 0.08, b: 0.15, a: 1}
+    - _ShadowColor: {r: 0.6, g: 0.55, b: 0.7, a: 1}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1
