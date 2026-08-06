@@ -3,18 +3,15 @@
 /// </summary>
 public class PlayerSprintingState : PlayerMovementState
 {
-    private readonly PlayerSprintData data;
+    private PlayerSprintData Data => playerMovementData?.sprintData;
 
-    public PlayerSprintingState(PlayerMovementStateMachine stateMachine, PlayerSprintData data) : base(stateMachine)
-    {
-        this.data = data;
-    }
+    public PlayerSprintingState(PlayerMovementStateMachine stateMachine) : base(stateMachine) { }
 
     public override void OnEnter()
     {
         base.OnEnter();
-        if (data?.animationClip != null)
-            player.PlayAnimation(data.animationClip, data.fadeDuration);
+        if (Data?.animationClip != null)
+            player.PlayAnimation(Data.animationClip, Data.fadeDuration);
         // TODO: 其他进入初始化
     }
 

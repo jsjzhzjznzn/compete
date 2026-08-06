@@ -1,32 +1,34 @@
 /// <summary>
 /// 待机状态
+/// 轮询控制：每帧读取输入，一旦有移动输入就进入 行走/奔跑
 /// </summary>
 public class PlayerIdlingState : PlayerMovementState
 {
-    private readonly PlayerIdleData data;
+    private PlayerIdleData Data => playerMovementData?.idleData;
 
-    public PlayerIdlingState(PlayerMovementStateMachine stateMachine, PlayerIdleData data) : base(stateMachine)
-    {
-        this.data = data;
-    }
+    public PlayerIdlingState(PlayerMovementStateMachine stateMachine) : base(stateMachine) { }
 
     public override void OnEnter()
     {
         base.OnEnter();
-        if (data?.animationClip != null)
-            player.PlayAnimation(data.animationClip, data.fadeDuration);
-        // TODO: 其他进入初始化
+        ApplyStateData(Data);
     }
 
     public override void OnUpdate()
     {
         base.OnUpdate();
-        // TODO: 根据输入切换到行走/冲刺等状态
+        PollInput();                          // 每帧轮询输入（无输入时自然不转向）
+
+        if (!player.IsMoving) return;         // 没有移动输入，保持待机
+
+        // 有移动输入：按住冲刺键进奔跑，否则进行走
+        stateMachine.SwitchState(player.IsSprintHeld
+            ? stateMachine.runningState
+            : stateMachine.walkingState);
     }
 
     public override void OnExit()
     {
         base.OnExit();
-        // TODO: 退出时清理
     }
 }

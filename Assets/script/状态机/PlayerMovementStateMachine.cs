@@ -7,6 +7,7 @@ public class PlayerMovementStateMachine : StateMachine
     // 状态间共享数据
     public PlayerStateReusableData reusableData { get; }
     public Player player { get; }
+    public PlayerMovementData movementData { get; }
 
     public PlayerIdlingState idlingState { get; }
     public PlayerWalkingState walkingState { get; }
@@ -14,7 +15,7 @@ public class PlayerMovementStateMachine : StateMachine
    // public PlayerSprintingState sprintingState { get; }
    // public PlayerDashingState dashingState { get; }
    // public PlayerDashBackingState dashBackingState { get; }
-    public PlayerReturnRunState returnRunState { get; }
+    //public PlayerReturnRunState returnRunState { get; }
   //  public PlayerOnSwitchState onSwitchState { get; }
  //   public PlayerOnSwitchOutState onSwitchOutState { get; }
     public PlayerMovementNullState playerMovementNullState { get; }
@@ -25,19 +26,19 @@ public class PlayerMovementStateMachine : StateMachine
 
         reusableData = new PlayerStateReusableData();
 
-        // 从角色数据资产中取出各状态数据（未配置时为 null，状态内部自行判空）
-        var movementData = playerSO != null ? playerSO.movementData : null;
+        // 从角色数据资产中取出移动数据（未配置时为 null，状态内部自行判空）
+        movementData = playerSO != null ? playerSO.movementData : null;
 
         // 创建所有状态
-        idlingState = new PlayerIdlingState(this, movementData?.idleData);
-        walkingState = new PlayerWalkingState(this, movementData?.walkData);
-        runningState = new PlayerRunningState(this, movementData?.runData);
-       // sprintingState = new PlayerSprintingState(this, movementData?.sprintData);
-       // dashingState = new PlayerDashingState(this, movementData?.dashData);
-     //   dashBackingState = new PlayerDashBackingState(this, movementData?.dashBackData);
-        returnRunState = new PlayerReturnRunState(this, movementData?.returnRunData);
-      //  onSwitchState = new PlayerOnSwitchState(this, movementData?.onSwitchData);
-      //  onSwitchOutState = new PlayerOnSwitchOutState(this, movementData?.onSwitchOutData);
-        playerMovementNullState = new PlayerMovementNullState(this, movementData?.movementNullData);
+        idlingState = new PlayerIdlingState(this);
+        walkingState = new PlayerWalkingState(this);
+        runningState = new PlayerRunningState(this);
+       // sprintingState = new PlayerSprintingState(this);
+       // dashingState = new PlayerDashingState(this);
+     //   dashBackingState = new PlayerDashBackingState(this);
+       // returnRunState = new PlayerReturnRunState(this);
+      //  onSwitchState = new PlayerOnSwitchState(this);
+      //  onSwitchOutState = new PlayerOnSwitchOutState(this);
+        playerMovementNullState = new PlayerMovementNullState(this);
     }
 }

@@ -3,12 +3,7 @@
 /// </summary>
 public class PlayerMovementNullState : PlayerMovementState
 {
-    private readonly PlayerMovementNullData data;
-
-    public PlayerMovementNullState(PlayerMovementStateMachine stateMachine, PlayerMovementNullData data) : base(stateMachine)
-    {
-        this.data = data;
-    }
+    public PlayerMovementNullState(PlayerMovementStateMachine stateMachine) : base(stateMachine) { }
 
     public override void OnEnter()
     {

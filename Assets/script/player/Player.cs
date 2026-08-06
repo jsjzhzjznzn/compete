@@ -12,6 +12,14 @@ public class Player : CharacterMoveControllerBase
 
     [SerializeField] private PlayerSO playerSO;            // 角色数据资产（Inspector 拖入）
 
+    [Header("视角参考")]
+    [SerializeField] private Camera viewCamera;            // 主相机（带CinemachineBrain），Inspector拖入
+
+    /// <summary>相机 Transform（相机相对移动转换用）；未配置时回退 Camera.main</summary>
+    public Transform CameraTransform =>
+        viewCamera != null ? viewCamera.transform
+        : Camera.main != null ? Camera.main.transform : null;
+
     private PlayerMovementStateMachine stateMachine;
 
     protected override void Awake()
@@ -24,7 +32,10 @@ public class Player : CharacterMoveControllerBase
     protected override void Start()
     {
         base.Start();
-        
+
+        // 游戏运行时锁定并隐藏鼠标光标（用鼠标视角）
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
     }
 
     protected override void Update()
@@ -52,9 +63,11 @@ public class Player : CharacterMoveControllerBase
     // 输入响应（状态机会调用这些，暂时暴露）
     // ================================================================
 
-    public float CurrentMoveSpeed => CharacterInputSystem.MainInstance.PlayerMove.magnitude;
+    public float CurrentMoveSpeed => CharacterInputSystem.MainInstance.Movement.magnitude;
     public bool IsMoving => CurrentMoveSpeed > 0.1f;
     public bool IsRunning => CharacterInputSystem.MainInstance.Sprint;
+    /// <summary>冲刺键按住状态（轮询用，区别于边沿触发的 IsRunning）</summary>
+    public bool IsSprintHeld => CharacterInputSystem.MainInstance.Sprint_Continue;
     public bool PressedAttack => CharacterInputSystem.MainInstance.Attack;
     public bool PressedSkill => CharacterInputSystem.MainInstance.Skill;
 }

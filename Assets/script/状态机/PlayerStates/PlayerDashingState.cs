@@ -3,18 +3,15 @@
 /// </summary>
 public class PlayerDashingState : PlayerMovementState
 {
-    private readonly PlayerDashData data;
+    private PlayerDashData Data => playerMovementData?.dashData;
 
-    public PlayerDashingState(PlayerMovementStateMachine stateMachine, PlayerDashData data) : base(stateMachine)
-    {
-        this.data = data;
-    }
+    public PlayerDashingState(PlayerMovementStateMachine stateMachine) : base(stateMachine) { }
 
     public override void OnEnter()
     {
         base.OnEnter();
-        if (data?.animationClip != null)
-            player.PlayAnimation(data.animationClip, data.fadeDuration);
+        if (Data?.animationClip != null)
+            player.PlayAnimation(Data.animationClip, Data.fadeDuration);
         // TODO: 其他进入初始化
     }
 

@@ -30,7 +30,8 @@ public class CharacterInputSystem : Singleton<CharacterInputSystem>
     // ==================== 输入封装 ====================
 
     // 移动
-    public Vector2 PlayerMove => inputActions.player.move.ReadValue<Vector2>();
+    public Vector2 Movement => inputActions.player.move.ReadValue<Vector2>();
+    public Vector2 Look     => inputActions.player.look.ReadValue<Vector2>();
 
     // 冲刺（Shift）
     public bool Sprint          => inputActions.player.sprint.triggered;

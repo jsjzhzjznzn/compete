@@ -15,27 +15,17 @@ MonoBehaviour:
   <movementData>k__BackingField:
     <turnBackAngle>k__BackingField: 135
     <idleData>k__BackingField:
-      <animationClip>k__BackingField: {fileID: 0}
+      <animationClip>k__BackingField: {fileID: 1827226128182048838, guid: 4c0965f85110e2b48894845f31a37292, type: 3}
       <playSpeed>k__BackingField: 1
       <fadeDuration>k__BackingField: 0.15
       <rotationTime>k__BackingField: 0.04
     <walkData>k__BackingField:
-      <animationClip>k__BackingField: {fileID: 0}
+      <animationClip>k__BackingField: {fileID: 1827226128182048838, guid: 537b4c28f1c72a743864c23e3d17c119, type: 3}
       <playSpeed>k__BackingField: 1
       <fadeDuration>k__BackingField: 0.15
       <rotationTime>k__BackingField: 0.04
     <runData>k__BackingField:
-      <animationClip>k__BackingField: {fileID: 0}
-      <playSpeed>k__BackingField: 1
-      <fadeDuration>k__BackingField: 0.15
-      <rotationTime>k__BackingField: 0.04
-    <sprintData>k__BackingField:
-      <animationClip>k__BackingField: {fileID: 0}
-      <playSpeed>k__BackingField: 1
-      <fadeDuration>k__BackingField: 0.15
-      <rotationTime>k__BackingField: 0.04
-    <dashData>k__BackingField:
-      <animationClip>k__BackingField: {fileID: 0}
+      <animationClip>k__BackingField: {fileID: 1827226128182048838, guid: 33800fba2b562d04d984dc5399bfe519, type: 3}
       <playSpeed>k__BackingField: 1
       <fadeDuration>k__BackingField: 0.15
       <rotationTime>k__BackingField: 0.04
@@ -45,16 +35,6 @@ MonoBehaviour:
       <fadeDuration>k__BackingField: 0.15
       <rotationTime>k__BackingField: 0.04
     <returnRunData>k__BackingField:
-      <animationClip>k__BackingField: {fileID: 0}
-      <playSpeed>k__BackingField: 1
-      <fadeDuration>k__BackingField: 0.15
-      <rotationTime>k__BackingField: 0.04
-    <onSwitchData>k__BackingField:
-      <animationClip>k__BackingField: {fileID: 0}
-      <playSpeed>k__BackingField: 1
-      <fadeDuration>k__BackingField: 0.15
-      <rotationTime>k__BackingField: 0.04
-    <onSwitchOutData>k__BackingField:
       <animationClip>k__BackingField: {fileID: 0}
       <playSpeed>k__BackingField: 1
       <fadeDuration>k__BackingField: 0.15
