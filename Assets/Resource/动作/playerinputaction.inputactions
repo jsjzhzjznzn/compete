@@ -1,6 +1,6 @@
 {
     "version": 1,
-    "name": "操作",
+    "name": "playerinputaction",
     "maps": [
         {
             "name": "player",

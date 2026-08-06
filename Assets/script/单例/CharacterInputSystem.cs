@@ -1,37 +1,50 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
+/// <summary>
+/// 角色输入系统（单例）
+/// 封装 playerinputaction.inputactions 生成的强类型类 Playerinputaction，
+/// 统一对角色脚本/状态机暴露输入状态
+/// </summary>
 public class CharacterInputSystem : Singleton<CharacterInputSystem>
 {
-    private PlayerInput playerInput;
+    public Playerinputaction inputActions;
 
     protected override void Awake()
     {
         base.Awake();
-        /* FindAnyObjectByType<T>()
-作用：随机返回任意一个符合类型的对象，不保证顺序
-Unity 官方设计目的：性能更快，内部遍历可以提前结束，不保证返回哪一个；
-风险：如果场景有多个PlayerInput，每次运行拿到的实例可能不一样，极易出诡异 Bug；
-不推荐用于玩家输入这种必须唯一的组件。*/
-        playerInput = Object.FindAnyObjectByType<PlayerInput>();
+        if (inputActions == null)
+            inputActions = new Playerinputaction();
     }
 
+    private void OnEnable()
+    {
+        inputActions?.Enable();
+    }
+
+    private void OnDisable()
+    {
+        inputActions?.Disable();
+    }
+
+    // ==================== 输入封装 ====================
+
     // 移动
-    public Vector2 PlayerMove => playerInput.actions["move"].ReadValue<Vector2>();
+    public Vector2 PlayerMove => inputActions.player.move.ReadValue<Vector2>();
 
-    // 冲刺
-    public bool Sprint          => playerInput.actions["sprint"].triggered;
-    public bool Sprint_Continue => playerInput.actions["sprint"].phase == InputActionPhase.Performed;
+    // 冲刺（Shift）
+    public bool Sprint          => inputActions.player.sprint.triggered;
+    public bool Sprint_Continue => inputActions.player.sprint.phase == InputActionPhase.Performed;
 
-    // 轻攻击（attack）
-    public bool Attack          => playerInput.actions["attack"].triggered;
-    //public bool Attack_Continue => playerInput.actions["attack"].phase == InputActionPhase.Performed;
+    // 轻攻击（鼠标左键）
+    public bool Attack          => inputActions.player.attack.triggered;
+    public bool Attack_Continue => inputActions.player.attack.phase == InputActionPhase.Performed;
 
-    // 重攻击（heavyattk）
-    public bool HeavyAttack          => playerInput.actions["heavyattk"].triggered;
-   // public bool HeavyAttack_Continue => playerInput.actions["heavyattk"].phase == InputActionPhase.Performed;
+    // 重攻击（鼠标右键）
+    public bool HeavyAttack          => inputActions.player.heavyattk.triggered;
+    public bool HeavyAttack_Continue => inputActions.player.heavyattk.phase == InputActionPhase.Performed;
 
-    // 技能
-    public bool Skill          => playerInput.actions["skill"].triggered;
-    public bool Skill_Continue => playerInput.actions["skill"].phase == InputActionPhase.Performed;
+    // 技能（E）
+    public bool Skill          => inputActions.player.skill.triggered;
+    public bool Skill_Continue => inputActions.player.skill.phase == InputActionPhase.Performed;
 }

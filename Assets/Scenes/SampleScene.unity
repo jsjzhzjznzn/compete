@@ -164,10 +164,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Unity.Cinemachine::Unity.Cinemachine.CinemachineThirdPersonFollow
   Damping: {x: 0.1, y: 0.4, z: 0.2}
-  ShoulderOffset: {x: 0.5, y: 2, z: -0.6}
+  ShoulderOffset: {x: 0.5, y: 2.5, z: -1.4}
   VerticalArmLength: 0
-  CameraSide: 0.291
-  CameraDistance: 2.5
+  CameraSide: 0.358
+  CameraDistance: 1.5
   AvoidObstacles:
     Enabled: 0
     CollisionFilter:
@@ -228,8 +228,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 252626282}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.28192547, y: 0.032285698, z: -0.00949283, w: 0.958846}
-  m_LocalPosition: {x: -9.019, y: 1.993, z: -91.522865}
+  m_LocalRotation: {x: 0.34789255, y: 0.0229319, z: -0.008512279, w: 0.93721527}
+  m_LocalPosition: {x: -8.952001, y: 2.493, z: -91.32287}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -247,7 +247,7 @@ GameObject:
   - component: {fileID: 290165884}
   - component: {fileID: 290165883}
   - component: {fileID: 290165882}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Plane
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -638,8 +638,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 482440164}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.28258052, y: 0, z: 0, w: 0.9592436}
-  m_LocalPosition: {x: -8.81, y: 1.993, z: -91.522865}
+  m_LocalRotation: {x: 0.34789255, y: 0.0229319, z: -0.008512279, w: 0.93721527}
+  m_LocalPosition: {x: -8.952001, y: 2.493, z: -91.32287}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -889,6 +889,12 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 5839581571942434474, guid: 6fd7d228b12112c4ea88a0eb0424c21e, type: 3}
       insertIndex: -1
       addedObject: {fileID: 2093563396}
+    - targetCorrespondingSourceObject: {fileID: 5839581571942434474, guid: 6fd7d228b12112c4ea88a0eb0424c21e, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2093563397}
+    - targetCorrespondingSourceObject: {fileID: 5839581571942434474, guid: 6fd7d228b12112c4ea88a0eb0424c21e, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2093563398}
   m_SourcePrefab: {fileID: 100100000, guid: 6fd7d228b12112c4ea88a0eb0424c21e, type: 3}
 --- !u!1 &2093563389 stripped
 GameObject:
@@ -1041,6 +1047,43 @@ MonoBehaviour:
   m_EditorClassIdentifier: Animancer::Animancer.AnimancerComponent
   _Animator: {fileID: 2093563394}
   _ActionOnDisable: 0
+--- !u!114 &2093563397
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2093563389}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 768fd008c7e945d46916da0dbd4eb735, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CharacterInputSystem
+--- !u!114 &2093563398
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2093563389}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ba77e3b96e01b2245be7ce28af919155, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Player
+  characterGravity: -9
+  maxVerticalSpeed: 20
+  minVerticalSpeed: -30
+  verticalSpeed: 0
+  fallOutTimer: 0.2
+  GroundDetectionRadius: 0
+  GroundDetectionOffset: 0
+  whatIsGround:
+    serializedVersion: 2
+    m_Bits: 0
+  isOnGround: 0
+  SlopDetectionLenth: 1
+  moveMult: 1
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
