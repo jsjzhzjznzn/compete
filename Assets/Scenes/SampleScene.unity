@@ -191,7 +191,7 @@ Transform:
   m_GameObject: {fileID: 102141683}
   serializedVersion: 2
   m_LocalRotation: {x: 0.21650621, y: 0.57254577, z: -0.16007221, w: 0.7743987}
-  m_LocalPosition: {x: 0.0000019073486, y: 0, z: -0.0000076293945}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -329,7 +329,7 @@ Transform:
   m_GameObject: {fileID: 111487222}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -11.688326, y: 2.613, z: -89.268585}
+  m_LocalPosition: {x: -11.688326, y: 2.62, z: -89.268585}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -409,7 +409,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 163281332}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.1890336, y: 0.5955079, z: -0.14679295, w: 0.7668693}
+  m_LocalRotation: {x: 0.18903361, y: 0.5955079, z: -0.14679296, w: 0.76686925}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -601,7 +601,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 311285851}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.19027193, y: 0.58203655, z: -0.14240894, w: 0.7776566}
+  m_LocalRotation: {x: 0.19027197, y: 0.5820366, z: -0.14240895, w: 0.7776565}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -902,7 +902,7 @@ Transform:
   m_GameObject: {fileID: 482440164}
   serializedVersion: 2
   m_LocalRotation: {x: 0.19027227, y: 0.58203495, z: -0.14240853, w: 0.7776578}
-  m_LocalPosition: {x: -11.688324, y: 2.613, z: -89.26859}
+  m_LocalPosition: {x: -11.688326, y: 2.62, z: -89.268585}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1479,7 +1479,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6503633459825318928, guid: 6fd7d228b12112c4ea88a0eb0424c21e, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -0.007
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6503633459825318928, guid: 6fd7d228b12112c4ea88a0eb0424c21e, type: 3}
       propertyPath: m_LocalPosition.z
@@ -1619,7 +1619,7 @@ CharacterController:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Height: 1.6
+  m_Height: 1.43
   m_Radius: 0.3
   m_SlopeLimit: 45
   m_StepOffset: 0.3
@@ -1720,14 +1720,14 @@ MonoBehaviour:
   minVerticalSpeed: -30
   verticalSpeed: 0
   fallOutTimer: 0.2
-  GroundDetectionRadius: 0
-  GroundDetectionOffset: 0
+  GroundDetectionRadius: 0.05
+  GroundDetectionOffset: 0.05
   whatIsGround:
     serializedVersion: 2
-    m_Bits: 0
-  isOnGround: 0
+    m_Bits: 64
+  isOnGround: 1
   SlopDetectionLenth: 1
-  moveMult: 65.9
+  moveMult: 1
   currentMovementState: 
   playerSO: {fileID: 11400000, guid: 84a52e4701d6a2b428c92e6e920ad450, type: 2}
   viewCamera: {fileID: 482440168}

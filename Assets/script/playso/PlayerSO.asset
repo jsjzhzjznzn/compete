@@ -24,18 +24,13 @@ MonoBehaviour:
       <playSpeed>k__BackingField: 1
       <fadeDuration>k__BackingField: 0.15
       <rotationTime>k__BackingField: 0.04
-    <runData>k__BackingField:
-      <animationClip>k__BackingField: {fileID: 1827226128182048838, guid: 33800fba2b562d04d984dc5399bfe519, type: 3}
+    <dashData>k__BackingField:
+      <animationClip>k__BackingField: {fileID: 1827226128182048838, guid: e682b12bd0524f14199dcaf6c54107a6, type: 3}
       <playSpeed>k__BackingField: 1
       <fadeDuration>k__BackingField: 0.15
       <rotationTime>k__BackingField: 0.04
     <dashBackData>k__BackingField:
-      <animationClip>k__BackingField: {fileID: 0}
-      <playSpeed>k__BackingField: 1
-      <fadeDuration>k__BackingField: 0.15
-      <rotationTime>k__BackingField: 0.04
-    <returnRunData>k__BackingField:
-      <animationClip>k__BackingField: {fileID: 0}
+      <animationClip>k__BackingField: {fileID: 1827226128182048838, guid: 326b6bc467a397241b696a245ef0737d, type: 3}
       <playSpeed>k__BackingField: 1
       <fadeDuration>k__BackingField: 0.15
       <rotationTime>k__BackingField: 0.04

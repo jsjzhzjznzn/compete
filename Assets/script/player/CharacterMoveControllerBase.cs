@@ -77,12 +77,11 @@ public class CharacterMoveControllerBase : MonoBehaviour
     /// <summary>
     /// Animator回调：每帧动画更新后调用，将动画根运动位移应用到CharacterController
     /// AnimancerComponent底层通过Unity Animator产生Root Motion，所以OnAnimatorMove仍然有效
+    /// 注意：只应用位移，不应用旋转（旋转由状态机 RotateTowardsInput 手动控制）
     /// </summary>
     protected virtual void OnAnimatorMove()
     {
-        var animator = characterAnimancer.Animator;
-        animator.ApplyBuiltinRootMotion();                       // 让Animator处理根运动旋转/位置
-        UpdateCharacterVelocity(animator.deltaPosition);         // 取出位移量，传给CharacterController
+        UpdateCharacterVelocity(characterAnimancer.Animator.deltaPosition);   // 取出本帧位移量，传给CharacterController
     }
 
     // ================================================================
@@ -101,7 +100,7 @@ public class CharacterMoveControllerBase : MonoBehaviour
         );
         isOnGround = Physics.CheckSphere(groundDetectionOrigin, GroundDetectionRadius, whatIsGround, QueryTriggerInteraction.Ignore);
     }
-
+    
     // ================================================================
     // 重力系统
     // ================================================================
@@ -175,12 +174,13 @@ public class CharacterMoveControllerBase : MonoBehaviour
     /// 1. 先经斜坡修正
     /// 2. 乘以倍率
     /// 3. 通过CharacterController.Move位移
+    /// 注意：movement 是 Animator.deltaPosition，本身已是"本帧位移"，不能再乘 Time.deltaTime
     /// 子类可重写以区分不同移动状态（行走/闪避/攻击位移等）
     /// </summary>
     protected virtual void UpdateCharacterVelocity(Vector3 movement)
     {
         Vector3 dir = ResetVelocityOnSlop(movement);
-        characterController.Move(dir * Time.deltaTime * moveMult);
+        characterController.Move(dir * moveMult);
     }
 
     // ================================================================

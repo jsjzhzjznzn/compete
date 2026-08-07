@@ -124,7 +124,7 @@ public abstract class PlayerMovementState : IState
     /// </summary>
     protected void ApplyStateData(PlayerStateData data)
     {
-        reusableData.rotationTime = data != null ? data.rotationTime : 0.04f;
+        reusableData.rotationTime = data != null ? data.rotationTime : 0.03f;
 
         if (data?.animationClip != null)
             player.PlayAnimation(data.animationClip, data.fadeDuration);

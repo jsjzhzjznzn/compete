@@ -11,6 +11,9 @@ public class PlayerMovementStateMachine : StateMachine
 
     public PlayerIdlingState idlingState { get; }
     public PlayerWalkingState walkingState { get; }
+    public PlayerWalkStopState walkStopState { get; }
+    public PlayerDashingState dashingState { get; }
+    public PlayerDashBackingState dashBackingState { get; }
   
     public PlayerMovementNullState playerMovementNullState { get; }
 
@@ -26,9 +29,10 @@ public class PlayerMovementStateMachine : StateMachine
         // 创建所有状态
         idlingState = new PlayerIdlingState(this);
         walkingState = new PlayerWalkingState(this);
+        walkStopState = new PlayerWalkStopState(this);
+        dashingState = new PlayerDashingState(this);
+        dashBackingState = new PlayerDashBackingState(this);
        // sprintingState = new PlayerSprintingState(this);
-       // dashingState = new PlayerDashingState(this);
-     //   dashBackingState = new PlayerDashBackingState(this);
        // returnRunState = new PlayerReturnRunState(this);
       //  onSwitchState = new PlayerOnSwitchState(this);
       //  onSwitchOutState = new PlayerOnSwitchOutState(this);

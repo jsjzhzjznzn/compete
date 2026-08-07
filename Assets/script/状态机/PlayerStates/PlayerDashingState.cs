@@ -1,6 +1,7 @@
 /// <summary>
 /// 前冲状态
 /// 向移动输入方向快速突进一段距离
+/// 不接受输入轮询：入场后锁定位移，动画播放完成自动回到待机
 /// </summary>
 public class PlayerDashingState : PlayerMovementState
 {
@@ -12,18 +13,33 @@ public class PlayerDashingState : PlayerMovementState
     {
         base.OnEnter();
         ApplyStateData(Data);
-        // TODO: 前冲入场逻辑（锁定冲刺方向、初始化速度/位移等）
+        // TODO: 锁定冲刺方向、初始化速度/位移等
+
+        // 动画播放完成 → 回到待机
+        var state = player.characterAnimancer.States.Current;
+        if (state != null)
+            state.Events.OnEnd = OnDashAnimationEnd;
     }
 
     public override void OnUpdate()
     {
         base.OnUpdate();
-        // TODO: 前冲更新逻辑（每帧位移、计时、结束后切换状态）
+        // 前冲不接受输入轮询：不调用 PollInput()
     }
 
     public override void OnExit()
     {
         base.OnExit();
-        // TODO: 前冲退出逻辑（复位冲刺状态等）
+        // TODO: 复位冲刺状态等
+
+        // 清理动画结束回调，避免切换状态后误触发
+        var state = player.characterAnimancer.States.Current;
+        if (state != null)
+            state.Events.OnEnd = null;
+    }
+
+    private void OnDashAnimationEnd()
+    {
+        stateMachine.SwitchState(stateMachine.walkingState);
     }
 }

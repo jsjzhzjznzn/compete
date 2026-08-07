@@ -18,7 +18,7 @@ public abstract class PlayerStateData
     [field: SerializeField, Range(0f, 4f)] public float playSpeed { get; private set; } = 1f;
 
     /// <summary>Animancer 淡入时长（秒）</summary>
-    [field: SerializeField] public float fadeDuration { get; private set; } = 0.15f;
+    [field: SerializeField] public float fadeDuration { get; private set; } = 0.3f;
 
     /// <summary>转向平滑时间（秒）</summary>
     [field: SerializeField] public float rotationTime { get; private set; } = 0.04f;
@@ -30,7 +30,11 @@ public class PlayerIdleData : PlayerStateData { }
 
 /// <summary>行走数据</summary>
 [System.Serializable]
-public class PlayerWalkData : PlayerStateData { }
+public class PlayerWalkData : PlayerStateData
+{
+    /// <summary>松开摇杆后的收尾动画（播完自动回待机）</summary>
+    [field: SerializeField] public AnimationClip walkStopClip { get; private set; }
+}
 
 /// <summary>奔跑数据</summary>
 [System.Serializable]
