@@ -65,9 +65,8 @@ public class Player : CharacterMoveControllerBase
 
     public float CurrentMoveSpeed => CharacterInputSystem.MainInstance.Movement.magnitude;
     public bool IsMoving => CurrentMoveSpeed > 0.1f;
-    public bool IsRunning => CharacterInputSystem.MainInstance.Sprint;
-    /// <summary>冲刺键按住状态（轮询用，区别于边沿触发的 IsRunning）</summary>
-    public bool IsSprintHeld => CharacterInputSystem.MainInstance.Sprint_Continue;
+   public bool IsSprintHeld => CharacterInputSystem.MainInstance.dashHeld;
+    public bool IsSprintPressed => CharacterInputSystem.MainInstance.dashPressed;
     public bool PressedAttack => CharacterInputSystem.MainInstance.Attack;
     public bool PressedSkill => CharacterInputSystem.MainInstance.Skill;
 }

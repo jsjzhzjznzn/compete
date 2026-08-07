@@ -102,7 +102,7 @@ public partial class @Playerinputaction: IInputActionCollection2, IDisposable
                     ""initialStateCheck"": true
                 },
                 {
-                    ""name"": ""sprint"",
+                    ""name"": ""dash"",
                     ""type"": ""Button"",
                     ""id"": ""60843fa4-db2c-413d-8324-208a72547fdf"",
                     ""expectedControlType"": """",
@@ -210,7 +210,7 @@ public partial class @Playerinputaction: IInputActionCollection2, IDisposable
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": """",
-                    ""action"": ""sprint"",
+                    ""action"": ""dash"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 },
@@ -266,7 +266,7 @@ public partial class @Playerinputaction: IInputActionCollection2, IDisposable
         // player
         m_player = asset.FindActionMap("player", throwIfNotFound: true);
         m_player_move = m_player.FindAction("move", throwIfNotFound: true);
-        m_player_sprint = m_player.FindAction("sprint", throwIfNotFound: true);
+        m_player_dash = m_player.FindAction("dash", throwIfNotFound: true);
         m_player_attack = m_player.FindAction("attack", throwIfNotFound: true);
         m_player_skill = m_player.FindAction("skill", throwIfNotFound: true);
         m_player_heavyattk = m_player.FindAction("heavyattk", throwIfNotFound: true);
@@ -352,7 +352,7 @@ public partial class @Playerinputaction: IInputActionCollection2, IDisposable
     private readonly InputActionMap m_player;
     private List<IPlayerActions> m_PlayerActionsCallbackInterfaces = new List<IPlayerActions>();
     private readonly InputAction m_player_move;
-    private readonly InputAction m_player_sprint;
+    private readonly InputAction m_player_dash;
     private readonly InputAction m_player_attack;
     private readonly InputAction m_player_skill;
     private readonly InputAction m_player_heavyattk;
@@ -373,9 +373,9 @@ public partial class @Playerinputaction: IInputActionCollection2, IDisposable
         /// </summary>
         public InputAction @move => m_Wrapper.m_player_move;
         /// <summary>
-        /// Provides access to the underlying input action "player/sprint".
+        /// Provides access to the underlying input action "player/dash".
         /// </summary>
-        public InputAction @sprint => m_Wrapper.m_player_sprint;
+        public InputAction @dash => m_Wrapper.m_player_dash;
         /// <summary>
         /// Provides access to the underlying input action "player/attack".
         /// </summary>
@@ -421,9 +421,9 @@ public partial class @Playerinputaction: IInputActionCollection2, IDisposable
             @move.started += instance.OnMove;
             @move.performed += instance.OnMove;
             @move.canceled += instance.OnMove;
-            @sprint.started += instance.OnSprint;
-            @sprint.performed += instance.OnSprint;
-            @sprint.canceled += instance.OnSprint;
+            @dash.started += instance.OnDash;
+            @dash.performed += instance.OnDash;
+            @dash.canceled += instance.OnDash;
             @attack.started += instance.OnAttack;
             @attack.performed += instance.OnAttack;
             @attack.canceled += instance.OnAttack;
@@ -450,9 +450,9 @@ public partial class @Playerinputaction: IInputActionCollection2, IDisposable
             @move.started -= instance.OnMove;
             @move.performed -= instance.OnMove;
             @move.canceled -= instance.OnMove;
-            @sprint.started -= instance.OnSprint;
-            @sprint.performed -= instance.OnSprint;
-            @sprint.canceled -= instance.OnSprint;
+            @dash.started -= instance.OnDash;
+            @dash.performed -= instance.OnDash;
+            @dash.canceled -= instance.OnDash;
             @attack.started -= instance.OnAttack;
             @attack.performed -= instance.OnAttack;
             @attack.canceled -= instance.OnAttack;
@@ -513,12 +513,12 @@ public partial class @Playerinputaction: IInputActionCollection2, IDisposable
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnMove(InputAction.CallbackContext context);
         /// <summary>
-        /// Method invoked when associated input action "sprint" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// Method invoked when associated input action "dash" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
         /// </summary>
         /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
-        void OnSprint(InputAction.CallbackContext context);
+        void OnDash(InputAction.CallbackContext context);
         /// <summary>
         /// Method invoked when associated input action "attack" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
         /// </summary>

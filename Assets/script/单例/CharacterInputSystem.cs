@@ -34,8 +34,8 @@ public class CharacterInputSystem : Singleton<CharacterInputSystem>
     public Vector2 Look     => inputActions.player.look.ReadValue<Vector2>();
 
     // 冲刺（Shift）
-    public bool Sprint          => inputActions.player.sprint.triggered;
-    public bool Sprint_Continue => inputActions.player.sprint.phase == InputActionPhase.Performed;
+    public bool dashHeld => inputActions.player.dash.phase == InputActionPhase.Performed;
+    public bool dashPressed => inputActions.player.dash.triggered;
 
     // 轻攻击（鼠标左键）
     public bool Attack          => inputActions.player.attack.triggered;

@@ -128,17 +128,7 @@ public abstract class PlayerMovementState : IState
 
         if (data?.animationClip != null)
             player.PlayAnimation(data.animationClip, data.fadeDuration);
-
-        SetPlaySpeed(data);
+            
     }
 
-    /// <summary>
-    /// 应用状态数据的动画播放速度（走/跑调速用）。
-    /// 调用时需在 PlayAnimation 之后，确保 States.Current 已指向新状态。
-    /// </summary>
-    protected void SetPlaySpeed(PlayerStateData data)
-    {
-        if (data == null || player.characterAnimancer.States.Current == null) return;
-        player.characterAnimancer.States.Current.Speed = data.playSpeed;
-    }
 }

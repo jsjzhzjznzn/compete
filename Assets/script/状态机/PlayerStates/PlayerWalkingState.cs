@@ -25,10 +25,7 @@ public class PlayerWalkingState : PlayerMovementState
             return;
         }
 
-        if (player.IsSprintHeld)
-        {
-            stateMachine.SwitchState(stateMachine.runningState);  // 按住冲刺 → 奔跑
-        }
+        
     }
 
     public override void OnExit()

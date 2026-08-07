@@ -22,9 +22,7 @@ public class PlayerIdlingState : PlayerMovementState
         if (!player.IsMoving) return;         // 没有移动输入，保持待机
 
         // 有移动输入：按住冲刺键进奔跑，否则进行走
-        stateMachine.SwitchState(player.IsSprintHeld
-            ? stateMachine.runningState
-            : stateMachine.walkingState);
+        stateMachine.SwitchState(stateMachine.walkingState);
     }
 
     public override void OnExit()

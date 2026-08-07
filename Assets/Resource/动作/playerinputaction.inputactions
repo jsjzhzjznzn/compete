@@ -16,7 +16,7 @@
                     "initialStateCheck": true
                 },
                 {
-                    "name": "sprint",
+                    "name": "dash",
                     "type": "Button",
                     "id": "60843fa4-db2c-413d-8324-208a72547fdf",
                     "expectedControlType": "",
@@ -124,7 +124,7 @@
                     "interactions": "",
                     "processors": "",
                     "groups": "",
-                    "action": "sprint",
+                    "action": "dash",
                     "isComposite": false,
                     "isPartOfComposite": false
                 },

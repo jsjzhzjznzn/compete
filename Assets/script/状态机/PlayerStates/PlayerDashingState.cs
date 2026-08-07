@@ -1,5 +1,6 @@
 /// <summary>
-/// 闪避/突进状态
+/// 前冲状态
+/// 向移动输入方向快速突进一段距离
 /// </summary>
 public class PlayerDashingState : PlayerMovementState
 {
@@ -10,20 +11,19 @@ public class PlayerDashingState : PlayerMovementState
     public override void OnEnter()
     {
         base.OnEnter();
-        if (Data?.animationClip != null)
-            player.PlayAnimation(Data.animationClip, Data.fadeDuration);
-        // TODO: 其他进入初始化
+        ApplyStateData(Data);
+        // TODO: 前冲入场逻辑（锁定冲刺方向、初始化速度/位移等）
     }
 
     public override void OnUpdate()
     {
         base.OnUpdate();
-        // TODO: 动画结束后切换到奔跑/待机等状态
+        // TODO: 前冲更新逻辑（每帧位移、计时、结束后切换状态）
     }
 
     public override void OnExit()
     {
         base.OnExit();
-        // TODO: 退出时清理
+        // TODO: 前冲退出逻辑（复位冲刺状态等）
     }
 }
