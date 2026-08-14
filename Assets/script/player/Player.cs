@@ -26,12 +26,14 @@ public class Player : CharacterMoveControllerBase
     {
         base.Awake();
         stateMachine = new PlayerMovementStateMachine(this, playerSO);
-        stateMachine.SwitchState(stateMachine.idlingState);   // 初始进入待机
+        // 初始状态在 Start 切换：确保所有单例（CharacterInputSystem 等）Awake 已完成，
+        // 事件订阅能拿到已初始化的 inputActions
     }
 
     protected override void Start()
     {
         base.Start();
+        stateMachine.SwitchState(stateMachine.idlingState);   // 初始进入待机
 
         // 游戏运行时锁定并隐藏鼠标光标（用鼠标视角）
         Cursor.lockState = CursorLockMode.Locked;

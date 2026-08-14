@@ -4,11 +4,12 @@ using UnityEngine;
 /// 玩家移动状态基类
 /// 子类构造时传入状态机，通过 stateMachine 访问 player / reusableData
 ///
-/// 轮询控制说明：
-/// 不做任何输入事件订阅（AddInputActionCallBacks 已废弃），
-/// 所有状态在 OnUpdate 中调用 PollInput() 每帧轮询 CharacterInputSystem，
-/// 基类统一处理"读输入方向 → 写共享数据 → 平滑转向"，
-/// 子类只负责基于轮询结果做状态切换。
+/// 输入控制说明：
+/// - 需要事件订阅的状态（如 Idle 的轻点检测）覆写 AddInputActionCallBacks / RemoveInputActionCallBacks，
+///   OnEnter/OnExit 会自动调用，无需手动管理订阅生命周期
+/// - 其余状态继续在 OnUpdate 中调用 PollInput() 每帧轮询 CharacterInputSystem，
+///   基类统一处理"读输入方向 → 写共享数据 → 平滑转向"，
+///   子类只负责基于输入结果做状态切换。
 /// </summary>
 public abstract class PlayerMovementState : IState
 {
@@ -26,9 +27,25 @@ public abstract class PlayerMovementState : IState
         reusableData = stateMachine.reusableData;
     }
 
-    public virtual void OnEnter() { }
+    public virtual void OnEnter()
+    {
+        AddInputActionCallBacks();
+    }
+
     public virtual void OnUpdate() { }
-    public virtual void OnExit() { }
+
+    public virtual void OnExit()
+    {
+        RemoveInputActionCallBacks();
+    }
+
+    // ==================== 输入事件订阅（可选） ====================
+
+    /// <summary>进入状态时调用，子类可覆写订阅输入事件</summary>
+    protected virtual void AddInputActionCallBacks() { }
+
+    /// <summary>退出状态时调用，子类可覆写退订输入事件</summary>
+    protected virtual void RemoveInputActionCallBacks() { }
 
     // ==================== 轮询输入（基类统一实现） ====================
 
