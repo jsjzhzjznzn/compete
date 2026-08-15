@@ -26,6 +26,9 @@ public class Player : CharacterMoveControllerBase
     private PlayerMovementStateMachine stateMachine;
     private PlayerComboStateMachine comboStateMachine;
 
+    /// <summary>移动状态机（连击状态等需要联动移动状态时访问）</summary>
+    public PlayerMovementStateMachine MovementStateMachine => stateMachine;
+
     protected override void Awake()
     {
         base.Awake();

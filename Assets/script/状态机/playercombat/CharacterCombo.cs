@@ -168,7 +168,7 @@ public class CharacterCombo
         }
     }
 
-    /// <summary>重置连击信息：回到第一段、打开输入、允许连击、冷却就绪</summary>
+    /// <summary>重置连击信息：回到第一段、打开输入、允许连击、冷却就绪、清空输入缓冲</summary>
     public virtual void ReSetComboInfo()
     {
         reusableData.comboIndex = 0;
@@ -176,6 +176,7 @@ public class CharacterCombo
         reusableData.canLink = true;
         reusableData.canMoveInterrupt = false;
         reusableData.canATK = true;
+        reusableData.hasATKCommand = false;   // 清空输入缓冲，防止上一轮攻击指令残留导致自动重新起手
     }
 
     // ==================== 动画事件回调（动画时间轴触发） ====================

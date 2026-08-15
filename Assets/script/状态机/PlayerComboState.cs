@@ -79,14 +79,29 @@ public abstract class PlayerComboState : IState
 
     // ==================== 动画播放辅助 ====================
 
-    /// <summary>播放当前段的攻击动画，播完触发 OnAnimationEndEvent</summary>
+    /// <summary>
+    /// 播放当前段的攻击动画，播完触发 OnAnimationEndEvent
+    /// 若本段配置了取消窗口时间（linkCancelTime>0），会在该时间点打开 canInput，
+    /// 玩家在窗口内按键即可"提前取消"本段、立即连到下一段（由子类的 OnAttackInput 处理）
+    /// </summary>
     protected void PlayAttackClip()
     {
-        var transition = reusableData.currentCombo?.GetAttackClip(reusableData.ATKIndex);
+        var combo = reusableData.currentCombo;
+        if (combo == null) return;
+
+        var transition = combo.GetAttackClip(reusableData.ATKIndex);
         if (transition == null) return;
 
         var state = player.characterAnimancer.Play(transition);
         state.Events.OnEnd = OnAnimationEndEvent;
+
+        // 打开"提前取消"输入窗口：到时间点后允许按键立即切段
+        float cancelTime = combo.GetLinkCancelTime(reusableData.ATKIndex);
+        if (cancelTime > 0f)
+        {
+            reusableData.canInput = false;   // 窗口打开前先关掉，防止上一段残留
+            state.Events.Add(cancelTime, () => reusableData.canInput = true);
+        }
     }
 
     /// <summary>播放当前段的收尾动画，播完自动回待机</summary>
@@ -118,10 +133,21 @@ public abstract class PlayerComboState : IState
     /// <summary>本段攻击动画播完：子类在此判断连下一段 or 进收招</summary>
     protected virtual void OnAnimationEndEvent() { }
 
-    /// <summary>收尾动画播完：回到待机（子类可覆写为其它行为）</summary>
+    /// <summary>收尾动画播完：恢复移动并回到待机（子类可覆写为其它行为）</summary>
     protected virtual void OnRecoveryEnd()
     {
+        RestoreMovement();
         stateMachine.SwitchState(stateMachine.NullState);
+    }
+
+    /// <summary>恢复移动：移动状态机从空状态切回待机/行走（攻击流程结束时调用）</summary>
+    protected void RestoreMovement()
+    {
+        var moveMachine = player.MovementStateMachine;
+        if (moveMachine == null) return;
+
+        moveMachine.SwitchState(
+            player.IsMoving ? moveMachine.walkingState : moveMachine.idlingState);
     }
 
     /// <summary>动画事件触发的强制状态切换（保留原接口）</summary>

@@ -23,9 +23,10 @@ public class PlayerSkillState : PlayerComboState
         // 取出共享数据里的当前技能（PlayerNullState 在切状态前填好的）
         var skill = reusableData.currentSkill;
 
-        // 防御性校验：技能数据为空，或没配攻击动画 → 直接回待机，不播任何东西
+        // 防御性校验：技能数据为空，或没配攻击动画 → 恢复移动并直接回待机，不播任何东西
         if (skill == null || skill.attackClip == null)
         {
+            RestoreMovement();
             stateMachine.SwitchState(stateMachine.NullState);
             return;
         }
@@ -37,10 +38,10 @@ public class PlayerSkillState : PlayerComboState
         state.Events.OnEnd = OnSkillAnimationEnd;
     }
 
-    /// <summary>技能动画播完 → 回待机</summary>
+    /// <summary>技能动画播完 → 恢复移动并回待机</summary>
     private void OnSkillAnimationEnd()
     {
-        // 技能播完回到连击空状态，等待下一次输入
+        RestoreMovement();
         stateMachine.SwitchState(stateMachine.NullState);
     }
 }
