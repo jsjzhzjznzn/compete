@@ -145,6 +145,15 @@ public partial class @Playerinputaction: IInputActionCollection2, IDisposable
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": true
+                },
+                {
+                    ""name"": ""zoom"",
+                    ""type"": ""Value"",
+                    ""id"": ""ee9a9c26-bd30-4ad9-a7cf-48ffdc50937d"",
+                    ""expectedControlType"": ""Axis"",
+                    ""processors"": ""Scale(factor=0.001),Invert"",
+                    ""interactions"": """",
+                    ""initialStateCheck"": true
                 }
             ],
             ""bindings"": [
@@ -250,11 +259,22 @@ public partial class @Playerinputaction: IInputActionCollection2, IDisposable
                 {
                     ""name"": """",
                     ""id"": ""6e4679d7-28ac-44bc-ba49-5b19754e3721"",
-                    ""path"": ""<Mouse>/delta"",
+                    ""path"": ""<Pointer>/delta"",
+                    ""interactions"": """",
+                    ""processors"": ""ScaleVector2"",
+                    ""groups"": """",
+                    ""action"": ""look"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""c6e70f63-71fe-4559-84f5-ce28fcb2318f"",
+                    ""path"": ""<Mouse>/scroll/y"",
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": """",
-                    ""action"": ""look"",
+                    ""action"": ""zoom"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 }
@@ -271,6 +291,7 @@ public partial class @Playerinputaction: IInputActionCollection2, IDisposable
         m_player_skill = m_player.FindAction("skill", throwIfNotFound: true);
         m_player_heavyattk = m_player.FindAction("heavyattk", throwIfNotFound: true);
         m_player_look = m_player.FindAction("look", throwIfNotFound: true);
+        m_player_zoom = m_player.FindAction("zoom", throwIfNotFound: true);
     }
 
     ~@Playerinputaction()
@@ -357,6 +378,7 @@ public partial class @Playerinputaction: IInputActionCollection2, IDisposable
     private readonly InputAction m_player_skill;
     private readonly InputAction m_player_heavyattk;
     private readonly InputAction m_player_look;
+    private readonly InputAction m_player_zoom;
     /// <summary>
     /// Provides access to input actions defined in input action map "player".
     /// </summary>
@@ -392,6 +414,10 @@ public partial class @Playerinputaction: IInputActionCollection2, IDisposable
         /// Provides access to the underlying input action "player/look".
         /// </summary>
         public InputAction @look => m_Wrapper.m_player_look;
+        /// <summary>
+        /// Provides access to the underlying input action "player/zoom".
+        /// </summary>
+        public InputAction @zoom => m_Wrapper.m_player_zoom;
         /// <summary>
         /// Provides access to the underlying input action map instance.
         /// </summary>
@@ -436,6 +462,9 @@ public partial class @Playerinputaction: IInputActionCollection2, IDisposable
             @look.started += instance.OnLook;
             @look.performed += instance.OnLook;
             @look.canceled += instance.OnLook;
+            @zoom.started += instance.OnZoom;
+            @zoom.performed += instance.OnZoom;
+            @zoom.canceled += instance.OnZoom;
         }
 
         /// <summary>
@@ -465,6 +494,9 @@ public partial class @Playerinputaction: IInputActionCollection2, IDisposable
             @look.started -= instance.OnLook;
             @look.performed -= instance.OnLook;
             @look.canceled -= instance.OnLook;
+            @zoom.started -= instance.OnZoom;
+            @zoom.performed -= instance.OnZoom;
+            @zoom.canceled -= instance.OnZoom;
         }
 
         /// <summary>
@@ -547,5 +579,12 @@ public partial class @Playerinputaction: IInputActionCollection2, IDisposable
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnLook(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "zoom" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnZoom(InputAction.CallbackContext context);
     }
 }

@@ -14,6 +14,7 @@ public class Player : CharacterMoveControllerBase
 
     /// <summary>角色数据资产（连击状态机取连招配置用）</summary>
     public PlayerSO PlayerSO => playerSO;
+    [SerializeField] public PlayerCameraUtility playerCameraUtility;
 
     [Header("视角参考")]
     [SerializeField] private Camera viewCamera;            // 主相机（带CinemachineBrain），Inspector拖入
@@ -34,6 +35,7 @@ public class Player : CharacterMoveControllerBase
         base.Awake();
         stateMachine = new PlayerMovementStateMachine(this, playerSO);
         comboStateMachine = new PlayerComboStateMachine(this);
+        playerCameraUtility?.Init();                    // 初始化相机辅助（缓存 Virtual Camera 的 CinemachinePOV）
         // 初始状态在 Start 切换：确保所有单例（CharacterInputSystem 等）Awake 已完成，
         // 事件订阅能拿到已初始化的 inputActions
     }

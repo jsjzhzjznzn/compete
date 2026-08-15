@@ -21,7 +21,7 @@ MonoBehaviour:
       _NormalizedTimes: []
       _Callbacks: []
       _Names: []
-    _Clip: {fileID: 0}
+    _Clip: {fileID: 1827226128182048838, guid: 9082fed5ebb3abe44b9549e7eea67a81, type: 3}
     _Speed: 1
     _NormalizedStartTime: NaN
   _attackEndClip:
@@ -30,19 +30,8 @@ MonoBehaviour:
       _NormalizedTimes: []
       _Callbacks: []
       _Names: []
-    _Clip: {fileID: 0}
+    _Clip: {fileID: 1827226128182048838, guid: 16d57032702f660429c5162df1cfa9c4, type: 3}
     _Speed: 1
     _NormalizedStartTime: NaN
   _comboColdTime: 0
-  _comboDamage: 0
-  _attackDistance: 0
-  _comboOffset: 0
-  _hitName: []
-  _parryName: []
-  appAudioPrefab: 0
-  _weaponSound: []
-  _characterVoice: []
-  _universalSound: 0
-  _pauseFrameTime: 0
-  _shakeForce: 0
   _linkCancelTime: 0.6

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -11,6 +12,14 @@ public class PlayerMovementData
 
     /// <summary>后退/转身判定角度（大于该角度视为转身）</summary>
     [field: SerializeField] public float turnBackAngle { get; private set; } = 135f;
+
+    // ============ 相机回正配置 ============
+
+    /// <summary>侧移(A/D)时的相机回正配置（按相机俯仰角区间匹配）</summary>
+    [field: SerializeField] public List<PlayerCameraRecenteringData> SidewaysCameraRecenteringData { get; private set; }
+
+    /// <summary>后退(S)时的相机回正配置（按相机俯仰角区间匹配）</summary>
+    [field: SerializeField] public List<PlayerCameraRecenteringData> BackWardsCameraRecenteringData { get; private set; }
 
     // ============ 各状态数据 ============
 

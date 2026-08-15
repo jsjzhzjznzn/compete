@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8f0117b483616124ab79859e5126cb0c, type: 3}
-  m_Name: shayuqianshan
+  m_Name: shayu_03
   m_EditorClassIdentifier: Assembly-CSharp::ComboData
   characterName: 0
   _attackStyle: 0
@@ -21,7 +21,7 @@ MonoBehaviour:
       _NormalizedTimes: []
       _Callbacks: []
       _Names: []
-    _Clip: {fileID: 0}
+    _Clip: {fileID: 1827226128182048838, guid: e4c9aa81a562a7648bedfcba7715f23f, type: 3}
     _Speed: 1
     _NormalizedStartTime: NaN
   _attackEndClip:
@@ -30,19 +30,8 @@ MonoBehaviour:
       _NormalizedTimes: []
       _Callbacks: []
       _Names: []
-    _Clip: {fileID: 0}
+    _Clip: {fileID: 1827226128182048838, guid: bebc73880b6005644baae993a8bec645, type: 3}
     _Speed: 1
     _NormalizedStartTime: NaN
   _comboColdTime: 0
-  _comboDamage: 0
-  _attackDistance: 0
-  _comboOffset: 0
-  _hitName: []
-  _parryName: []
-  appAudioPrefab: 0
-  _weaponSound: []
-  _characterVoice: []
-  _universalSound: 0
-  _pauseFrameTime: 0
-  _shakeForce: 0
   _linkCancelTime: 0.6

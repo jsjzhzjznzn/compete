@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 /// <summary>
 /// 玩家移动状态基类
@@ -42,10 +44,97 @@ public abstract class PlayerMovementState : IState
     // ==================== 输入事件订阅（可选） ====================
 
     /// <summary>进入状态时调用，子类可覆写订阅输入事件</summary>
-    protected virtual void AddInputActionCallBacks() { }
+    protected virtual void AddInputActionCallBacks()
+    {
+        // 相机水平回正：按移动方向（W 关 / A·D·S 开）+ 相机俯仰角匹配回正配置（参考 ZZZ 项目）
+        CharacterInputSystem.MainInstance.inputActions.player.move.performed += UpdateCameraRecenteringState;
+        CharacterInputSystem.MainInstance.inputActions.player.move.canceled += DisableCameraRecentering;
+        CharacterInputSystem.MainInstance.inputActions.player.look.started += OnLookStarted;
+    }
 
     /// <summary>退出状态时调用，子类可覆写退订输入事件</summary>
-    protected virtual void RemoveInputActionCallBacks() { }
+    protected virtual void RemoveInputActionCallBacks()
+    {
+        CharacterInputSystem.MainInstance.inputActions.player.move.performed -= UpdateCameraRecenteringState;
+        CharacterInputSystem.MainInstance.inputActions.player.move.canceled -= DisableCameraRecentering;
+        CharacterInputSystem.MainInstance.inputActions.player.look.started -= OnLookStarted;
+    }
+
+    // ==================== 相机水平回正（参考 ZZZ 项目） ====================
+
+    /// <summary>鼠标视角移动时重新评估回正状态</summary>
+    private void OnLookStarted(InputAction.CallbackContext context)
+    {
+        UpdateCameraRecenteringState(GetInputDirection());
+    }
+
+    /// <summary>松开移动摇杆：直接关闭水平回正</summary>
+    private void DisableCameraRecentering(InputAction.CallbackContext context)
+    {
+        player.playerCameraUtility?.DisableRecentering();
+    }
+
+    /// <summary>移动输入执行中：按方向切换回正策略</summary>
+    private void UpdateCameraRecenteringState(InputAction.CallbackContext context)
+    {
+        UpdateCameraRecenteringState(context.ReadValue<Vector2>());
+    }
+
+    /// <summary>
+    /// 更新相机水平回正状态：
+    /// - 纯 W（前进）→ 关闭回正（相机跟随角色转向）
+    /// - S（后退）→ 用后退回正配置
+    /// - A/D（侧移）→ 用侧移回正配置
+    /// 回正数据按相机俯仰角（绝对值）匹配角度区间。
+    /// </summary>
+    public void UpdateCameraRecenteringState(Vector2 movementInput)
+    {
+        if (movementInput == Vector2.zero) { return; }
+
+        // 按住 W 前进 → 也取消水平回正
+        if (movementInput == Vector2.up)
+        {
+            player.playerCameraUtility?.DisableRecentering();
+            return;
+        }
+
+        // 取相机俯仰角，欧拉角(-90=>270)归一到 -180~180 再取绝对值
+        float cameraVerticalAngle = player.CameraTransform != null ? player.CameraTransform.localEulerAngles.x : 0f;
+        if (cameraVerticalAngle > 270f)
+        {
+            cameraVerticalAngle -= 360f;
+        }
+        cameraVerticalAngle = Mathf.Abs(cameraVerticalAngle);
+
+        if (movementInput == Vector2.down)
+        {
+            SetCameraRecentering(cameraVerticalAngle, playerMovementData?.BackWardsCameraRecenteringData);
+            return;
+        }
+
+        // 其余（A/D 侧移）→ 用侧移的水平回正配置
+        SetCameraRecentering(cameraVerticalAngle, playerMovementData?.SidewaysCameraRecenteringData);
+    }
+
+    /// <summary>按相机俯仰角在配置列表中匹配回正数据；无匹配则关闭水平回正</summary>
+    protected void SetCameraRecentering(float cameraVerticalAngle, List<PlayerCameraRecenteringData> playerCameraRecenteringDates)
+    {
+        if (playerCameraRecenteringDates != null)
+        {
+            foreach (PlayerCameraRecenteringData recenteringData in playerCameraRecenteringDates)
+            {
+                if (!recenteringData.IsWithInAngle(cameraVerticalAngle))
+                {
+                    continue;
+                }
+                player.playerCameraUtility?.EnableRecentering(recenteringData.waitingTime, recenteringData.recenteringTime);
+                return;
+            }
+        }
+
+        // 循环完没有匹配的角度范围 → 关闭水平回正
+        player.playerCameraUtility?.DisableRecentering();
+    }
 
     // ==================== 轮询输入（基类统一实现） ====================
 

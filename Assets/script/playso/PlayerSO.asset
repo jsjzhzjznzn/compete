@@ -40,3 +40,11 @@ MonoBehaviour:
       <playSpeed>k__BackingField: 1
       <fadeDuration>k__BackingField: 0.15
       <rotationTime>k__BackingField: 0.04
+  <comboData>k__BackingField:
+    <comboData>k__BackingField:
+      <lightCombo>k__BackingField: {fileID: 11400000, guid: 1f5286155e68bb54cbab3f4f405fc9b0, type: 2}
+      <heavyCombo>k__BackingField: {fileID: 0}
+      <executeCombo>k__BackingField: {fileID: 0}
+      <skillCombo>k__BackingField: {fileID: 0}
+      <finishSkillCombo>k__BackingField: {fileID: 0}
+      <switchSkill>k__BackingField: {fileID: 0}
