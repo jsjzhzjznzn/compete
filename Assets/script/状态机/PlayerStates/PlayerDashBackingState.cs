@@ -9,9 +9,9 @@ public class PlayerDashBackingState : PlayerMovementState
 
     public PlayerDashBackingState(PlayerMovementStateMachine stateMachine) : base(stateMachine) { }
 
-    public override void OnEnter()
+    public override void Enter()
     {
-        base.OnEnter();
+        base.Enter();
         ApplyStateData(Data);
         // TODO: 锁定后撤方向、启动后撤位移等
 
@@ -21,15 +21,15 @@ public class PlayerDashBackingState : PlayerMovementState
             state.Events.OnEnd = OnDashBackAnimationEnd;
     }
 
-    public override void OnUpdate()
+    public override void Update()
     {
-        base.OnUpdate();
+        base.Update();
         // 后冲不接受输入轮询：不调用 PollInput()
     }
 
-    public override void OnExit()
+    public override void Exit()
     {
-        base.OnExit();
+        base.Exit();
         // TODO: 复位后冲状态等
 
         // 清理动画结束回调，避免切换状态后误触发

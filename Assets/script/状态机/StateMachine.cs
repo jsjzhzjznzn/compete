@@ -9,13 +9,13 @@ public class StateMachine
 
     public void SwitchState(IState newState)
     {
-        CurrentState?.OnExit();
+        CurrentState?.Exit();
         CurrentState = newState;
-        CurrentState?.OnEnter();
+        CurrentState?.Enter();
     }
 
     public void Update()
     {
-        CurrentState?.OnUpdate();
+        CurrentState?.Update();
     }
 }

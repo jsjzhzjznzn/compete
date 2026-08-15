@@ -12,6 +12,9 @@ public class Player : CharacterMoveControllerBase
 
     [SerializeField] private PlayerSO playerSO;            // 角色数据资产（Inspector 拖入）
 
+    /// <summary>角色数据资产（连击状态机取连招配置用）</summary>
+    public PlayerSO PlayerSO => playerSO;
+
     [Header("视角参考")]
     [SerializeField] private Camera viewCamera;            // 主相机（带CinemachineBrain），Inspector拖入
 
@@ -21,11 +24,13 @@ public class Player : CharacterMoveControllerBase
         : Camera.main != null ? Camera.main.transform : null;
 
     private PlayerMovementStateMachine stateMachine;
+    private PlayerComboStateMachine comboStateMachine;
 
     protected override void Awake()
     {
         base.Awake();
         stateMachine = new PlayerMovementStateMachine(this, playerSO);
+        comboStateMachine = new PlayerComboStateMachine(this);
         // 初始状态在 Start 切换：确保所有单例（CharacterInputSystem 等）Awake 已完成，
         // 事件订阅能拿到已初始化的 inputActions
     }
@@ -34,6 +39,7 @@ public class Player : CharacterMoveControllerBase
     {
         base.Start();
         stateMachine.SwitchState(stateMachine.idlingState);   // 初始进入待机
+        comboStateMachine.SwitchState(comboStateMachine.NullState);   // 连击初始进入空状态
 
         // 游戏运行时锁定并隐藏鼠标光标（用鼠标视角）
         Cursor.lockState = CursorLockMode.Locked;
@@ -44,6 +50,7 @@ public class Player : CharacterMoveControllerBase
     {
         base.Update();                        // 地面检测 + 重力 + 竖直速度
         stateMachine?.Update();               // 状态机Tick
+        comboStateMachine?.Update();          // 连击状态机Tick
         //currentMovementState = stateMachine.CurrentState?.GetType().Name;   // 同步调试显示
     }
 

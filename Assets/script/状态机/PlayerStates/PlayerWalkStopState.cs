@@ -9,9 +9,9 @@ public class PlayerWalkStopState : PlayerMovementState
 
     public PlayerWalkStopState(PlayerMovementStateMachine stateMachine) : base(stateMachine) { }
 
-    public override void OnEnter()
+    public override void Enter()
     {
-        base.OnEnter();
+        base.Enter();
 
         var stopClip = WalkData?.walkStopClip;
         if (stopClip == null)
@@ -29,9 +29,9 @@ public class PlayerWalkStopState : PlayerMovementState
             state.Events.OnEnd = OnWalkStopAnimationEnd;
     }
 
-    public override void OnUpdate()
+    public override void Update()
     {
-        base.OnUpdate();
+        base.Update();
         PollInput();                          // 收尾动画期间也轮询输入
 
         // 重新有移动输入 → 回走路
@@ -50,9 +50,9 @@ public class PlayerWalkStopState : PlayerMovementState
         // 无输入：等待收尾动画播完（OnEnd）自动回待机
     }
 
-    public override void OnExit()
+    public override void Exit()
     {
-        base.OnExit();
+        base.Exit();
 
         // 清理动画结束回调，避免切换状态后误触发
         var state = player.characterAnimancer.States.Current;

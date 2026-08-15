@@ -9,9 +9,9 @@ public class PlayerDashingState : PlayerMovementState
 
     public PlayerDashingState(PlayerMovementStateMachine stateMachine) : base(stateMachine) { }
 
-    public override void OnEnter()
+    public override void Enter()
     {
-        base.OnEnter();
+        base.Enter();
         ApplyStateData(Data);
         // TODO: 锁定冲刺方向、初始化速度/位移等
 
@@ -21,15 +21,15 @@ public class PlayerDashingState : PlayerMovementState
             state.Events.OnEnd = OnDashAnimationEnd;
     }
 
-    public override void OnUpdate()
+    public override void Update()
     {
-        base.OnUpdate();
+        base.Update();
         // 前冲不接受输入轮询：不调用 PollInput()
     }
 
-    public override void OnExit()
+    public override void Exit()
     {
-        base.OnExit();
+        base.Exit();
         // TODO: 复位冲刺状态等
 
         // 清理动画结束回调，避免切换状态后误触发

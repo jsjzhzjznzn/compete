@@ -5,22 +5,22 @@ public class PlayerMovementNullState : PlayerMovementState
 {
     public PlayerMovementNullState(PlayerMovementStateMachine stateMachine) : base(stateMachine) { }
 
-    public override void OnEnter()
+    public override void Enter()
     {
-        base.OnEnter();
+        base.Enter();
         // 空状态不播放动画，只停止移动
         // TODO: 停止角色移动
     }
 
-    public override void OnUpdate()
+    public override void Update()
     {
-        base.OnUpdate();
+        base.Update();
         // TODO: 保持静止，等待恢复移动
     }
 
-    public override void OnExit()
+    public override void Exit()
     {
-        base.OnExit();
+        base.Exit();
         // TODO: 恢复移动
     }
 }

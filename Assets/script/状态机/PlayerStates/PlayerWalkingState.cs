@@ -11,15 +11,15 @@ public class PlayerWalkingState : PlayerMovementState
 
     public PlayerWalkingState(PlayerMovementStateMachine stateMachine) : base(stateMachine) { }
 
-    public override void OnEnter()
+    public override void Enter()
     {
-        base.OnEnter();
+        base.Enter();
         ApplyStateData(Data);
     }
 
-    public override void OnUpdate()
+    public override void Update()
     {
-        base.OnUpdate();
+        base.Update();
         PollInput();                          // 每帧轮询输入并平滑转向
 
         // Shift 按下 → 进入前冲状态
@@ -37,8 +37,8 @@ public class PlayerWalkingState : PlayerMovementState
         }
     }
 
-    public override void OnExit()
+    public override void Exit()
     {
-        base.OnExit();
+        base.Exit();
     }
 }

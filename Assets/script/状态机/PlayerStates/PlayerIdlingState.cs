@@ -17,9 +17,9 @@ public class PlayerIdlingState : PlayerMovementState
 
     public PlayerIdlingState(PlayerMovementStateMachine stateMachine) : base(stateMachine) { }
 
-    public override void OnEnter()
+    public override void Enter()
     {
-        base.OnEnter();
+        base.Enter();
         ApplyStateData(Data);
     }
 
@@ -65,9 +65,9 @@ public class PlayerIdlingState : PlayerMovementState
         }
     }
 
-    public override void OnUpdate()
+    public override void Update()
     {
-        base.OnUpdate();
+        base.Update();
         PollInput();                          // 每帧轮询输入（无输入时自然不转向）
 
         // Shift 按下 → 进入后冲状态

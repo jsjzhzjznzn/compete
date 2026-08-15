@@ -6,8 +6,8 @@ using UnityEngine;
 ///
 /// 输入控制说明：
 /// - 需要事件订阅的状态（如 Idle 的轻点检测）覆写 AddInputActionCallBacks / RemoveInputActionCallBacks，
-///   OnEnter/OnExit 会自动调用，无需手动管理订阅生命周期
-/// - 其余状态继续在 OnUpdate 中调用 PollInput() 每帧轮询 CharacterInputSystem，
+///   Enter/Exit 会自动调用，无需手动管理订阅生命周期
+/// - 其余状态继续在 Update 中调用 PollInput() 每帧轮询 CharacterInputSystem，
 ///   基类统一处理"读输入方向 → 写共享数据 → 平滑转向"，
 ///   子类只负责基于输入结果做状态切换。
 /// </summary>
@@ -27,14 +27,14 @@ public abstract class PlayerMovementState : IState
         reusableData = stateMachine.reusableData;
     }
 
-    public virtual void OnEnter()
+    public virtual void Enter()
     {
         AddInputActionCallBacks();
     }
 
-    public virtual void OnUpdate() { }
+    public virtual void Update() { }
 
-    public virtual void OnExit()
+    public virtual void Exit()
     {
         RemoveInputActionCallBacks();
     }
@@ -52,7 +52,7 @@ public abstract class PlayerMovementState : IState
     /// <summary>
     /// 每帧轮询输入并应用：
     /// 读取移动方向 → 相机相对转世界向量 → 转角色局部向量 → 平滑转向。
-    /// 子类在 OnUpdate 中最先调用，然后再做状态切换判断。
+    /// 子类在 Update 中最先调用，然后再做状态切换判断。
     /// </summary>
     protected void PollInput()
     {
