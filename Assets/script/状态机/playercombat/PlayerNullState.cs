@@ -58,8 +58,12 @@ public class PlayerNullState : PlayerComboState
         // 好处：玩家在窗口末尾狂点也能稳定接上，不会漏输入
         if (reusableData.hasATKCommand && reusableData.canInput)
         {
-            // 选定轻击连招容器（currentCombo = lightCombo），并写入攻击指令
-            stateMachine.characterCombo.LightComboInput();
+            // 行走中（移动状态机处于 walkingState）→ 前进攻击；否则普通平A第一段
+            var moveMachine = player.MovementStateMachine;
+            if (moveMachine != null && moveMachine.CurrentState == moveMachine.walkingState)
+                stateMachine.characterCombo.ForwardCombo();
+            else
+                stateMachine.characterCombo.LightComboInput();
 
             // 起手攻击 → 锁定移动（移动状态机切到空状态，攻击期间不再响应方向输入）
             player.MovementStateMachine.SwitchState(player.MovementStateMachine.playerMovementNullState);

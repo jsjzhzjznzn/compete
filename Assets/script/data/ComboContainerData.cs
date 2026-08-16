@@ -4,7 +4,7 @@ using UnityEngine;
 
 /// <summary>
 /// 连招容器配置资源
-/// 统一管理一套角色完整普攻连招、闪避攻击、后闪攻击，提供对外统一读取接口
+/// 统一管理一套角色完整普攻连招、前进攻击，提供对外统一读取接口
 /// comboDates 列表的下标即攻击段数：comboDates[0]=第一段攻击，comboDates[1]=第二段攻击，以此类推
 /// 每段攻击在容器里占一个 ComboData 元素，存放该段的动画、收尾、伤害、震动、暂停等数据
 /// </summary>
@@ -14,13 +14,10 @@ public class ComboContainerData : ScriptableObject
     [Header("连招段序列（下标0=第一段攻击，下标1=第二段攻击...）")]
     [SerializeField] public List<ComboData> comboDates = new List<ComboData>();
 
-    [SerializeField, Header("闪避攻击连招数据")] 
-    public ComboData DodgeATKData;
+    [SerializeField, Header("前进攻击连招数据")] 
+    public ComboData ForwardATKData;
 
-    /*[SerializeField, Header("后闪/后撤攻击连招数据")] 
-    public ComboData BackDodgeATKData;*/
-
-    /// <summary>缓存初始第一段连招，用于闪避攻击后恢复原连招</summary>
+    /// <summary>缓存初始第一段连招，用于前进攻击后恢复原连招</summary>
     private ComboData firstComboData;
 
     /// <summary>
@@ -238,32 +235,20 @@ public class ComboContainerData : ScriptableObject
     // ============ 上面这些方法暂停使用，待对应系统接入后恢复 ============
 
     /// <summary>
-    /// 切换当前第一段连招为闪避攻击
-    /// 闪避触发时调用，替换普攻第一段逻辑
+    /// 切换当前第一段连招为前进攻击
+    /// 行走中触发时调用，替换普攻第一段逻辑
     /// </summary>
-    public void SwitchDodgeATK()
+    public void SwitchForwardATK()
     {
-        if (DodgeATKData == null) 
+        if (ForwardATKData == null) 
             return;
         
-        comboDates[0] = DodgeATKData;
+        comboDates[0] = ForwardATKData;
     }
-
-    /*/// <summary>
-    /// 切换当前第一段连招为后闪攻击
-    /// 后撤闪避触发时调用
-    /// </summary>
-    public void SwitchBackDodgeATK()
-    {
-        if (BackDodgeATKData == null) 
-            return;
-        
-        comboDates[0] = BackDodgeATKData;
-    }*/
 
     /// <summary>
     /// 重置第一段连招为初始化缓存的原始普攻
-    /// 闪避攻击结束后恢复正常平A连招
+    /// 前进攻击结束后恢复正常平A连招
     /// </summary>
     public void ResetComboDates()
     {

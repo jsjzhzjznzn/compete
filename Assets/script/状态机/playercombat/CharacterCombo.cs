@@ -61,7 +61,7 @@ public class CharacterCombo
             ReSetComboInfo();
         }
 
-        // 确保闪避攻击后首段恢复正常普攻
+        // 确保前进攻击后首段恢复正常普攻
         reusableData.currentCombo.ResetComboDates();
         ExecuteBaseCombo();
     }
@@ -80,8 +80,8 @@ public class CharacterCombo
         ExecuteBaseCombo();
     }*/
 
-    /// <summary>闪避攻击：临时把首段替换为闪避攻击段再执行</summary>
-    public virtual void NormalDodgeCombo()
+    /// <summary>前进攻击：临时把首段替换为前进攻击段再执行</summary>
+    public virtual void ForwardCombo()
     {
         if (comboData?.lightCombo == null) return;
 
@@ -90,7 +90,7 @@ public class CharacterCombo
             reusableData.currentCombo = comboData.lightCombo;
         }
 
-        reusableData.currentCombo.SwitchDodgeATK();
+        reusableData.currentCombo.SwitchForwardATK();
         ReSetComboInfo();
         ExecuteBaseCombo();
     }

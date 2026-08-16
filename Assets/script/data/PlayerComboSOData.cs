@@ -7,10 +7,11 @@ using UnityEngine;
     /// 统一存储玩家轻攻击、重攻击、处决、技能、终结技、切换技能所有连招配置资源
     /// 可序列化嵌入PlayerSO，集中管理角色全部战斗连招数据
     /// </summary>
+
     [System.Serializable]
     public class PlayerComboSOData
     {
-        /// <summary>轻攻击连招容器（整套平A连击、闪避攻击数据）</summary>
+        /// <summary>轻攻击连招容器（整套平A连击、前进攻击数据）</summary>
         [field: SerializeField, Header("轻攻击连招")] 
         public ComboContainerData lightCombo { get; private set; }
 

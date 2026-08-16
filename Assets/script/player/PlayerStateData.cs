@@ -8,6 +8,7 @@ using UnityEngine;
 /// - 淡入时长即原模板里的 bufferToIdleTime / fadeToWalkStartTime
 /// - rotationTime 用于状态内手动转向（根运动不管转向）
 /// </summary>
+/// 
 [System.Serializable]
 public abstract class PlayerStateData
 {

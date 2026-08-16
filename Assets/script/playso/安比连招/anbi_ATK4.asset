@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8f0117b483616124ab79859e5126cb0c, type: 3}
+  m_Name: anbi_ATK4
+  m_EditorClassIdentifier: Assembly-CSharp::ComboData
+  characterName: 3
+  _attackStyle: 0
+  _comboName: 
+  _attackClip:
+    _FadeDuration: 0.25
+    _Events:
+      _NormalizedTimes: []
+      _Callbacks: []
+      _Names: []
+    _Clip: {fileID: -5109581213090340269, guid: 98daa5f85ba9dc146824d7488da418e9, type: 3}
+    _Speed: 1
+    _NormalizedStartTime: NaN
+  _attackEndClip:
+    _FadeDuration: 0.25
+    _Events:
+      _NormalizedTimes: []
+      _Callbacks: []
+      _Names: []
+    _Clip: {fileID: -1255724913015548518, guid: 98daa5f85ba9dc146824d7488da418e9, type: 3}
+    _Speed: 1
+    _NormalizedStartTime: NaN
+  _comboColdTime: 0
+  _linkCancelTime: 0.6

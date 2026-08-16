@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 005ab4e8f6ea510499e6f0867fd39372, type: 3}
+  m_Name: shayuattacklist
+  m_EditorClassIdentifier: Assembly-CSharp::ComboContainerData
+  comboDates:
+  - {fileID: 11400000, guid: 9d3b4ec8adfc74f479634938f50b6868, type: 2}
+  - {fileID: 11400000, guid: f89bfb60abe815c429468c78198f3151, type: 2}
+  - {fileID: 11400000, guid: fec7b5df4899b274ebceab88f5aedab9, type: 2}
+  - {fileID: 11400000, guid: bfccfd5ed235f4b44a973042977c4735, type: 2}
+  ForwardATKData: {fileID: 11400000, guid: 3adc9f1d66c8de84e96b07d163a68d73, type: 2}
