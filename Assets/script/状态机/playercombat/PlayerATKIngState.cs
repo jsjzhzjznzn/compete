@@ -67,12 +67,12 @@ public class PlayerATKIngState : PlayerComboState
             return;
         }
 
-        // 收尾阶段：Shift 按下 → 打断收尾直接进入闪避（有移动输入=前冲，无=后冲）
+        // 收尾阶段：Shift 按下 → 打断收尾直接进入前冲闪避
         // 闪避只在 Idle/Walk 的 Update 里检测，而收尾时移动状态机停在空状态，
         // 所以这里必须自己拦截；且 triggered 是按下帧一次性信号，不能等下一帧，直接切。
         // 顺序很关键：先让连击回空状态（此时清的是"收尾动画"的 OnEnd），
         // 再切闪避（此时闪避动画的 OnEnd 刚挂上，不会被 NullState.ClearAnimationEnd 误清）。
-        if (isRecovery && player.IsSprintPressed)
+        if (isRecovery && player.IsSprintPressed && player.IsMoving)
         {
             isRecovery = false;
             stateMachine.SwitchState(stateMachine.NullState);
@@ -80,10 +80,7 @@ public class PlayerATKIngState : PlayerComboState
             var moveMachine = player.MovementStateMachine;
             if (moveMachine != null)
             {
-                moveMachine.SwitchState(
-                    player.IsMoving
-                        ? (IState)moveMachine.dashingState
-                        : moveMachine.dashBackingState);
+                moveMachine.SwitchState(moveMachine.dashingState);
             }
         }
     }

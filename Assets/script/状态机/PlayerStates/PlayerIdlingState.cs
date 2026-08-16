@@ -69,12 +69,5 @@ public class PlayerIdlingState : PlayerMovementState
     {
         base.Update();
         PollInput();                          // 每帧轮询输入（无输入时自然不转向）
-
-        // Shift 按下 → 进入后冲状态
-        if (player.IsSprintPressed)
-        {
-            stateMachine.SwitchState(stateMachine.dashBackingState);
-            return;
-        }
     }
 }

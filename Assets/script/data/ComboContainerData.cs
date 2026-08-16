@@ -17,8 +17,8 @@ public class ComboContainerData : ScriptableObject
     [SerializeField, Header("闪避攻击连招数据")] 
     public ComboData DodgeATKData;
 
-    [SerializeField, Header("后闪/后撤攻击连招数据")] 
-    public ComboData BackDodgeATKData;
+    /*[SerializeField, Header("后闪/后撤攻击连招数据")] 
+    public ComboData BackDodgeATKData;*/
 
     /// <summary>缓存初始第一段连招，用于闪避攻击后恢复原连招</summary>
     private ComboData firstComboData;
@@ -249,7 +249,7 @@ public class ComboContainerData : ScriptableObject
         comboDates[0] = DodgeATKData;
     }
 
-    /// <summary>
+    /*/// <summary>
     /// 切换当前第一段连招为后闪攻击
     /// 后撤闪避触发时调用
     /// </summary>
@@ -259,7 +259,7 @@ public class ComboContainerData : ScriptableObject
             return;
         
         comboDates[0] = BackDodgeATKData;
-    }
+    }*/
 
     /// <summary>
     /// 重置第一段连招为初始化缓存的原始普攻

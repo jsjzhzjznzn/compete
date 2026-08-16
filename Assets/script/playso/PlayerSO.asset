@@ -30,11 +30,6 @@ MonoBehaviour:
       <playSpeed>k__BackingField: 1
       <fadeDuration>k__BackingField: 0.15
       <rotationTime>k__BackingField: 1
-    <dashBackData>k__BackingField:
-      <animationClip>k__BackingField: {fileID: 1827226128182048838, guid: 326b6bc467a397241b696a245ef0737d, type: 3}
-      <playSpeed>k__BackingField: 1
-      <fadeDuration>k__BackingField: 0.15
-      <rotationTime>k__BackingField: 0.04
     <movementNullData>k__BackingField:
       <animationClip>k__BackingField: {fileID: 0}
       <playSpeed>k__BackingField: 1

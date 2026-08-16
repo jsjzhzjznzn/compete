@@ -40,13 +40,6 @@ public class PlayerWalkStopState : PlayerMovementState
             stateMachine.SwitchState(stateMachine.walkingState);
             return;
         }
-
-        // Shift 按下 → 进入后冲状态
-        if (player.IsSprintPressed)
-        {
-            stateMachine.SwitchState(stateMachine.dashBackingState);
-            return;
-        }
         // 无输入：等待收尾动画播完（OnEnd）自动回待机
     }
 

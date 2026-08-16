@@ -41,9 +41,9 @@ public class CharacterInputSystem : Singleton<CharacterInputSystem>
     public bool Attack          => inputActions.player.attack.triggered;
     public bool Attack_Continue => inputActions.player.attack.phase == InputActionPhase.Performed;
 
-    // 重攻击（鼠标右键）
-    public bool HeavyAttack          => inputActions.player.heavyattk.triggered;
-    public bool HeavyAttack_Continue => inputActions.player.heavyattk.phase == InputActionPhase.Performed;
+    // 防御（鼠标右键）
+    public bool HeavyAttack          => inputActions.player.defense.triggered;
+    public bool HeavyAttack_Continue => inputActions.player.defense.phase == InputActionPhase.Performed;
 
     // 技能（E）
     public bool Skill          => inputActions.player.skill.triggered;

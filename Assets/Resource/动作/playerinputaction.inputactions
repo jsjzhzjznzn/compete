@@ -43,7 +43,7 @@
                     "initialStateCheck": false
                 },
                 {
-                    "name": "heavyattk",
+                    "name": "defense",
                     "type": "Button",
                     "id": "140b2a67-66f4-4e5a-a236-0a4b297f83c4",
                     "expectedControlType": "",
@@ -166,7 +166,7 @@
                     "interactions": "",
                     "processors": "",
                     "groups": "",
-                    "action": "heavyattk",
+                    "action": "defense",
                     "isComposite": false,
                     "isPartOfComposite": false
                 },

@@ -23,9 +23,16 @@ public class PlayerNullState : PlayerComboState
         // 1. 订阅本状态要用的输入事件（attack / heavyattk / skill）
         base.Enter();
 
+        // 1.5 保存收尾阶段缓冲的重新起手指令（OnAttackInput 切进来前写入的 hasATKCommand），
+        //     否则下面的 ReSetComboInfo 会把它清掉，导致"收尾按攻击"后新攻击起不来、人物卡死
+        bool bufferedCommand = reusableData.hasATKCommand;
+
         // 2. 复位连击信息：段数归零、canInput/canLink/canATK 全部打开
         //    （保证从任意状态回到待机后，都"回到第一段 + 可重新起手"）
         stateMachine.characterCombo.ReSetComboInfo();
+
+        // 2.5 把刚保存的起手指令写回，供本帧 Update 消费重新起手
+        reusableData.hasATKCommand = bufferedCommand;
 
         // 3. 段数下标归零：currentIndex 决定播的是连招里的第几段动画，
         //    同时同步给 UI/动画（BindableProperty 通知）
@@ -35,10 +42,10 @@ public class PlayerNullState : PlayerComboState
         //    避免上一次攻击/技能的"播完"事件误触发本状态逻辑
         ClearAnimationEnd();
 
-       /* // 5. 回到待机 → 恢复移动（攻击流程结束才允许重新移动）
+        // 5. 回到待机 → 恢复移动（攻击流程结束才允许重新移动）
         player.MovementStateMachine.SwitchState(
             player.IsMoving ? player.MovementStateMachine.walkingState
-                            : player.MovementStateMachine.idlingState);*/
+                            : player.MovementStateMachine.idlingState);
     }
 
     public override void Update()

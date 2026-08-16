@@ -49,14 +49,14 @@ public abstract class PlayerComboState : IState
     protected virtual void AddInputActionCallBacks()
     {
         CharacterInputSystem.MainInstance.inputActions.player.attack.started += OnAttackInput;
-        CharacterInputSystem.MainInstance.inputActions.player.heavyattk.started += OnHeavyAttackInput;
+        CharacterInputSystem.MainInstance.inputActions.player.defense.started += OnHeavyAttackInput;
         CharacterInputSystem.MainInstance.inputActions.player.skill.started += OnSkillInput;
     }
 
     protected virtual void RemoveInputActionCallBacks()
     {
         CharacterInputSystem.MainInstance.inputActions.player.attack.started -= OnAttackInput;
-        CharacterInputSystem.MainInstance.inputActions.player.heavyattk.started -= OnHeavyAttackInput;
+        CharacterInputSystem.MainInstance.inputActions.player.defense.started -= OnHeavyAttackInput;
         CharacterInputSystem.MainInstance.inputActions.player.skill.started -= OnSkillInput;
     }
 

@@ -48,10 +48,6 @@ public class PlayerSprintData : PlayerStateData { }
 [System.Serializable]
 public class PlayerDashData : PlayerStateData { }
 
-/// <summary>后撤步数据</summary>
-[System.Serializable]
-public class PlayerDashBackData : PlayerStateData { }
-
 /// <summary>回到奔跑过渡数据</summary>
 [System.Serializable]
 public class PlayerReturnRunData : PlayerStateData { }

@@ -129,7 +129,7 @@ public partial class @Playerinputaction: IInputActionCollection2, IDisposable
                     ""initialStateCheck"": false
                 },
                 {
-                    ""name"": ""heavyattk"",
+                    ""name"": ""defense"",
                     ""type"": ""Button"",
                     ""id"": ""140b2a67-66f4-4e5a-a236-0a4b297f83c4"",
                     ""expectedControlType"": """",
@@ -252,7 +252,7 @@ public partial class @Playerinputaction: IInputActionCollection2, IDisposable
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": """",
-                    ""action"": ""heavyattk"",
+                    ""action"": ""defense"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 },
@@ -289,7 +289,7 @@ public partial class @Playerinputaction: IInputActionCollection2, IDisposable
         m_player_dash = m_player.FindAction("dash", throwIfNotFound: true);
         m_player_attack = m_player.FindAction("attack", throwIfNotFound: true);
         m_player_skill = m_player.FindAction("skill", throwIfNotFound: true);
-        m_player_heavyattk = m_player.FindAction("heavyattk", throwIfNotFound: true);
+        m_player_defense = m_player.FindAction("defense", throwIfNotFound: true);
         m_player_look = m_player.FindAction("look", throwIfNotFound: true);
         m_player_zoom = m_player.FindAction("zoom", throwIfNotFound: true);
     }
@@ -376,7 +376,7 @@ public partial class @Playerinputaction: IInputActionCollection2, IDisposable
     private readonly InputAction m_player_dash;
     private readonly InputAction m_player_attack;
     private readonly InputAction m_player_skill;
-    private readonly InputAction m_player_heavyattk;
+    private readonly InputAction m_player_defense;
     private readonly InputAction m_player_look;
     private readonly InputAction m_player_zoom;
     /// <summary>
@@ -407,9 +407,9 @@ public partial class @Playerinputaction: IInputActionCollection2, IDisposable
         /// </summary>
         public InputAction @skill => m_Wrapper.m_player_skill;
         /// <summary>
-        /// Provides access to the underlying input action "player/heavyattk".
+        /// Provides access to the underlying input action "player/defense".
         /// </summary>
-        public InputAction @heavyattk => m_Wrapper.m_player_heavyattk;
+        public InputAction @defense => m_Wrapper.m_player_defense;
         /// <summary>
         /// Provides access to the underlying input action "player/look".
         /// </summary>
@@ -456,9 +456,9 @@ public partial class @Playerinputaction: IInputActionCollection2, IDisposable
             @skill.started += instance.OnSkill;
             @skill.performed += instance.OnSkill;
             @skill.canceled += instance.OnSkill;
-            @heavyattk.started += instance.OnHeavyattk;
-            @heavyattk.performed += instance.OnHeavyattk;
-            @heavyattk.canceled += instance.OnHeavyattk;
+            @defense.started += instance.OnDefense;
+            @defense.performed += instance.OnDefense;
+            @defense.canceled += instance.OnDefense;
             @look.started += instance.OnLook;
             @look.performed += instance.OnLook;
             @look.canceled += instance.OnLook;
@@ -488,9 +488,9 @@ public partial class @Playerinputaction: IInputActionCollection2, IDisposable
             @skill.started -= instance.OnSkill;
             @skill.performed -= instance.OnSkill;
             @skill.canceled -= instance.OnSkill;
-            @heavyattk.started -= instance.OnHeavyattk;
-            @heavyattk.performed -= instance.OnHeavyattk;
-            @heavyattk.canceled -= instance.OnHeavyattk;
+            @defense.started -= instance.OnDefense;
+            @defense.performed -= instance.OnDefense;
+            @defense.canceled -= instance.OnDefense;
             @look.started -= instance.OnLook;
             @look.performed -= instance.OnLook;
             @look.canceled -= instance.OnLook;
@@ -566,12 +566,12 @@ public partial class @Playerinputaction: IInputActionCollection2, IDisposable
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnSkill(InputAction.CallbackContext context);
         /// <summary>
-        /// Method invoked when associated input action "heavyattk" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// Method invoked when associated input action "defense" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
         /// </summary>
         /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
-        void OnHeavyattk(InputAction.CallbackContext context);
+        void OnDefense(InputAction.CallbackContext context);
         /// <summary>
         /// Method invoked when associated input action "look" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
         /// </summary>
