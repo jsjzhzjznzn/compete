@@ -23,12 +23,12 @@ public class PlayerNullState : PlayerComboState
         // 1. 订阅本状态要用的输入事件（attack / heavyattk / skill）
         base.Enter();
 
-        // 2. 复位连击信息：comboIndex 归零、canInput/canLink/canATK 全部打开
+        // 2. 复位连击信息：段数归零、canInput/canLink/canATK 全部打开
         //    （保证从任意状态回到待机后，都"回到第一段 + 可重新起手"）
         stateMachine.characterCombo.ReSetComboInfo();
 
-        // 3. 段数下标归零：ATKIndex 决定播的是连招里的第几段动画，
-        //    同时也把 currentIndex 同步给 UI/动画（BindableProperty 通知）
+        // 3. 段数下标归零：currentIndex 决定播的是连招里的第几段动画，
+        //    同时同步给 UI/动画（BindableProperty 通知）
         SetATKIndex(0);
 
         // 4. 清除当前 Animancer 状态上残留的 OnEnd 回调，
@@ -62,8 +62,8 @@ public class PlayerNullState : PlayerComboState
         }
     }
 
-    /// <summary>重攻击按下（事件回调，帧内同步触发）</summary>
-    protected override void OnHeavyAttackInput(InputAction.CallbackContext context)
+    /// <summary>重攻击按下（事件回调，帧内同步触发；heavyCombo 未配置，暂注释）</summary>
+    /*protected override void OnHeavyAttackInput(InputAction.CallbackContext context)
     {
         // 输入窗口关闭时忽略（例如正在收招/技能中，禁止直接起手重击）
         if (!reusableData.canInput) return;
@@ -75,7 +75,7 @@ public class PlayerNullState : PlayerComboState
         player.MovementStateMachine.SwitchState(player.MovementStateMachine.playerMovementNullState);
 
         stateMachine.SwitchState(stateMachine.ATKIngState);
-    }
+    }*/
 
     /// <summary>技能按下（事件回调）</summary>
     protected override void OnSkillInput(InputAction.CallbackContext context)

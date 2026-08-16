@@ -8,8 +8,9 @@ using UnityEngine.InputSystem;
 ///
 /// 连击流程：
 /// - OnEnter 订阅攻击输入事件，OnExit 退订
-/// - 攻击键按下 → hasATKCommand 输入缓冲（子类在动画播完时消费）
-/// - PlayAttackClip 播放段动画并挂 OnEnd，播完进 OnAnimationEndEvent，由子类决定连下一段还是收招
+/// - PlayAttackClip 播放段动画：前段（linkCancelTime 归一化时间，默认 60%）打开输入窗口，
+///   窗口内按键 → hasATKCommand 缓冲；到检查点 OnLinkCheckpoint 由子类统一消费（切下一段）
+/// - 动画播完进 OnAnimationEndEvent，由子类决定连下一段还是收招
 /// - PlayAttackEndClip 播放收尾动画，播完自动回待机
 /// </summary>
 public abstract class PlayerComboState : IState
@@ -81,43 +82,55 @@ public abstract class PlayerComboState : IState
 
     /// <summary>
     /// 播放当前段的攻击动画，播完触发 OnAnimationEndEvent
-    /// 若本段配置了取消窗口时间（linkCancelTime>0），会在该时间点打开 canInput，
-    /// 玩家在窗口内按键即可"提前取消"本段、立即连到下一段（由子类的 OnAttackInput 处理）
+    /// 连击缓冲：本段配置了 linkCancelTime（0~1 归一化时间，默认 0.6），
+    /// 动画前段打开输入窗口，窗口内按键只写 hasATKCommand（不立即出手），
+    /// 到检查点 OnLinkCheckpoint 时由子类统一决定是否切下一段
     /// </summary>
     protected void PlayAttackClip()
     {
         var combo = reusableData.currentCombo;
         if (combo == null) return;
 
-        var transition = combo.GetAttackClip(reusableData.ATKIndex);
+        var transition = combo.GetAttackClip(reusableData.currentIndex.Value);
         if (transition == null) return;
 
         var state = player.characterAnimancer.Play(transition);
         state.Events.OnEnd = OnAnimationEndEvent;
 
-        // 打开"提前取消"输入窗口：到时间点后允许按键立即切段
-        float cancelTime = combo.GetLinkCancelTime(reusableData.ATKIndex);
-        if (cancelTime > 0f)
+        // 触发本段的角色语音与武器挥砍音效
+        var data = combo.GetComboData(reusableData.currentIndex.Value);
+        stateMachine.characterCombo.PlayCharacterVoice(data);
+        stateMachine.characterCombo.PlayWeaponSound(data);
+
+        // 连击缓冲检查点：linkTime 之前接受攻击输入，到点统一出手（子类覆写 OnLinkCheckpoint）
+        float linkTime = combo.GetLinkCancelTime(reusableData.currentIndex.Value);
+        if (linkTime > 0f)
         {
-            reusableData.canInput = false;   // 窗口打开前先关掉，防止上一段残留
-            state.Events.Add(cancelTime, () => reusableData.canInput = true);
+            reusableData.hasATKCommand = false;   // 清掉上一起手/上一段的残留指令，只统计本段窗口内新按键
+            reusableData.canInput = true;         // 打开输入窗口（窗口内按键只缓冲，不立即出手）
+            state.Events.Add(linkTime, OnLinkCheckpoint);
         }
     }
+
+    /// <summary>
+    /// 连击检查点回调：动画播放到 linkCancelTime（默认 60%）处触发。
+    /// 子类在此消费 hasATKCommand 缓冲的输入指令（ATKIngState 用于切下一段）
+    /// </summary>
+    protected virtual void OnLinkCheckpoint() { }
 
     /// <summary>播放当前段的收尾动画，播完自动回待机</summary>
     protected void PlayAttackEndClip()
     {
-        var transition = reusableData.currentCombo?.GetAttackEndClip(reusableData.ATKIndex);
+        var transition = reusableData.currentCombo?.GetAttackEndClip(reusableData.currentIndex.Value);
         if (transition == null) return;
 
         var state = player.characterAnimancer.Play(transition);
         state.Events.OnEnd = OnRecoveryEnd;
     }
 
-    /// <summary>设置当前段数，并同步通知动画/UI 下标（currentIndex）</summary>
+    /// <summary>设置当前段数（变化时自动通知动画/UI 订阅方）</summary>
     protected void SetATKIndex(int index)
     {
-        reusableData.ATKIndex = index;
         reusableData.currentIndex.Value = index;
     }
 

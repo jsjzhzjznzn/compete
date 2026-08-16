@@ -1,9 +1,12 @@
+using UnityEngine;
 using UnityEngine.InputSystem;
 
 /// <summary>
 /// 攻击执行状态
-/// 播放当前段的攻击动画，接段通过"提前取消窗口"触发：
-/// 本段配置了 linkCancelTime，到时间点打开 canInput 窗口，窗口内按键立即切下一段。
+/// 接段通过"连击缓冲 + 检查点"触发：
+/// 本段配置了 linkCancelTime（0~1 归一化时间，默认 0.6），动画前段打开输入窗口，
+/// 窗口内按攻击只写 hasATKCommand（缓冲），动画播到 linkCancelTime 处触发
+/// OnLinkCheckpoint：有缓冲指令 → 立即切下一段；无 → 关闭窗口等动画播完。
 ///
 /// 收尾阶段（EnterRecovery）：
 /// 攻击动画播完/断连/末尾段 → 播放收尾动画并打开输入（isRecovery=true）。
@@ -23,8 +26,33 @@ public class PlayerATKIngState : PlayerComboState
     {
         base.Enter();
         isRecovery = false;
+      //  FaceAttackDirection();
         PlayAttackClip();
     }
+
+    /// <summary>
+    /// 攻击朝向修正：起手时让角色面向"相机前方"（水平面）。
+    /// 因为攻击期间移动状态机处于空状态、角色不会转向，
+    /// 不修正的话会保持旧朝向，挥击弧线（动画本身朝角色右侧）看起来就"偏"。
+    /// </summary>
+   /* private void FaceAttackDirection()
+    {
+        Vector3 camFwd = player.CameraTransform != null
+            ? player.CameraTransform.forward
+            : player.transform.forward;
+        camFwd.y = 0f;
+        camFwd.Normalize();
+        if (camFwd.sqrMagnitude <= 0.001f)
+        {
+            camFwd = player.transform.forward;
+            camFwd.y = 0f;
+            camFwd.Normalize();
+        }
+        if (camFwd.sqrMagnitude > 0.001f)
+        {
+            player.transform.rotation = Quaternion.LookRotation(camFwd);
+        }
+    }*/
 
     public override void Update()
     {
@@ -36,6 +64,27 @@ public class PlayerATKIngState : PlayerComboState
             isRecovery = false;
             RestoreMovement();
             stateMachine.SwitchState(stateMachine.NullState);
+            return;
+        }
+
+        // 收尾阶段：Shift 按下 → 打断收尾直接进入闪避（有移动输入=前冲，无=后冲）
+        // 闪避只在 Idle/Walk 的 Update 里检测，而收尾时移动状态机停在空状态，
+        // 所以这里必须自己拦截；且 triggered 是按下帧一次性信号，不能等下一帧，直接切。
+        // 顺序很关键：先让连击回空状态（此时清的是"收尾动画"的 OnEnd），
+        // 再切闪避（此时闪避动画的 OnEnd 刚挂上，不会被 NullState.ClearAnimationEnd 误清）。
+        if (isRecovery && player.IsSprintPressed)
+        {
+            isRecovery = false;
+            stateMachine.SwitchState(stateMachine.NullState);
+
+            var moveMachine = player.MovementStateMachine;
+            if (moveMachine != null)
+            {
+                moveMachine.SwitchState(
+                    player.IsMoving
+                        ? (IState)moveMachine.dashingState
+                        : moveMachine.dashBackingState);
+            }
         }
     }
 
@@ -53,9 +102,24 @@ public class PlayerATKIngState : PlayerComboState
             return;
         }
 
-        // 攻击段取消窗口内按攻击 → 立即切下一段
+        // 攻击段：窗口内按键只写入缓冲指令，到检查点（OnLinkCheckpoint）统一切下一段
         reusableData.hasATKCommand = true;
-        AdvanceToNextSegment();
+    }
+
+    /// <summary>
+    /// 到达本段连击检查点（动画播到 linkCancelTime，默认 60% 处）：
+    /// 缓冲过攻击指令 → 立即切下一段；否则关闭输入窗口，等动画播完进收尾
+    /// </summary>
+    protected override void OnLinkCheckpoint()
+    {
+        if (reusableData.hasATKCommand)
+        {
+            AdvanceToNextSegment();
+        }
+        else
+        {
+            reusableData.canInput = false;
+        }
     }
 
     /// <summary>进入下一段攻击（段数+1 并重播新段动画）</summary>
@@ -78,7 +142,7 @@ public class PlayerATKIngState : PlayerComboState
         }
 
         // 已到末尾段则不再连击，进入收尾
-        if (reusableData.ATKIndex >= combo.GetComboMaxCount() - 1)
+        if (reusableData.currentIndex.Value >= combo.GetComboMaxCount() - 1)
         {
             reusableData.hasATKCommand = false;
             EnterRecovery();
@@ -87,7 +151,7 @@ public class PlayerATKIngState : PlayerComboState
 
         reusableData.hasATKCommand = false;
         reusableData.canInput = false;   // 切段瞬间关窗，等新段自己的窗口时间再开
-        SetATKIndex(reusableData.ATKIndex + 1);
+        SetATKIndex(reusableData.currentIndex.Value + 1);
         PlayAttackClip();
     }
 
@@ -106,7 +170,7 @@ public class PlayerATKIngState : PlayerComboState
         isRecovery = true;
 
         var combo = reusableData.currentCombo;
-        if (combo == null || combo.GetAttackEndClip(reusableData.ATKIndex) == null)
+        if (combo == null || combo.GetAttackEndClip(reusableData.currentIndex.Value) == null)
         {
             // 无收尾动画 → 直接恢复移动并回待机，避免状态卡死在攻击态
             RestoreMovement();

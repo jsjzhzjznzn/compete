@@ -28,16 +28,7 @@ public class PlayerComboReusableData
 
     // ==================== 连招下标 ====================
 
-    /// <summary>当前选中哪套连招（容器下标）</summary>
-    public int comboIndex { get; set; }
-
-    /// <summary>当前攻击段数（comboDates 下标，0=第一段）</summary>
-    public int ATKIndex { get; set; }
-
-    /// <summary>实际执行到的攻击段数</summary>
-    public int executeIndex { get; set; }
-
-    /// <summary>驱动动画播放的下标，变化时通知订阅方（避免 index 更新与 ATK 转换不同步）</summary>
+    /// <summary>当前攻击段数（comboDates 下标，0=第一段），变化时通知订阅方（动画/UI）</summary>
     public BindableProperty<int> currentIndex { get; set; } = new BindableProperty<int>();
 
     // ==================== 连击流程开关 ====================
@@ -48,7 +39,8 @@ public class PlayerComboReusableData
     /// <summary>冷却结束开关：动画播够最短时间后可发动下一段（相当于攻击冷却）</summary>
     public bool canATK { get; set; }
 
-    /// <summary>在可攻击窗口内按下过攻击键（输入缓冲/攻击指令）</summary>
+    /// <summary>在可攻击窗口内按下过攻击键（输入缓冲）：窗口=动画前段 linkCancelTime（默认 60%），
+    /// 到检查点 OnLinkCheckpoint 统一消费，实现"提前按键 → 到点出手"的连击手感</summary>
     public bool hasATKCommand { get; set; }
 
     /// <summary>是否允许连下一段连招</summary>

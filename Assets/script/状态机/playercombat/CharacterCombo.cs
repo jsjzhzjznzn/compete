@@ -31,22 +31,8 @@ public class CharacterCombo
     public void Init()
     {
         comboData?.lightCombo?.Init();
-        comboData?.heavyCombo?.Init();
-        comboData?.executeCombo?.Init();
-    }
-
-    // ==================== 事件订阅 ====================
-
-    /// <summary>订阅下标变化（用于重置 ATKIndex 等），状态 OnEnter 时调用</summary>
-    public void AddEventAction()
-    {
-        reusableData.currentIndex.OnValueChanged += ReSetATKIndex;
-    }
-
-    /// <summary>退订，状态 OnExit 时调用</summary>
-    public void RemoveEventAction()
-    {
-        reusableData.currentIndex.OnValueChanged -= ReSetATKIndex;
+        // comboData?.heavyCombo?.Init();      // heavyCombo 未配置（PlayerComboSOData 中注释保留）
+        // comboData?.executeCombo?.Init();    // executeCombo 未配置（PlayerComboSOData 中注释保留）
     }
 
     /// <summary>技能招式数据（技能状态用）</summary>
@@ -80,8 +66,8 @@ public class CharacterCombo
         ExecuteBaseCombo();
     }
 
-    /// <summary>重攻击连招</summary>
-    public virtual void HeavyComboInput()
+    /// <summary>重攻击连招（heavyCombo 未配置，PlayerComboSOData 中注释保留）</summary>
+    /*public virtual void HeavyComboInput()
     {
         if (comboData?.heavyCombo == null) return;
 
@@ -92,7 +78,7 @@ public class CharacterCombo
         }
 
         ExecuteBaseCombo();
-    }
+    }*/
 
     /// <summary>闪避攻击：临时把首段替换为闪避攻击段再执行</summary>
     public virtual void NormalDodgeCombo()
@@ -106,7 +92,6 @@ public class CharacterCombo
 
         reusableData.currentCombo.SwitchDodgeATK();
         ReSetComboInfo();
-        ReSetATKIndex(0);
         ExecuteBaseCombo();
     }
 
@@ -119,59 +104,12 @@ public class CharacterCombo
         reusableData.canInput = false;
     }
 
-    // ==================== 连击推进（每帧） ====================
-
-    /// <summary>
-    /// 冷却结束(canATK) 且 有攻击指令(hasATKCommand) 时，播放当前段的攻击动画
-    /// 由状态机的 OnUpdate 调用
-    /// </summary>
-    public virtual void UpdateComboAnimation()
-    {
-        if (!reusableData.canATK) return;
-        if (!reusableData.hasATKCommand) return;
-
-        var combo = reusableData.currentCombo;
-        if (combo == null) return;
-
-        reusableData.currentIndex.Value = reusableData.comboIndex;
-
-        var transition = combo.GetAttackClip(reusableData.currentIndex.Value);
-        if (transition != null)
-        {
-            var state = player.characterAnimancer.Play(transition);
-            state.Events.OnEnd = OnAttackClipEnd;
-        }
-
-        var data = combo.GetComboData(reusableData.currentIndex.Value);
-        PlayCharacterVoice(data);
-        PlayWeaponSound(data);
-
-        UpdateComboInfo();
-
-        reusableData.hasATKCommand = false;
-        reusableData.canATK = false;
-    }
-
-    /// <summary>本段攻击动画播完：子类/外部决定连下一段还是收招</summary>
-    protected virtual void OnAttackClipEnd()
-    {
-        // TODO: 连击逻辑由具体状态处理（连下一段/进收招），此处留空
-    }
-
-    /// <summary>推进连击段数下标（到尾段归零，形成循环）</summary>
-    protected virtual void UpdateComboInfo()
-    {
-        reusableData.comboIndex++;
-        if (reusableData.comboIndex > reusableData.currentCombo.GetComboMaxCount() - 1)
-        {
-            reusableData.comboIndex = 0;
-        }
-    }
+    // ==================== 重置连击信息 ====================
 
     /// <summary>重置连击信息：回到第一段、打开输入、允许连击、冷却就绪、清空输入缓冲</summary>
     public virtual void ReSetComboInfo()
     {
-        reusableData.comboIndex = 0;
+        reusableData.currentIndex.Value = 0;
         reusableData.canInput = true;
         reusableData.canLink = true;
         reusableData.canMoveInterrupt = false;
@@ -227,8 +165,6 @@ public class CharacterCombo
         var combo = reusableData.currentCombo;
         if (combo == null) return;
 
-        UpdateATKIndex();
-
         // TODO: 接入相机震动
         // CameraHitFeel.MainInstance.CameraShake(combo.GetComboShakeForce(reusableData.currentIndex.Value));
 
@@ -247,20 +183,6 @@ public class CharacterCombo
     {
         // TODO: 接入敌人系统（GameBlackboard.GetEnemy()），当前直接放行
         return true;
-    }
-
-    // ==================== 下标管理 ====================
-
-    /// <summary>重置 ATKIndex 为 0（进入新连招/闪避攻击时调用）</summary>
-    public void ReSetATKIndex(int index)
-    {
-        reusableData.ATKIndex = 0;
-    }
-
-    /// <summary>ATKIndex 自增（每次打击帧触发）</summary>
-    public void UpdateATKIndex()
-    {
-        reusableData.ATKIndex++;
     }
 
     // ==================== 辅助 ====================
@@ -292,13 +214,15 @@ public class CharacterCombo
 
     // ==================== 音效（音效池接入后补实现） ====================
 
-    private void PlayCharacterVoice(ComboData data)
+    /// <summary>播放角色语音（攻击段开始时调用）</summary>
+    public void PlayCharacterVoice(ComboData data)
     {
         if (data == null) return;
         // TODO: 接入角色语音音效池
     }
 
-    private void PlayWeaponSound(ComboData data)
+    /// <summary>播放武器挥砍音效（攻击段开始时调用）</summary>
+    public void PlayWeaponSound(ComboData data)
     {
         if (data == null) return;
         // TODO: 接入武器挥砍音效池

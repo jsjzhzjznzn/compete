@@ -15,12 +15,12 @@ using UnityEngine;
         public ComboContainerData lightCombo { get; private set; }
 
         /// <summary>重攻击连招容器（重击整套连击、闪避重击数据）</summary>
-        [field: SerializeField, Header("重攻击连招")] 
-        public ComboContainerData heavyCombo { get; private set; }
+        //[field: SerializeField, Header("重攻击连招")] 
+      //  public ComboContainerData heavyCombo { get; private set; }
 
         /// <summary>处决连招容器（倒地/破防后终结处决连招）</summary>
-        [field: SerializeField, Header("处决连招")] 
-        public ComboContainerData executeCombo { get; private set; }
+        //[field: SerializeField, Header("处决连招")] 
+        //public ComboContainerData executeCombo { get; private set; }
 
         /// <summary>常规技能单套连招数据</summary>
         [field: SerializeField, Header("常规技能")] 
@@ -31,7 +31,7 @@ using UnityEngine;
         public ComboData finishSkillCombo { get; private set; }
 
         /// <summary>形态/武器切换专用技能连招数据</summary>
-        [field:SerializeField,Header("切换形态技能")] 
-        public ComboData switchSkill { get; private set; }
+        //[field:SerializeField,Header("切换形态技能")] 
+       // public ComboData switchSkill { get; private set; }
     }
 
