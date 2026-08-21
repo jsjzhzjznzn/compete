@@ -89,7 +89,7 @@ public class ComboContainerData : ScriptableObject
         return data.comboColdTime;
     }
 
-    // ============ 以下方法对应 ComboData 中已暂停使用的参数，测试连击阶段先注释保留 ============
+// ============ 以下方法对应 ComboData 中已暂停使用的参数，测试连击阶段先注释保留 ============
     // /// <summary>
     // /// 获取该段的攻击判定距离
     // /// </summary>
@@ -165,17 +165,17 @@ public class ComboContainerData : ScriptableObject
     //     return data.comboDamage;
     // }
     //
-    // /// <summary>
-    // /// 获取该段的通用音效规则类型
-    // /// </summary>
-    // public SoundStyle GetComboSoundStyle(int index)
-    // {
-    //     var data = GetComboData(index);
-    //     if (data == null) 
-    //         return default;
-    //
-    //     return data.universalSound;
-    // }
+    /// <summary>
+    /// 获取该段的通用音效规则类型
+    /// </summary>
+    public SoundStyle GetComboSoundStyle(int index)
+    {
+        var data = GetComboData(index);
+        if (data == null) 
+            return default;
+
+        return data.universalSound;
+    }
     // ============ 上面这些方法暂停使用，待对应系统接入后恢复 ============
 
     /// <summary>

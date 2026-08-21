@@ -58,17 +58,17 @@ public class ComboData : ScriptableObject
     // [SerializeField, Header("弹反/格挡特效名称数组，随机抽取播放")] 
     // private string[] _parryName;
     //
-    // [SerializeField, Header("是否启用独立音效预制体播放")] 
-    // bool appAudioPrefab = false;
+     [SerializeField, Header("是否启用独立音效预制体播放")] 
+     bool appAudioPrefab = false;
     //
-    // [SerializeField, Header("武器挥砍/打击音效数组")] 
-    // private AudioClip[] _weaponSound;
+    [SerializeField, Header("武器挥砍/打击音效数组")] 
+     private AudioClip[] _weaponSound;
     //
-    // [SerializeField, Header("角色语音音效数组（呐喊、技能台词等）")] 
-    // private AudioClip[] _characterVoice;
+    [SerializeField, Header("角色语音音效数组（呐喊、技能台词等）")] 
+    private AudioClip[] _characterVoice;
     //
-    // [SerializeField, Header("本段通用音效类型")] 
-    // private SoundStyle _universalSound;
+    [SerializeField, Header("本段通用音效类型")] 
+    private SoundStyle _universalSound;
     //
     // [SerializeField, Header("本段攻击帧暂停时长")] 
     // private float _pauseFrameTime;
@@ -110,10 +110,10 @@ public class ComboData : ScriptableObject
     // public float comboOffset => _comboOffset;
     //
     // /// <summary>本段武器音效数组</summary>
-    // public AudioClip[] weaponSound => _weaponSound;
+    public AudioClip[] weaponSound => _weaponSound;
     //
     // /// <summary>本段角色语音数组</summary>
-    // public AudioClip[] characterVoice => _characterVoice;
+    public AudioClip[] characterVoice => _characterVoice;
     //
     // /// <summary>随机返回一个受击特效名称</summary>
     // public string hitName => _hitName[Random.Range(0, _hitName.Length)];
@@ -125,13 +125,13 @@ public class ComboData : ScriptableObject
     // public float shakeForce => _shakeForce;
     //
     // /// <summary>本段通用音效规则</summary>
-    // public SoundStyle universalSound => _universalSound;
+    public SoundStyle universalSound => _universalSound;
     //
     // /// <summary>本段攻击帧暂停时长</summary>
     // public float pauseFrameTime => _pauseFrameTime;
     //
     // /// <summary>是否使用独立音效预制体播放音效</summary>
-    // public bool AppAudioPrefab => appAudioPrefab;
+    public bool AppAudioPrefab => appAudioPrefab;
     // ============ 上面这些属性暂停使用 ============
     #endregion
 }

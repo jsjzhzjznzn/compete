@@ -24,13 +24,13 @@ MonoBehaviour:
     <walkData>k__BackingField:
       <animationClip>k__BackingField: {fileID: -8483063365841296365, guid: 88147f5881834894285e9387fb160241, type: 3}
       <playSpeed>k__BackingField: 1
-      <fadeDuration>k__BackingField: 0.3
+      <fadeDuration>k__BackingField: 0.2
       <rotationTime>k__BackingField: 0.04
-      <walkStopClip>k__BackingField: {fileID: 0}
+      <walkStopClip>k__BackingField: {fileID: 6032505460816376181, guid: 88147f5881834894285e9387fb160241, type: 3}
     <dashData>k__BackingField:
       <animationClip>k__BackingField: {fileID: -7101804230258378353, guid: 88147f5881834894285e9387fb160241, type: 3}
       <playSpeed>k__BackingField: 1
-      <fadeDuration>k__BackingField: 0.3
+      <fadeDuration>k__BackingField: 0.15
       <rotationTime>k__BackingField: 0.04
     <movementNullData>k__BackingField:
       <animationClip>k__BackingField: {fileID: 0}
