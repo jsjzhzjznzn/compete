@@ -4,8 +4,6 @@
 
 ## 截图
 
-![安比角色展示](Assets/Screenshots/screenshot-20260816-162031.png)
-
 ![柯琳角色展示](Assets/Screenshots/screenshot-20260815-172039.png)
 
 ## 功能特性
