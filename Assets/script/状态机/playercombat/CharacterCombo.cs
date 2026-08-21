@@ -146,10 +146,10 @@ public class CharacterCombo
     /// <summary>事件：播放连击通用音效</summary>
     public void PlayComboFX()
     {
-        // TODO: 接入音效池 SFX_PoolManager
-        // SFX_PoolManager.MainInstance.TryGetSoundPool(
-        //     reusableData.currentCombo.GetComboSoundStyle(reusableData.currentIndex.Value),
-        //     player.transform.position, Quaternion.identity);
+        var data = reusableData.currentCombo?.GetComboData(reusableData.currentIndex.Value);
+        if (data == null) return;
+        // 通用音效类型：查 SoundData 表播放（未配置则为 Null，PlayByStyle 内部会忽略）
+        player.ActorAudio?.PlayByStyle(data.universalSound);
     }
 
     // ==================== 伤害触发（打击帧回调） ====================
@@ -212,19 +212,37 @@ public class CharacterCombo
         }
     }
 
-    // ==================== 音效（音效池接入后补实现） ====================
+    // ==================== 音效（接入 ActorAudioComponent） ====================
 
     /// <summary>播放角色语音（攻击段开始时调用）</summary>
     public void PlayCharacterVoice(ComboData data)
     {
         if (data == null) return;
-        // TODO: 接入角色语音音效池
+        player.ActorAudio?.PlayComboVoice(data);
     }
 
     /// <summary>播放武器挥砍音效（攻击段开始时调用）</summary>
     public void PlayWeaponSound(ComboData data)
     {
         if (data == null) return;
-        // TODO: 接入武器挥砍音效池
+        player.ActorAudio?.PlayWeaponSound(data);
+    }
+
+    /// <summary>
+    /// 播放攻击段挥砍特效（电光蓝刀光）。挂到角色武器骨骼下，随武器挥动移动。
+    /// 攻击段开始时由 PlayerComboState.PlayAttackClip 调用。
+    /// </summary>
+    public void PlayAttackVFX(ComboData data)
+    {
+        if (data == null) return;
+
+        Transform bone = player.WeaponBone;
+        if (bone == null)
+        {
+            Debug.LogWarning("PlayAttackVFX: 武器骨骼为空，特效无法挂载");
+            return;
+        }
+
+        VFX_PoolManager.MainInstance.GetAttachedVFX(data.characterName, "ATK_Slash", bone);
     }
 }

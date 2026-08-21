@@ -15,6 +15,9 @@ public class PlayerDashingState : PlayerMovementState
         ApplyStateData(Data);
         // TODO: 锁定冲刺方向、初始化速度/位移等
 
+        // 进入前冲：播放闪避音效（从 SoundData 查 DodgeSound 类型取 clip）
+        player.ActorAudio?.PlayByStyle(SoundStyle.DodgeSound);
+
         // 动画播放完成 → 回到待机
         var state = player.characterAnimancer.States.Current;
         if (state != null)

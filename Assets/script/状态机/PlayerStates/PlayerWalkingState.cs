@@ -15,6 +15,8 @@ public class PlayerWalkingState : PlayerMovementState
     {
         base.Enter();
         ApplyStateData(Data);
+        // 进入行走：开启脚步循环音效（从 SoundData 查 FOOT 类型取 clip）
+        player.ActorAudio?.PlayLoopSound(SoundStyle.FOOT);
     }
 
     public override void Update()
@@ -40,5 +42,7 @@ public class PlayerWalkingState : PlayerMovementState
     public override void Exit()
     {
         base.Exit();
+        // 离开行走：停止脚步循环（停下/切闪避/进攻击时脚步不再响）
+        player.ActorAudio?.StopLoopSound();
     }
 }

@@ -18,7 +18,7 @@ using System.Collections.Generic;
 ///
 /// 【用法】
 ///   var index = new BindableProperty<int>();
-///   index.OnValueChanged += v => Debug.Log("下标变成：" + v);   // 订阅
+///   index.OnValueChanged += (oldV, newV) => Debug.Log($"下标从 {oldV} 变成：{newV}");   // 订阅
 ///   index.Value = 1;                                           // 赋值即通知（1 != 0 旧值，触发）
 ///   index.Value = 1;                                           // 再赋相同值，不重复触发
 ///
@@ -32,10 +32,10 @@ public class BindableProperty<T>
     private T mValue = default(T);
 
     /// <summary>
-    /// 值变化时触发的回调（参数为最新值）。
+    /// 值变化时触发的回调（参数为 旧值, 新值）。
     /// 在 Value 被设为不同值时自动调用；可在外部 += / -= 订阅或退订。
     /// </summary>
-    public Action<T> OnValueChanged;
+    public Action<T, T> OnValueChanged;
 
     /// <summary>
     /// 读取/写入包装的值。
@@ -50,8 +50,9 @@ public class BindableProperty<T>
         {
             if (!EqualityComparer<T>.Default.Equals(value, mValue))
             {
+                T oldValue = mValue;   // 记录旧值，连同新值一起通知订阅者
                 mValue = value;
-                OnValueChanged?.Invoke(mValue);
+                OnValueChanged?.Invoke(oldValue, mValue);
             }
         }
     }

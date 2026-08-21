@@ -101,6 +101,8 @@ public abstract class PlayerComboState : IState
         var data = combo.GetComboData(reusableData.currentIndex.Value);
         stateMachine.characterCombo.PlayCharacterVoice(data);
         stateMachine.characterCombo.PlayWeaponSound(data);
+        // 触发本段的攻击刀光特效（电光蓝弧线，挂到武器骨骼跟随挥砍）
+        stateMachine.characterCombo.PlayAttackVFX(data);
 
         // 连击缓冲检查点：linkTime 之前接受攻击输入，到点统一出手（子类覆写 OnLinkCheckpoint）
         float linkTime = combo.GetLinkCancelTime(reusableData.currentIndex.Value);

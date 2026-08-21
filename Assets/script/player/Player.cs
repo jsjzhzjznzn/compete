@@ -14,6 +14,21 @@ public class Player : CharacterMoveControllerBase
 
     /// <summary>角色数据资产（连击状态机取连招配置用）</summary>
     public PlayerSO PlayerSO => playerSO;
+
+    // 角色音效组件缓存（懒获取：首次访问时 GetComponent 并缓存，避免状态机频繁调用重复查找）
+    private ActorAudioComponent actorAudio;
+    /// <summary>角色音效组件（播放 3D 空间音效用；未挂载返回 null）</summary>
+    public ActorAudioComponent ActorAudio
+    {
+        get
+        {
+            if (actorAudio == null)
+            {
+                actorAudio = GetComponent<ActorAudioComponent>();
+            }
+            return actorAudio;
+        }
+    }
     [SerializeField] public PlayerCameraUtility playerCameraUtility;
 
     [Header("视角参考")]
@@ -23,6 +38,22 @@ public class Player : CharacterMoveControllerBase
     public Transform CameraTransform =>
         viewCamera != null ? viewCamera.transform
         : Camera.main != null ? Camera.main.transform : null;
+
+    [Header("武器骨骼（攻击特效挂点）")]
+    [SerializeField] private Transform weaponBone;
+
+    /// <summary>
+    /// 武器骨骼 Transform（VFX 挂点）。优先用 Inspector 配置，未配置则在首次访问时
+    /// 沿 transform.Find 查找 "Bip001/Anbi_Weapon_02"，结果缓存复用。
+    /// </summary>
+    public Transform WeaponBone
+    {
+        get
+        {
+            if (weaponBone == null) weaponBone = transform.Find("Bip001/Anbi_Weapon_02");
+            return weaponBone;
+        }
+    }
 
     private PlayerMovementStateMachine stateMachine;
     private PlayerComboStateMachine comboStateMachine;

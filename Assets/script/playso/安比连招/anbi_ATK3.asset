@@ -37,6 +37,7 @@ MonoBehaviour:
   appAudioPrefab: 1
   _weaponSound:
   - {fileID: 8300000, guid: 003aa5abacf93a94089bd8c2ef28fff1, type: 3}
-  _characterVoice: []
+  _characterVoice:
+  - {fileID: 8300000, guid: 9d2cba0049a938344b1ecf7ba5d1b748, type: 3}
   _universalSound: 0
   _linkCancelTime: 0.6

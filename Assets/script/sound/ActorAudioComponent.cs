@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Audio;
@@ -45,6 +46,10 @@ public class ActorAudioComponent : MonoBehaviour
     // 防叠播冷却：同一类型音效在 minPlayInterval 秒内重复触发会被丢弃，防止高频触发音量爆增
     [SerializeField, Range(0f, 1f)] private float minPlayInterval = 0.05f;
 
+    [Header("脚步步频")]
+    // 脚步循环间隔：行走时每 footstepInterval 秒播一声脚步（配合短促单步音频，避免无缝循环像机关枪）
+    [SerializeField, Min(0.05f)] private float footstepInterval = 0.45f;
+
     [Header("数据驱动配置（Inspector 拖入）")]
     // 角色音效配置表：一份总表，按"音效类型 + 角色名"查随机 clip；所有角色可共用同一份表（表内用角色名区分）
     [SerializeField] private SoundData soundData;
@@ -66,6 +71,12 @@ public class ActorAudioComponent : MonoBehaviour
     // 简化设计：不做多通道，循环即"当前角色唯一的持续声"。将来若需要多循环（脚步+施法同时），
     // 再把它改回 Dictionary<string, AudioSource> 按 key 区分即可。
     private AudioSource loopSource;
+
+    // 脚步循环协程引用：按 footstepInterval 间隔触发一次性脚步音，停止时 Cancel 掉
+    private Coroutine footstepRoutine;
+
+    // 脚步循环是否正在运行（供 StopLoopSound 判断要不要停协程）
+    private bool isFootstepLooping;
 
     // 防叠播冷却记录：SoundStyle → 上次播放的 Time.time，配合 minPlayInterval 做节流
     private readonly Dictionary<SoundStyle, float> lastStylePlayTime = new Dictionary<SoundStyle, float>();
@@ -149,6 +160,13 @@ public class ActorAudioComponent : MonoBehaviour
         AudioClip clip = soundData.GetAudioClip(style, characterName);  // 查表取 clip
         if (clip == null) { return; }                                   // 没配这个类型就不播
 
+        // 脚步/收脚这种"短促单步音"按步频间隔触发，而不是无缝循环（无缝循环 0.05s 的音频会像机关枪）
+        if (style == SoundStyle.FOOT || style == SoundStyle.FOOTBACK)
+        {
+            StartFootstepLoop(style, volume);
+            return;
+        }
+
         // 首次调用：循环音源还没创建 → 现场创建一个专属音源
         if (loopSource == null)
         {
@@ -167,6 +185,41 @@ public class ActorAudioComponent : MonoBehaviour
     public void StopLoopSound()
     {
         if (loopSource != null) { loopSource.Stop(); }
+        StopFootstepLoop();
+    }
+
+    // ==================== 脚步步频循环（短音按间隔触发） ====================
+
+    /// <summary>
+    /// 按 footstepInterval 间隔循环触发脚步音（一次性播放，不无缝循环）。
+    /// 已运行时直接忽略；停止用 StopFootstepLoop / StopLoopSound。
+    /// </summary>
+    private void StartFootstepLoop(SoundStyle style, float volume = 1f)
+    {
+        if (isFootstepLooping) { return; }          // 已在跑就不重复启动
+        isFootstepLooping = true;
+        footstepRoutine = StartCoroutine(FootstepRoutine(style, volume));
+    }
+
+    private void StopFootstepLoop()
+    {
+        if (footstepRoutine != null)
+        {
+            StopCoroutine(footstepRoutine);
+            footstepRoutine = null;
+        }
+        isFootstepLooping = false;
+    }
+
+    private IEnumerator FootstepRoutine(SoundStyle style, float volume)
+    {
+        // 立即先响一声，再按步频间隔继续
+        PlayByStyle(style, volume);
+        while (isFootstepLooping)
+        {
+            yield return new WaitForSeconds(footstepInterval);
+            PlayByStyle(style, volume);
+        }
     }
 
     // ==================== 内部实现 ====================

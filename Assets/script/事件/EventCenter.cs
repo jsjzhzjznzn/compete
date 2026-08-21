@@ -35,7 +35,7 @@ public enum E_EventType
     E_Attack,          // 攻击命中  (HitData)：攻击方打中了谁、打在哪
     E_OnHit,           // 受到攻击  (HitData)：被攻击方知道自己被谁打中（还没扣血）
     E_OnDamage,        // 受到伤害  (DamageData)：实际扣血，血条/飘字/震屏听这个
-    E_OnDeath,         // 死亡      (无参)：生命归零
+    E_OnDeath,         // 死亡      (DeathData)：生命归零
     E_OnKill,          // 击杀      (无参)：杀死了目标
     E_OnStateChanged,  // 状态切换  (StateChangeData)：移动/连击状态机切状态
 
@@ -90,10 +90,17 @@ public struct HitData
 public struct DamageData
 {
     public GameObject source;     // 伤害来源（可能是施法者，不是直接攻击者）
+    public GameObject target;     // 被攻击者（谁掉血了；血条/飘字据此过滤是不是自己）
     public float amount;          // 本次扣血量
     public float currentHP;       // 扣血后的当前血量
     public float maxHP;           // 最大血量
     public bool isCritical;       // 是否暴击（飘字/音效可区分）
+}
+
+/// <summary>一次死亡信息（E_OnDeath：谁死了）</summary>
+public struct DeathData
+{
+    public GameObject target;     // 谁死了（复活/掉落/击杀统计用）
 }
 
 /// <summary>一次状态机切换信息（E_OnStateChanged）</summary>
@@ -130,7 +137,7 @@ public abstract class EventInfoBase
 }
 
 // ============================================================
-// 4. 无参事件容器（E_OnDeath、E_RoundStart 这类不带数据的）
+// 4. 无参事件容器（E_RoundStart、E_OnKill 这类不带数据的）
 // ============================================================
 public class EventInfo : EventInfoBase
 {
