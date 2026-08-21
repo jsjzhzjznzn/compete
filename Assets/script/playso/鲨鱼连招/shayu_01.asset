@@ -37,12 +37,14 @@ MonoBehaviour:
   _comboDamage: 0
   _attackDistance: 0
   _comboOffset: 0
-  _hitName: []
-  _parryName: []
+  _enemyLayer:
+    serializedVersion: 2
+    m_Bits: 8
+  _hitFrameTime: 0.35
+  _pauseFrameTime: 0
+  _shakeForce: 0
   appAudioPrefab: 0
   _weaponSound: []
   _characterVoice: []
   _universalSound: 0
-  _pauseFrameTime: 0
-  _shakeForce: 0
   _linkCancelTime: 0.5

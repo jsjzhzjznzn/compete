@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Animancer;
 using UnityEngine;
 
@@ -154,6 +155,12 @@ public class CharacterCombo
 
     // ==================== 伤害触发（打击帧回调） ====================
 
+    /// <summary>本段已结算过的受击单位（同一段/同一次判定内防重复扣血，按受击单位 GameObject 去重）</summary>
+    private readonly HashSet<GameObject> _hitTargets = new();
+
+    /// <summary>预分配的命中检测缓冲（OverlapSphereNonAlloc 用，避免每次打击帧 GC 分配；敌人多时调大）</summary>
+    private readonly Collider[] _detectBuffer = new Collider[16];
+
     /// <summary>打击帧动画事件入口：根据当前招式类型走不同伤害逻辑</summary>
     public void ATK()
     {
@@ -165,24 +172,70 @@ public class CharacterCombo
         var combo = reusableData.currentCombo;
         if (combo == null) return;
 
-        // TODO: 接入相机震动
-        // CameraHitFeel.MainInstance.CameraShake(combo.GetComboShakeForce(reusableData.currentIndex.Value));
+        int index = reusableData.currentIndex.Value;
+        var data = combo.GetComboData(index);
+        if (data == null) return;
 
-        if (!AttackDetection(combo)) return;
+        // TODO: 接入相机震动（相机震动系统尚未接入，CameraHitFeel 类不存在）
+        // if (data.shakeForce > 0f && CameraHitFeel.MainInstance != null)
+        //     CameraHitFeel.MainInstance.CameraShake(data.shakeForce);
 
-        // TODO: 接入伤害事件系统
-        // GameEventsManager.MainInstance.CallEvent("造成伤害",
-        //     combo.GetComboDamage(reusableData.currentIndex.Value),
-        //     combo.GetComboHitName(reusableData.currentIndex.Value),
-        //     combo.GetComboParryName(reusableData.currentIndex.Value),
-        //     player.transform, ...);
+        // 命中判定：收集本段打击范围内的目标（结果写入 _detectBuffer，返回有效数量）
+        int hitCount = AttackDetection(combo, data);
+        if (hitCount == 0) return;
+
+        // 本次打击帧独立结算（同一目标多 Collider / 多次命中只扣一次血）
+        _hitTargets.Clear();
+
+        bool anyHit = false;
+        for (int i = 0; i < hitCount; i++)
+        {
+            var target = _detectBuffer[i].GetComponentInParent<HealthModel>();
+            if (target == null) continue;                       // 没有受击组件（地形/装饰）跳过
+
+            if (!_hitTargets.Add(target.gameObject)) continue;  // 同一受击单位只结算一次
+
+            target.TakeDamage(data.comboDamage, player.gameObject, false);
+            anyHit = true;
+        }
+
+        // 命中顿帧（打中敌人时 timeScale 压低，打击感关键；realTime 后由 Player.HitStop 恢复）
+        if (anyHit && data.pauseFrameTime > 0f)
+        {
+            player.HitStop(data.pauseFrameTime);
+        }
     }
 
-    /// <summary>攻击判定：距离 + 角度（敌人系统接入后补实现）</summary>
-    protected bool AttackDetection(ComboContainerData comboContainerData)
+    /// <summary>
+    /// 攻击判定：以角色前方偏移为球心做 OverlapSphere 收集命中目标。
+    /// 命中点 = 角色位置 + 面朝方向 * 本段前移量(comboOffset)，半径 = 本段判定距离(attackDistance)，
+    /// 按本段敌人层(ComboData.enemyLayer)过滤（未配置回退全层），并排除玩家自身及子物体（武器碰撞等）。
+    /// 结果写入 _detectBuffer（原地压缩掉无效项），返回有效命中数量。
+    /// </summary>
+    protected virtual int AttackDetection(ComboContainerData comboContainerData, ComboData data)
     {
-        // TODO: 接入敌人系统（GameBlackboard.GetEnemy()），当前直接放行
-        return true;
+        var playerTransform = player.transform;
+        Vector3 origin = playerTransform.position + playerTransform.forward * data.comboOffset;
+
+        // 记录判定信息（供外部/调试读取）
+        reusableData.detectionOrigin = origin;
+        reusableData.detectionDir = playerTransform.forward;
+
+        // 敌人层：本段 ComboData 里配置的 LayerMask；未配置(0)回退全层，靠下方 IsChildOf 排除玩家自身
+        int layerMask = data.enemyLayer.value != 0 ? data.enemyLayer : Physics.DefaultRaycastLayers;
+
+        int count = Physics.OverlapSphereNonAlloc(origin, data.attackDistance, _detectBuffer, layerMask);
+
+        // 原地压缩：跳过玩家自身及子物体（全层过滤时可能把玩家自己打中）
+        int valid = 0;
+        for (int i = 0; i < count; i++)
+        {
+            if (_detectBuffer[i] == null) continue;
+            if (_detectBuffer[i].transform.IsChildOf(playerTransform)) continue;
+            if (valid != i) _detectBuffer[valid] = _detectBuffer[i];
+            valid++;
+        }
+        return valid;
     }
 
     // ==================== 辅助 ====================
@@ -228,7 +281,7 @@ public class CharacterCombo
         player.ActorAudio?.PlayWeaponSound(data);
     }
 
-    /// <summary>
+   /* /// <summary>
     /// 播放攻击段挥砍特效（电光蓝刀光）。挂到角色武器骨骼下，随武器挥动移动。
     /// 攻击段开始时由 PlayerComboState.PlayAttackClip 调用。
     /// </summary>
@@ -244,5 +297,5 @@ public class CharacterCombo
         }
 
         VFX_PoolManager.MainInstance.GetAttachedVFX(data.characterName, "ATK_Slash", bone);
-    }
+    }*/
 }

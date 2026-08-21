@@ -34,4 +34,17 @@ MonoBehaviour:
     _Speed: 1
     _NormalizedStartTime: NaN
   _comboColdTime: 0
+  _comboDamage: 0
+  _attackDistance: 0
+  _comboOffset: 0
+  _enemyLayer:
+    serializedVersion: 2
+    m_Bits: 8
+  _hitFrameTime: 0.35
+  _pauseFrameTime: 0
+  _shakeForce: 0
+  appAudioPrefab: 0
+  _weaponSound: []
+  _characterVoice: []
+  _universalSound: 0
   _linkCancelTime: 0.6

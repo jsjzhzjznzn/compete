@@ -89,94 +89,98 @@ public class ComboContainerData : ScriptableObject
         return data.comboColdTime;
     }
 
-// ============ 以下方法对应 ComboData 中已暂停使用的参数，测试连击阶段先注释保留 ============
-    // /// <summary>
-    // /// 获取该段的攻击判定距离
-    // /// </summary>
-    // public float GetComboDistance(int index)
-    // {
-    //     var data = GetComboData(index);
-    //     if (data == null) 
-    //         return 0;
-    //
-    //     if (data.attackDistance == 0)
-    //         Debug.LogWarning($"下标{index}连招未配置攻击距离");
-    //     
-    //     return data.attackDistance;
-    // }
-    //
-    // /// <summary>
-    // /// 获取该段的攻击碰撞盒前后偏移值
-    // /// </summary>
-    // public float GetComboOffset(int index)
-    // {
-    //     var data = GetComboData(index);
-    //     if (data == null) 
-    //         return 0;
-    //
-    //     if (data.comboOffset == 0)
-    //         Debug.LogWarning($"下标{index}连招未配置攻击盒偏移");
-    //     
-    //     return data.comboOffset;
-    // }
-    //
-    // /// <summary>
-    // /// 随机获取该段的受击特效名称
-    // /// </summary>
-    // public string GetComboHitName(int index)
-    // {
-    //     var data = GetComboData(index);
-    //     if (data == null) 
-    //         return null;
-    //
-    //     if (data.hitName == null)
-    //         Debug.LogWarning($"下标{index}连招未配置受击特效");
-    //     
-    //     return data.hitName;
-    // }
-    //
-    // /// <summary>
-    // /// 随机获取该段的格挡/弹反特效名称
-    // /// </summary>
-    // public string GetComboParryName(int index)
-    // {
-    //     var data = GetComboData(index);
-    //     if (data == null) 
-    //         return null;
-    //
-    //     if (data.parryName == null)
-    //         Debug.LogWarning($"下标{index}连招未配置弹反特效");
-    //     
-    //     return data.parryName;
-    // }
-    //
-    // /// <summary>
-    // /// 获取该段的伤害数值
-    // /// </summary>
-    // public float GetComboDamage(int index)
-    // {
-    //     var data = GetComboData(index);
-    //     if (data == null) 
-    //         return 0f;
-    //
-    //     if (data.comboDamage == 0)
-    //         Debug.LogWarning($"下标{index}连招未配置伤害数值");
-    //     
-    //     return data.comboDamage;
-    // }
-    //
+// ============ 伤害判定参数读取（对应 ComboData 已接入的字段） ============
+
+    /// <summary>
+    /// 获取该段的攻击伤害数值
+    /// </summary>
+    public float GetComboDamage(int index)
+    {
+        var data = GetComboData(index);
+        if (data == null)
+            return 0f;
+
+        if (data.comboDamage == 0)
+            Debug.LogWarning($"下标{index}连招未配置伤害数值");
+
+        return data.comboDamage;
+    }
+
+    /// <summary>
+    /// 获取该段的攻击命中半径（OverlapSphere 半径）
+    /// </summary>
+    public float GetComboDistance(int index)
+    {
+        var data = GetComboData(index);
+        if (data == null)
+            return 0f;
+
+        if (data.attackDistance == 0)
+            Debug.LogWarning($"下标{index}连招未配置攻击判定距离");
+
+        return data.attackDistance;
+    }
+
+    /// <summary>
+    /// 获取该段的命中点前移量（角色前方偏移）
+    /// </summary>
+    public float GetComboOffset(int index)
+    {
+        var data = GetComboData(index);
+        if (data == null)
+            return 0f;
+
+        return data.comboOffset;
+    }
+
+    /// <summary>
+    /// 获取该段的打击帧时间（动画归一化时间，0=本段无伤害判定）
+    /// </summary>
+    public float GetComboHitFrameTime(int index)
+    {
+        var data = GetComboData(index);
+        if (data == null)
+            return 0f;
+
+        return data.hitFrameTime;
+    }
+
+    /// <summary>
+    /// 获取该段的命中顿帧时长
+    /// </summary>
+    public float GetPauseFrameTime(int index)
+    {
+        var data = GetComboData(index);
+        if (data == null)
+            return 0f;
+
+        return data.pauseFrameTime;
+    }
+
+    /// <summary>
+    /// 获取该段的相机震动力度
+    /// </summary>
+    public float GetComboShakeForce(int index)
+    {
+        var data = GetComboData(index);
+        if (data == null)
+            return 0f;
+
+        return data.shakeForce;
+    }
+
     /// <summary>
     /// 获取该段的通用音效规则类型
     /// </summary>
     public SoundStyle GetComboSoundStyle(int index)
     {
         var data = GetComboData(index);
-        if (data == null) 
+        if (data == null)
             return default;
 
         return data.universalSound;
     }
-    // ============ 上面这些方法暂停使用，待对应系统接入后恢复 ============
+    // ============ 上面这些方法对应已接入的判定参数 ============
 
     /// <summary>
     /// 获取该段的攻击动作动画

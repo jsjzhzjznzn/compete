@@ -95,6 +95,10 @@ public abstract class PlayerComboState : IState
         if (transition == null) return;
 
         var state = player.characterAnimancer.Play(transition);
+
+        // 清除该状态上可能残留的动画事件：同一 clip 被重复播放时会复用同一个 state，
+        // 不清除会导致检查点/打击帧回调重复注册、同一帧被多次触发
+        state.Events.Clear();
         state.Events.OnEnd = OnAnimationEndEvent;
 
         // 触发本段的角色语音与武器挥砍音效
@@ -102,7 +106,7 @@ public abstract class PlayerComboState : IState
         stateMachine.characterCombo.PlayCharacterVoice(data);
         stateMachine.characterCombo.PlayWeaponSound(data);
         // 触发本段的攻击刀光特效（电光蓝弧线，挂到武器骨骼跟随挥砍）
-        stateMachine.characterCombo.PlayAttackVFX(data);
+        //stateMachine.characterCombo.PlayAttackVFX(data);
 
         // 连击缓冲检查点：linkTime 之前接受攻击输入，到点统一出手（子类覆写 OnLinkCheckpoint）
         float linkTime = combo.GetLinkCancelTime(reusableData.currentIndex.Value);
@@ -111,6 +115,14 @@ public abstract class PlayerComboState : IState
             reusableData.hasATKCommand = false;   // 清掉上一起手/上一段的残留指令，只统计本段窗口内新按键
             reusableData.canInput = true;         // 打开输入窗口（窗口内按键只缓冲，不立即出手）
             state.Events.Add(linkTime, OnLinkCheckpoint);
+        }
+
+        // 打击帧事件：动画播到本段 hitFrameTime 处触发伤害判定（CharacterCombo.ATK 入口）
+        // 与 OnLinkCheckpoint 同一套 Animancer 事件机制，判定与动画严格同步
+        float hitFrameTime = combo.GetComboHitFrameTime(reusableData.currentIndex.Value);
+        if (hitFrameTime > 0f)
+        {
+            state.Events.Add(hitFrameTime, () => stateMachine.characterCombo.ATK());
         }
     }
 

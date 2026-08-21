@@ -34,6 +34,9 @@ MonoBehaviour:
     _Speed: 1
     _NormalizedStartTime: NaN
   _comboColdTime: 0
+  _comboDamage: 15
+  _attackDistance: 1.2
+  _comboOffset: 1.2
   appAudioPrefab: 1
   _weaponSound:
   - {fileID: 8300000, guid: 1b64cc9091420f94e8595fbf90572fb1, type: 3}

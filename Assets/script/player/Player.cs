@@ -14,6 +14,7 @@ public class Player : CharacterMoveControllerBase
 
     /// <summary>角色数据资产（连击状态机取连招配置用）</summary>
     public PlayerSO PlayerSO => playerSO;
+    
 
     // 角色音效组件缓存（懒获取：首次访问时 GetComponent 并缓存，避免状态机频繁调用重复查找）
     private ActorAudioComponent actorAudio;
@@ -39,27 +40,30 @@ public class Player : CharacterMoveControllerBase
         viewCamera != null ? viewCamera.transform
         : Camera.main != null ? Camera.main.transform : null;
 
-    [Header("武器骨骼（攻击特效挂点）")]
-    [SerializeField] private Transform weaponBone;
-
-    /// <summary>
-    /// 武器骨骼 Transform（VFX 挂点）。优先用 Inspector 配置，未配置则在首次访问时
-    /// 沿 transform.Find 查找 "Bip001/Anbi_Weapon_02"，结果缓存复用。
-    /// </summary>
-    public Transform WeaponBone
-    {
-        get
-        {
-            if (weaponBone == null) weaponBone = transform.Find("Bip001/Anbi_Weapon_02");
-            return weaponBone;
-        }
-    }
+    // [Header("武器骨骼（攻击特效挂点）")]
+    // [SerializeField] private Transform weaponBone;
+    //
+    // /// <summary>
+    // /// 武器骨骼 Transform（VFX 挂点）。优先用 Inspector 配置，未配置则在首次访问时
+    // /// 沿 transform.Find 查找 "Bip001/Anbi_Weapon_02"，结果缓存复用。
+    // /// </summary>
+    // public Transform WeaponBone
+    // {
+    //     get
+    //     {
+    //         if (weaponBone == null) weaponBone = transform.Find("Bip001/Anbi_Weapon_02");
+    //         return weaponBone;
+    //     }
+    // }
 
     private PlayerMovementStateMachine stateMachine;
     private PlayerComboStateMachine comboStateMachine;
 
     /// <summary>移动状态机（连击状态等需要联动移动状态时访问）</summary>
     public PlayerMovementStateMachine MovementStateMachine => stateMachine;
+
+    /// <summary>连击状态机（调试组件读取当前连招/判定数据用）</summary>
+    public PlayerComboStateMachine ComboStateMachine => comboStateMachine;
 
     protected override void Awake()
     {
@@ -114,4 +118,29 @@ public class Player : CharacterMoveControllerBase
     public bool IsSprintPressed => CharacterInputSystem.MainInstance.dashPressed;
     public bool PressedAttack => CharacterInputSystem.MainInstance.Attack;
     public bool PressedSkill => CharacterInputSystem.MainInstance.Skill;
+
+    // ================================================================
+    // 打击感辅助（命中顿帧）
+    // ================================================================
+
+    private Coroutine hitStopCoroutine;
+
+    /// <summary>
+    /// 命中顿帧：把 timeScale 压到接近 0 制造打击停顿感，realTime 后恢复。
+    /// 用实时等待（WaitForSecondsRealtime），顿帧期间动画/Update 全部停住也不会影响恢复计时。
+    /// 注意：后续若接入游戏暂停/慢动作，这里恢复成 1f 需要改为恢复"暂停前的 timeScale"。
+    /// </summary>
+    public void HitStop(float realSeconds)
+    {
+        if (hitStopCoroutine != null) StopCoroutine(hitStopCoroutine);
+        hitStopCoroutine = StartCoroutine(HitStopRoutine(realSeconds));
+    }
+
+    private System.Collections.IEnumerator HitStopRoutine(float realSeconds)
+    {
+        Time.timeScale = 0.03f;
+        yield return new WaitForSecondsRealtime(realSeconds);
+        Time.timeScale = 1f;
+        hitStopCoroutine = null;
+    }
 }
