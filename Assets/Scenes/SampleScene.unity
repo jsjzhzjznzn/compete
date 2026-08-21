@@ -2129,15 +2129,15 @@ MonoBehaviour:
   m_GameObject: {fileID: 2087764433}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e3b42594dcf371947bca29d412a96101, type: 3}
+  m_Script: {fileID: 11500000, guid: dbb67874fffe4ee41a99e962d8a4ce97, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::SFX_PoolManager
-  soundPools:
-  - soundStyle: 0
-    soundName: 
-    soundPrefab: {fileID: 0}
-    soundCount: 0
-    ApplyBigCenter: 0
+  m_EditorClassIdentifier: Assembly-CSharp::AudioManager
+  uiGroup: {fileID: 7053371031126030321, guid: 0a160249e0ab21a4587ff588efadcf81, type: 2}
+  bgmGroup: {fileID: 1939704169292153022, guid: 0a160249e0ab21a4587ff588efadcf81, type: 2}
+  voiceGroup: {fileID: 24300002, guid: 0a160249e0ab21a4587ff588efadcf81, type: 2}
+  oneShotPoolSize: 16
+  minPlayInterval: 0.05
+  soundData: {fileID: 0}
 --- !u!4 &2087764435
 Transform:
   m_ObjectHideFlags: 0
