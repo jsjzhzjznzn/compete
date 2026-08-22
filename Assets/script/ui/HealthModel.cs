@@ -41,21 +41,25 @@ public class HealthModel : MonoBehaviour
     // ============ 扣血逻辑 ============
 
     /// <summary>扣血逻辑：直接派发 E_OnDamage / E_OnDeath 到全局事件中心</summary>
-    public void TakeDamage(float amount, GameObject source = null, bool isCritical = false)
+    /// <param name="amount">扣血量</param>
+    /// <param name="source">伤害来源（可为 null）</param>
+    /// <param name="isCritical">是否暴击（飘字样式区分）</param>
+    /// <param name="isDoT">是否持续伤害（Buff 灼烧类 tick；订阅方据此跳过受击硬直/闪避触发）</param>
+    public void TakeDamage(float amount, GameObject source = null, bool isCritical = false, bool isDoT = false)
     {
         if (!IsAlive || _isDead) return;
 
-        // 无敌窗口（闪避等）：伤害检测到但被拦下，派发 E_DamageBlocked（闪避触发/UI 表现听这个）
-        if (IsInvincible)
+        // 无敌窗口（闪避等）：普通打击被拦下，派发 E_DamageBlocked（闪避触发/UI 表现听这个）。
+        // DoT（灼烧类）无视无敌：闪避只能躲开"一下下的打击"，解不了已经挂在身上的持续伤害
+        if (IsInvincible && !isDoT)
         {
             EventCenter.MainInstance.Dispatch(E_EventType.E_DamageBlocked, new DamageData
             {
                 source = source != null ? source : gameObject,
                 target = gameObject,
                 amount = amount,
-                currentHP = CurrentHP.Value,
-                maxHP = MaxHP.Value,
-                isCritical = isCritical
+                isCritical = isCritical,
+                isDoT = isDoT
             });
             return;
         }
@@ -63,15 +67,14 @@ public class HealthModel : MonoBehaviour
         float nextHP = Mathf.Max(0f, CurrentHP.Value - amount);
         CurrentHP.Value = nextHP;
 
-        // 派发受伤事件（血条/飘字/震屏订阅）
+        // 派发受伤事件（飘字/受击/闪避订阅）
         EventCenter.MainInstance.Dispatch(E_EventType.E_OnDamage, new DamageData
         {
             source = source != null ? source : gameObject,
             target = gameObject,
             amount = amount,
-            currentHP = nextHP,
-            maxHP = MaxHP.Value,
-            isCritical = isCritical
+            isCritical = isCritical,
+            isDoT = isDoT
         });
 
         // 死亡：生命归零只派发一次

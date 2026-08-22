@@ -195,10 +195,31 @@ public class CharacterCombo
 
             if (!_hitTargets.Add(target.gameObject)) continue;  // 同一受击单位只结算一次
 
-            // 暴击掷骰：每次命中独立判定，暴击时伤害 × 倍率（飘字样式由 DamageTextManager 按 isCritical 区分）
-            bool isCrit = Random.value < data.critRate;
-            float damage = isCrit ? data.comboDamage * data.critMultiplier : data.comboDamage;
-            target.TakeDamage(damage, player.gameObject, isCrit);
+            // 走伤害计算管道：Base → 攻击方增伤 → 暴击 → 防御方减伤 → 保底（明细可查 result.stageResults 调试）
+            var result = DamageCalculator.Calculate(new DamageContext
+            {
+                baseDamage = data.comboDamage,
+                critRate = data.critRate,
+                critMultiplier = data.critMultiplier,
+                attacker = player.gameObject,
+                defender = target.gameObject,
+            });
+            target.TakeDamage(result.finalDamage, player.gameObject, result.isCritical);
+
+            // 命中附带 Buff：本次伤害先结算完再挂状态（挂的增伤/减伤从下一击生效，不影响本次）
+            if (data.hitBuff != null)
+            {
+                var targetBuff = target.GetComponent<BuffComponent>();
+                targetBuff?.AddBuff(data.hitBuff, player.gameObject);
+            }
+
+            // 命中事件：吸血/叠层/击杀回怒类效果订阅（HitData 已定义，此前无人派发）
+            EventCenter.MainInstance.Dispatch(E_EventType.E_Attack, new HitData
+            {
+                attacker = player.gameObject,
+                target = target.gameObject,
+                hitPoint = _detectBuffer[i].transform.position,
+            });
             anyHit = true;
         }
 

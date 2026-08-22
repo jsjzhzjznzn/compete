@@ -49,8 +49,8 @@ public enum E_EventType
     E_ComboChanged,    // 连击数变化 (int)：UI 连击计数
 
     // ===== Buff =====
-    E_BuffAdd,         // 添加 Buff（暂定无参，需要时可改 struct）
-    E_BuffRemove,      // 移除 Buff
+    E_BuffAdd,         // 添加 Buff      (BuffChangeData)：UI buff 栏/音效订阅
+    E_BuffRemove,      // 移除 Buff      (BuffChangeData)：到期/被清除时派发
 
     // ===== 输入 =====
     E_InputAttack,       // 按下攻击键
@@ -86,16 +86,15 @@ public struct HitData
     public GameObject target;     // 打中了谁
     public Vector3 hitPoint;      // 命中点世界坐标（播受击特效/飘字用）
 }
-// 攻击命中 → E_Attack(HitData) → 伤害计算 → E_OnDamage(DamageData) → 血条/飘字
-/// <summary>一次伤害结算信息（E_OnDamage，血条监听这个）</summary>
+// 攻击命中 → E_Attack(HitData) → 伤害计算 → E_OnDamage(DamageData) → 飘字/受击
+/// <summary>一次伤害结算信息（E_OnDamage / E_DamageBlocked，飘字/受击/闪避订阅）</summary>
 public struct DamageData
 {
     public GameObject source;     // 伤害来源（可能是施法者，不是直接攻击者）
-    public GameObject target;     // 被攻击者（谁掉血了；血条/飘字据此过滤是不是自己）
+    public GameObject target;     // 被攻击者（谁掉血了；飘字/受击据此过滤是不是自己）
     public float amount;          // 本次扣血量
-    public float currentHP;       // 扣血后的当前血量
-    public float maxHP;           // 最大血量
     public bool isCritical;       // 是否暴击（飘字/音效可区分）
+    public bool isDoT;            // 是否持续伤害（Buff 灼烧类 tick 扣血；受击硬直/闪避触发据此跳过）
 }
 
 /// <summary>一次死亡信息（E_OnDeath：谁死了）</summary>
@@ -116,6 +115,15 @@ public struct SkillData
 {
     public int skillId;           // 技能ID
     public float cooldown;        // 冷却时长（秒）
+}
+
+/// <summary>一次 Buff 状态变化信息（E_BuffAdd / E_BuffRemove，UI buff 栏订阅）</summary>
+public struct BuffChangeData
+{
+    public GameObject target;     // 谁身上的 Buff 变了（UI 据此过滤是不是自己）
+    public BuffData buffData;     // 哪个 Buff（显示图标/名称用）
+    public int stacks;            // 当前层数（移除时为 0）
+    public float remainTime;      // 剩余时间（秒，移除时为 0；永久 Buff 为极大值）
 }
 
 // ============================================================
@@ -209,7 +217,7 @@ public class EventInfo<T> : EventInfoBase
 //
 //   【派发端】(发出消息的一方，如战斗/伤害系统)
 //     EventCenter.MainInstance.Dispatch(E_EventType.E_OnDamage, new DamageData {
-//         source = gameObject, amount = 10, currentHP = hp, maxHP = maxHp });
+//         source = gameObject, amount = 10, isCritical = false, isDoT = false });
 // ============================================================
 public class EventCenter
 {

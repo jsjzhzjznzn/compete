@@ -52,6 +52,9 @@ public class ComboData : ScriptableObject
     [SerializeField, Header("本段暴击倍率（暴击时伤害 = 伤害 × 倍率）")]
     private float _critMultiplier = 2f;
 
+    [SerializeField, Header("本段命中附带 Buff（打中目标时施加，可空；如灼烧/减伤）")]
+    private BuffData _hitBuff;
+
     [SerializeField, Header("本段攻击命中半径（OverlapSphere 半径）")]
     private float _attackDistance = 1f;
 
@@ -120,6 +123,9 @@ public class ComboData : ScriptableObject
 
     /// <summary>本段暴击倍率（暴击时伤害 = 伤害 × 倍率）</summary>
     public float critMultiplier => _critMultiplier;
+
+    /// <summary>本段命中附带 Buff（未配置返回 null）</summary>
+    public BuffData hitBuff => _hitBuff;
 
     /// <summary>本段攻击命中半径</summary>
     public float attackDistance => _attackDistance;

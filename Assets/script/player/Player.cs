@@ -73,6 +73,10 @@ public class Player : CharacterMoveControllerBase
         playerCameraUtility?.Init();                    // 初始化相机辅助（缓存 Virtual Camera 的 CinemachinePOV）
         // 初始状态在 Start 切换：确保所有单例（CharacterInputSystem 等）Awake 已完成，
         // 事件订阅能拿到已初始化的 inputActions
+
+        // Buff 组件兜底挂载：不强制在 Inspector 手动挂，漏挂时自动补（增伤/减伤/持续伤害都依赖它）
+        if (GetComponent<BuffComponent>() == null)
+            gameObject.AddComponent<BuffComponent>();
     }
 
     protected override void Start()
@@ -114,7 +118,7 @@ public class Player : CharacterMoveControllerBase
 
     private void OnDamageTaken(DamageData data)
     {
-        if (data.target == gameObject)
+        if (data.target == gameObject && !data.isDoT)   // DoT（灼烧类）不进受击硬直
         {
             TakeHit();
         }
@@ -168,7 +172,7 @@ public class Player : CharacterMoveControllerBase
         dodgeCooldownRemain = DodgeCooldown;
     }
 
-    /// <summary>无敌窗口内被打中：伤害已拦下，切入闪避状态</summary>
+    /// <summary>无敌窗口内被打中：伤害已拦下，切入闪避状态（DoT 无视无敌直接扣血，不会走到这里）</summary>
     private void OnDamageBlocked(DamageData data)
     {
         if (data.target != gameObject) return;
