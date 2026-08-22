@@ -35,6 +35,7 @@ public enum E_EventType
     E_Attack,          // 攻击命中  (HitData)：攻击方打中了谁、打在哪
     E_OnHit,           // 受到攻击  (HitData)：被攻击方知道自己被谁打中（还没扣血）
     E_OnDamage,        // 受到伤害  (DamageData)：实际扣血，血条/飘字/震屏听这个
+    E_DamageBlocked,   // 伤害被拦下 (DamageData)：无敌窗口内被打中但不掉血（闪避触发等）
     E_OnDeath,         // 死亡      (DeathData)：生命归零
     E_OnKill,          // 击杀      (无参)：杀死了目标
     E_OnStateChanged,  // 状态切换  (StateChangeData)：移动/连击状态机切状态
@@ -85,7 +86,7 @@ public struct HitData
     public GameObject target;     // 打中了谁
     public Vector3 hitPoint;      // 命中点世界坐标（播受击特效/飘字用）
 }
-
+// 攻击命中 → E_Attack(HitData) → 伤害计算 → E_OnDamage(DamageData) → 血条/飘字
 /// <summary>一次伤害结算信息（E_OnDamage，血条监听这个）</summary>
 public struct DamageData
 {

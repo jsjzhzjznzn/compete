@@ -8,7 +8,7 @@ using UnityEngine;
 public class Player : CharacterMoveControllerBase
 {
     [SerializeField] public string currentMovementState;   // 调试用：当前移动状态名
-    //  [SerializeField] public string currentComboState;
+     [SerializeField] public string currentComboState;
 
     [SerializeField] private PlayerSO playerSO;            // 角色数据资产（Inspector 拖入）
 
@@ -91,6 +91,7 @@ public class Player : CharacterMoveControllerBase
         base.Update();                        // 地面检测 + 重力 + 竖直速度
         stateMachine?.Update();               // 状态机Tick
         comboStateMachine?.Update();          // 连击状态机Tick
+        HandleDodgeInput();                   // 右键开无敌窗口（带冷却）
         //currentMovementState = stateMachine.CurrentState?.GetType().Name;   // 同步调试显示
     }
 
@@ -102,6 +103,8 @@ public class Player : CharacterMoveControllerBase
     {
         // 受到伤害 → 进受击硬直（HealthModel.TakeDamage 派发 E_OnDamage）
         EventCenter.MainInstance.AddListener<DamageData>(E_EventType.E_OnDamage, this, OnDamageTaken);
+        // 无敌窗口内被打中 → 触发闪避（HealthModel.TakeDamage 派发 E_DamageBlocked）
+        EventCenter.MainInstance.AddListener<DamageData>(E_EventType.E_DamageBlocked, this, OnDamageBlocked);
     }
 
     private void OnDisable()
@@ -128,6 +131,63 @@ public class Player : CharacterMoveControllerBase
 
         comboStateMachine.SwitchState(comboStateMachine.NullState);
         stateMachine.SwitchState(stateMachine.hurtState);
+    }
+
+    // ================================================================
+    // 闪避（右键：开无敌窗口，窗口内受伤才触发闪避）
+    // ================================================================
+
+    private float dodgeCooldownRemain;
+
+    /// <summary>右键开启的无敌窗口时长（秒，读 PlayerSO 配置，未配置用默认值）</summary>
+    private float DodgeInvincibleWindow => PlayerSO?.movementData?.dodgeData?.invincibleWindow ?? 0.3f;
+
+    /// <summary>闪避冷却时长（秒，读 PlayerSO 配置，未配置用默认值）</summary>
+    private float DodgeCooldown => PlayerSO?.movementData?.dodgeData?.cooldown ?? 1.5f;
+
+    /// <summary>
+    /// 右键闪避：按下右键不切状态，只开启一段无敌窗口；
+    /// 窗口内受到伤害（E_DamageBlocked）才触发闪避动画。
+    /// 限制：冷却已好 + 非受击/非闪避中 + 存活。
+    /// </summary>
+    private void HandleDodgeInput()
+    {
+        if (dodgeCooldownRemain > 0f)
+            dodgeCooldownRemain -= Time.deltaTime;
+
+        if (!CharacterInputSystem.MainInstance.HeavyAttack) return;
+        if (dodgeCooldownRemain > 0f) return;
+        if (stateMachine == null) return;
+        if (stateMachine.CurrentState == stateMachine.hurtState) return;
+        if (stateMachine.CurrentState == stateMachine.dodgeState) return;
+
+        var health = GetComponent<HealthModel>();
+        if (health == null || !health.IsAlive) return;
+
+        health.SetInvincible(DodgeInvincibleWindow);
+        dodgeCooldownRemain = DodgeCooldown;
+    }
+
+    /// <summary>无敌窗口内被打中：伤害已拦下，切入闪避状态</summary>
+    private void OnDamageBlocked(DamageData data)
+    {
+        if (data.target != gameObject) return;
+        EnterDodgeState();
+    }
+
+    /// <summary>
+    /// 闪避入口：打断当前动作进入闪避。
+    /// 顺序敏感：先切连击→空状态（复位连招 + 清除攻击动画残留回调），
+    /// 再切移动→闪避（覆盖空状态 Enter 恢复的移动，闪避期间锁定输入 + 无敌）。
+    /// </summary>
+    private void EnterDodgeState()
+    {
+        if (stateMachine == null || comboStateMachine == null) return;
+        if (stateMachine.CurrentState == stateMachine.hurtState) return;
+        if (stateMachine.CurrentState == stateMachine.dodgeState) return;
+
+        comboStateMachine.SwitchState(comboStateMachine.NullState);
+        stateMachine.SwitchState(stateMachine.dodgeState);
     }
 
     // ================================================================

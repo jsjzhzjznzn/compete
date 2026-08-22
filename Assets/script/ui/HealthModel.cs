@@ -30,6 +30,9 @@ public class HealthModel : MonoBehaviour
 
     private bool _isDead; // 死亡锁，防止多次触发死亡事件
 
+    private bool _isInvincible;        // 是否处于无敌窗口（闪避等）
+    private GameTimer _invincibleTimer; // 无敌计时器（到期自动关闭无敌）
+
     private void Awake()
     {
         ResetHealth(initialHP, initialMaxHP);
@@ -41,6 +44,21 @@ public class HealthModel : MonoBehaviour
     public void TakeDamage(float amount, GameObject source = null, bool isCritical = false)
     {
         if (!IsAlive || _isDead) return;
+
+        // 无敌窗口（闪避等）：伤害检测到但被拦下，派发 E_DamageBlocked（闪避触发/UI 表现听这个）
+        if (IsInvincible)
+        {
+            EventCenter.MainInstance.Dispatch(E_EventType.E_DamageBlocked, new DamageData
+            {
+                source = source != null ? source : gameObject,
+                target = gameObject,
+                amount = amount,
+                currentHP = CurrentHP.Value,
+                maxHP = MaxHP.Value,
+                isCritical = isCritical
+            });
+            return;
+        }
 
         float nextHP = Mathf.Max(0f, CurrentHP.Value - amount);
         CurrentHP.Value = nextHP;
@@ -75,6 +93,28 @@ public class HealthModel : MonoBehaviour
         if (!IsAlive || _isDead) return;
 
         CurrentHP.Value = Mathf.Min(MaxHP.Value, CurrentHP.Value + amount);
+    }
+
+    // ============ 无敌 ============
+
+    /// <summary>当前是否无敌（无敌窗口内 TakeDamage 被拦截，不掉血）</summary>
+    public bool IsInvincible => _isInvincible;
+
+    /// <summary>设置无敌时间（秒）：重启计时器，到期自动关闭无敌</summary>
+    public void SetInvincible(float seconds)
+    {
+        if (seconds <= 0f) return;
+
+        // 取消上一次计时（若仍在跑），重新计时
+        if (_invincibleTimer != null)
+            TimerManager.MainInstance.UnregisterTimer(_invincibleTimer);
+
+        _isInvincible = true;
+        _invincibleTimer = TimerManager.MainInstance.GetOneTimer(seconds, () =>
+        {
+            _isInvincible = false;
+            _invincibleTimer = null;
+        });
     }
 
     // ============ 属性修改 ============

@@ -49,6 +49,17 @@ public class PlayerSprintData : PlayerStateData { }
 [System.Serializable]
 public class PlayerDashData : PlayerStateData { }
 
+/// <summary>闪避数据（右键触发：先开无敌窗口，窗口内受伤才进闪避状态）</summary>
+[System.Serializable]
+public class PlayerDodgeData : PlayerStateData
+{
+    /// <summary>按右键开启的无敌窗口（秒），窗口内收到伤害会拦下伤害并触发闪避</summary>
+    [field: SerializeField, Range(0f, 2f)] public float invincibleWindow { get; private set; } = 0.3f;
+
+    /// <summary>闪避冷却时长（秒），冷却内按右键无效</summary>
+    [field: SerializeField, Range(0f, 10f)] public float cooldown { get; private set; } = 1.5f;
+}
+
 /// <summary>回到奔跑过渡数据</summary>
 [System.Serializable]
 public class PlayerReturnRunData : PlayerStateData { }

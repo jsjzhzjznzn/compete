@@ -18,6 +18,9 @@ public class PlayerHurtState : PlayerMovementState
         var data = playerMovementData?.hurtData;
         reusableData.rotationTime = data != null ? data.rotationTime : 0.03f;
 
+        // 受击音效（从 SoundData 查 HIT 类型取 clip）
+        player.ActorAudio?.PlayByStyle(SoundStyle.HIT);
+
         // 锁定连击输入：攻击/技能事件仍会回调，但 canInput=false 让它们全部忽略
         player.ComboStateMachine.ReusableData.canInput = false;
 
