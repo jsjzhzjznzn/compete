@@ -95,6 +95,42 @@ public class Player : CharacterMoveControllerBase
     }
 
     // ================================================================
+    // 受击处理
+    // ================================================================
+
+    private void OnEnable()
+    {
+        // 受到伤害 → 进受击硬直（HealthModel.TakeDamage 派发 E_OnDamage）
+        EventCenter.MainInstance.AddListener<DamageData>(E_EventType.E_OnDamage, this, OnDamageTaken);
+    }
+
+    private void OnDisable()
+    {
+        EventCenter.MainInstance.UnregisterTarget(this);
+    }
+
+    private void OnDamageTaken(DamageData data)
+    {
+        if (data.target == gameObject)
+        {
+            TakeHit();
+        }
+    }
+
+    /// <summary>
+    /// 受击入口：打断当前动作进入受击硬直。
+    /// 顺序敏感：先切连击→空状态（复位连招 + 清除攻击动画残留回调），
+    /// 再切移动→受击（覆盖空状态 Enter 恢复的移动，硬直期间锁定输入）。
+    /// </summary>
+    public virtual void TakeHit()
+    {
+        if (comboStateMachine == null || stateMachine == null) return;
+
+        comboStateMachine.SwitchState(comboStateMachine.NullState);
+        stateMachine.SwitchState(stateMachine.hurtState);
+    }
+
+    // ================================================================
     // 动画播放（统一入口，方便以后改Transition、加Fade）
     // ================================================================
 

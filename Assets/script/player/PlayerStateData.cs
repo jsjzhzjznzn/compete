@@ -64,3 +64,7 @@ public class PlayerOnSwitchOutData : PlayerStateData { }
 /// <summary>空状态数据（禁止移动，无需动画）</summary>
 [System.Serializable]
 public class PlayerMovementNullData : PlayerStateData { }
+
+/// <summary>受击数据（受击硬直动画）</summary>
+[System.Serializable]
+public class PlayerHurtData : PlayerStateData { }
