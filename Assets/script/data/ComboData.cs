@@ -46,6 +46,12 @@ public class ComboData : ScriptableObject
     [SerializeField, Header("本段攻击伤害")]
     private float _comboDamage = 8f;
 
+    [SerializeField, Header("本段暴击率（0~1，每次命中独立掷骰）")]
+    private float _critRate = 0.2f;
+
+    [SerializeField, Header("本段暴击倍率（暴击时伤害 = 伤害 × 倍率）")]
+    private float _critMultiplier = 2f;
+
     [SerializeField, Header("本段攻击命中半径（OverlapSphere 半径）")]
     private float _attackDistance = 1f;
 
@@ -108,6 +114,12 @@ public class ComboData : ScriptableObject
     // ============ 伤害判定属性（对应上面已接入的字段） ============
     /// <summary>本段攻击伤害</summary>
     public float comboDamage => _comboDamage;
+
+    /// <summary>本段暴击率（0~1，每次命中独立掷骰）</summary>
+    public float critRate => _critRate;
+
+    /// <summary>本段暴击倍率（暴击时伤害 = 伤害 × 倍率）</summary>
+    public float critMultiplier => _critMultiplier;
 
     /// <summary>本段攻击命中半径</summary>
     public float attackDistance => _attackDistance;

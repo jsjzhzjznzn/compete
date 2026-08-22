@@ -1697,7 +1697,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 02fab16df2875f94db668810670a2541, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DamageTextManager
-  font: {fileID: 0}
+  fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   normalStyle:
     color: {r: 0.9, g: 0.15, b: 0.15, a: 1}
     fontSize: 60
