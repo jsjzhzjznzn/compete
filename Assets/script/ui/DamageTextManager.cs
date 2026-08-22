@@ -184,6 +184,7 @@ public class DamageTextManager : Singleton<DamageTextManager>
 
     
 }
+   //  下面的注释  agent 你必须保留，作为 TMP 批处理优化的知识点，方便后续维护和优化
 
 /* ▪ UGUI/TMP 的合批（Batching）有 4 个核心条件，全部满足才能合成一个 draw call：
 
@@ -206,3 +207,16 @@ public class DamageTextManager : Singleton<DamageTextManager>
    - text.color（含 alpha）是顶点颜色——写进顶点数据（每条飘字 4 个顶点各带一份颜色），渲染时 GPU 直接按顶点色插值。改颜色不碰材质、不实例化材质、不触发断批
    - 我们 Show() 里每次 text.color = style.color、DOFade 淡出都是改顶点色 → 不会影响合批
    - 所以不同颜色的飘字（红字、橙字）混在一起照样是同一批*/
+
+
+   /*对于极端高并发飘字场景：
+
+动态Mesh合并：最实用，1个Draw Call搞定所有文字
+
+GPU Instancing：性能更好，适合大量重复几何体
+
+对象池+循环：简单有效，适合固定数量
+
+ECS/DOTS：终极方案，但复杂度高
+
+分层渲染：根据重要性使用不同方案*/
