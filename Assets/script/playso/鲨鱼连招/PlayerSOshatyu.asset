@@ -14,6 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerSO
   <movementData>k__BackingField:
     <turnBackAngle>k__BackingField: 135
+    <SidewaysCameraRecenteringData>k__BackingField: []
+    <BackWardsCameraRecenteringData>k__BackingField: []
     <idleData>k__BackingField:
       <animationClip>k__BackingField: {fileID: 1827226128182048838, guid: 4c0965f85110e2b48894845f31a37292, type: 3}
       <playSpeed>k__BackingField: 1
@@ -30,6 +32,18 @@ MonoBehaviour:
       <playSpeed>k__BackingField: 1
       <fadeDuration>k__BackingField: 0.15
       <rotationTime>k__BackingField: 1
+    <dodgeData>k__BackingField:
+      <animationClip>k__BackingField: {fileID: 0}
+      <playSpeed>k__BackingField: 1
+      <fadeDuration>k__BackingField: 0.3
+      <rotationTime>k__BackingField: 0.04
+      <invincibleWindow>k__BackingField: 0.3
+      <cooldown>k__BackingField: 1.5
+    <hurtData>k__BackingField:
+      <animationClip>k__BackingField: {fileID: 1827226128182048838, guid: 837dc85263eca2f4c880bb1303caed89, type: 3}
+      <playSpeed>k__BackingField: 1
+      <fadeDuration>k__BackingField: 0.3
+      <rotationTime>k__BackingField: 0.04
     <movementNullData>k__BackingField:
       <animationClip>k__BackingField: {fileID: 0}
       <playSpeed>k__BackingField: 1
@@ -38,8 +52,5 @@ MonoBehaviour:
   <comboData>k__BackingField:
     <comboData>k__BackingField:
       <lightCombo>k__BackingField: {fileID: 11400000, guid: 1f5286155e68bb54cbab3f4f405fc9b0, type: 2}
-      <heavyCombo>k__BackingField: {fileID: 0}
-      <executeCombo>k__BackingField: {fileID: 0}
       <skillCombo>k__BackingField: {fileID: 0}
       <finishSkillCombo>k__BackingField: {fileID: 0}
-      <switchSkill>k__BackingField: {fileID: 0}

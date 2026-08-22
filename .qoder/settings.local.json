@@ -4,5 +4,11 @@
       "url": "http://127.0.0.1:8080/mcp",
       "type": "http"
     }
+  },
+  "permissions": {
+    "allow": [
+      "mcp__unityMCP__execute_menu_item",
+      "mcp__unityMCP__*"
+    ]
   }
 }

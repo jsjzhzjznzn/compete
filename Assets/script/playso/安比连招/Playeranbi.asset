@@ -32,6 +32,18 @@ MonoBehaviour:
       <playSpeed>k__BackingField: 1
       <fadeDuration>k__BackingField: 0.15
       <rotationTime>k__BackingField: 0.04
+    <dodgeData>k__BackingField:
+      <animationClip>k__BackingField: {fileID: 0}
+      <playSpeed>k__BackingField: 1
+      <fadeDuration>k__BackingField: 0.3
+      <rotationTime>k__BackingField: 0.04
+      <invincibleWindow>k__BackingField: 0.3
+      <cooldown>k__BackingField: 1.5
+    <hurtData>k__BackingField:
+      <animationClip>k__BackingField: {fileID: 554482296720618122, guid: 98daa5f85ba9dc146824d7488da418e9, type: 3}
+      <playSpeed>k__BackingField: 1
+      <fadeDuration>k__BackingField: 0.3
+      <rotationTime>k__BackingField: 0.04
     <movementNullData>k__BackingField:
       <animationClip>k__BackingField: {fileID: 0}
       <playSpeed>k__BackingField: 1

@@ -16,9 +16,14 @@ MonoBehaviour:
   - soundStyle: 1
     characterName: 9
     clips:
+    - {fileID: 8300000, guid: 2e3cdcff2932f5845bbf2354c0b92df9, type: 3}
     - {fileID: 8300000, guid: a7d39bb78dd35ed438aa29d107294902, type: 3}
   - soundStyle: 7
     characterName: 9
     clips:
     - {fileID: 8300000, guid: 1b292d51434f0624482dfefda493f788, type: 3}
     - {fileID: 8300000, guid: 4fe7ab52a66467542b7c634975304f46, type: 3}
+  - soundStyle: 2
+    characterName: 9
+    clips:
+    - {fileID: 8300000, guid: 8b8b4df240a6fa14ea7ebd3fe0b21785, type: 3}
