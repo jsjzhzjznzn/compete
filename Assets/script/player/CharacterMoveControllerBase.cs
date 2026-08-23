@@ -1,12 +1,13 @@
 using Animancer;
 using UnityEngine;
+using Unity.Netcode;
 
 /// <summary>
 /// 角色移动控制器基类（Animancer版）
 /// 负责：根运动位移、重力、地面检测、斜坡修正
 /// 子类负责：动画播放控制、状态切换逻辑
 /// </summary>
-public class CharacterMoveControllerBase : MonoBehaviour
+public class CharacterMoveControllerBase : NetworkBehaviour
 {
     // ==================== 组件引用 ====================
 
