@@ -24,11 +24,11 @@ public class PlayerDodgeState : PlayerMovementState
 
         var clip = data?.animationClip;
         // 兜底：未配置闪避动画时回退用冲刺动画（旧 asset 只配了 dashData）
-        if (clip == null && playerMovementData?.dashData?.animationClip != null)
+       /* if (clip == null && playerMovementData?.dashData?.animationClip != null)
         {
             clip = playerMovementData.dashData.animationClip;
             Debug.LogWarning($"[{player.name}] 未配置闪避动画（PlayerSO.movementData.dodgeData），回退使用冲刺动画");
-        }
+        }*/
 
         if (clip != null)
         {
@@ -44,10 +44,7 @@ public class PlayerDodgeState : PlayerMovementState
             else
                 Debug.LogWarning($"[{player.name}] 未挂载 HealthModel，闪避无敌无效");
         }
-        else
-        {
-            Debug.LogWarning($"[{player.name}] 未配置闪避动画（PlayerSO.movementData.dodgeData），闪避状态无法自动结束");
-        }
+        
     }
 
     public override void Update() { }
