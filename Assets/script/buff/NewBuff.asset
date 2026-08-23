@@ -14,6 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _buffId: new_buff
   _buffName: NewBuff
-  _effect: {fileID: 0}
-  _duration: 5
+  _effect: {fileID: 11400000, guid: 8175c878020a7f04890488989e216a84, type: 2}
+  _duration: 100
   _maxStack: 1

@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -24,25 +23,22 @@ public static class DamageCalculator
     private const float MaxDamageReduction = 0.9f;
 
     /// <summary>
-    /// 计算一次伤害的最终数值。按固定阶段顺序执行，每阶段结果记入 stageResults 供调试。
+    /// 计算一次伤害的最终数值。按固定阶段顺序执行，每阶段结果记入 stage* 字段供调试。
     /// </summary>
     /// <param name="ctx">伤害上下文（基础伤害、暴击参数、攻防双方）</param>
     /// <returns>计算结果（最终伤害 + 标记 + 阶段明细）</returns>
     public static DamageResult Calculate(DamageContext ctx)
     {
-        var result = new DamageResult
-        {
-            stageResults = new Dictionary<string, float>()
-        };
+        var result = new DamageResult();
 
         // 阶段 1：基础伤害（攻击段配置的原始值）
         float damage = ctx.baseDamage;
-        result.stageResults["Base"] = damage;
+        result.stageBase = damage;
 
         // 阶段 2：攻击方增伤（BuffComponent 查询，无组件返回 0 即无加成）
         float attackerBonus = GetModifier(ctx.attacker, BuffEffectType.DamageUp);
         damage *= 1f + attackerBonus;
-        result.stageResults["AttackerBonus"] = damage;
+        result.stageAttackerBonus = damage;
 
         // 阶段 3：暴击掷骰（每次命中独立判定，暴击时伤害 × 倍率）
         result.isCritical = Random.value < ctx.critRate;
@@ -50,12 +46,12 @@ public static class DamageCalculator
         {
             damage *= Mathf.Max(1f, ctx.critMultiplier);
         }
-        result.stageResults["Critical"] = damage;
+        result.stageCritical = damage;
 
         // 阶段 4：防御方减伤（系数 clamp 到 [0, 0.9]）
         float defenderReduction = Mathf.Clamp(GetModifier(ctx.defender, BuffEffectType.DamageDown), 0f, MaxDamageReduction);
         damage *= 1f - defenderReduction;
-        result.stageResults["DefenderReduction"] = damage;
+        result.stageDefenderReduction = damage;
 
         // 阶段 5：保底（伤害归零标记格挡，否则至少 1 点，保证攻击永远有反馈）
         if (damage <= 0f)
@@ -67,7 +63,7 @@ public static class DamageCalculator
         {
             damage = Mathf.Max(1f, damage);
         }
-        result.stageResults["Final"] = damage;
+        result.stageFinal = damage;
 
         result.finalDamage = damage;
         return result;

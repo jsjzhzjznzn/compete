@@ -35,6 +35,9 @@ MonoBehaviour:
     _NormalizedStartTime: NaN
   _comboColdTime: 0
   _comboDamage: 8
+  _critRate: 0.2
+  _critMultiplier: 2
+  _hitBuff: {fileID: 11400000, guid: 457b40010ff43b144a4437839f5f2fb6, type: 2}
   _attackDistance: 1.5
   _comboOffset: 0.9
   _enemyLayer:

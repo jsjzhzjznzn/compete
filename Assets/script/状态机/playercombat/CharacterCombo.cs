@@ -195,7 +195,7 @@ public class CharacterCombo
 
             if (!_hitTargets.Add(target.gameObject)) continue;  // 同一受击单位只结算一次
 
-            // 走伤害计算管道：Base → 攻击方增伤 → 暴击 → 防御方减伤 → 保底（明细可查 result.stageResults 调试）
+            // 走伤害计算管道：Base → 攻击方增伤 → 暴击 → 防御方减伤 → 保底（明细可查 result.stage* 字段调试）
             var result = DamageCalculator.Calculate(new DamageContext
             {
                 baseDamage = data.comboDamage,
