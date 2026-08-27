@@ -1,7 +1,7 @@
 {
   "dependencies": {
-    "cn.unity.uos.transport.kcp2k": "https://e.coding.net/unitychina/uos/Transport.git?path=kcp2k",
     "cn.unity.uos.multiverse.netcode.kcp": "https://e.coding.net/unitychina/uos/NetcodeTransport.git?path=kcp",
+    "cn.unity.uos.transport.kcp2k": "https://e.coding.net/unitychina/uos/Transport.git?path=kcp2k",
     "com.code-philosophy.luban": "https://github.com/focus-creative-games/luban_unity.git",
     "com.coplaydev.unity-mcp": "https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#main",
     "com.unity.2d.sprite": "1.0.0",
@@ -13,6 +13,7 @@
     "com.unity.ide.visualstudio": "2.0.27",
     "com.unity.inputsystem": "1.19.0",
     "com.unity.multiplayer.center": "1.0.1",
+    "com.unity.multiplayer.playmode": "2.0.2",
     "com.unity.netcode.gameobjects": "2.13.1",
     "com.unity.render-pipelines.universal": "17.4.0",
     "com.unity.test-framework": "1.6.0",

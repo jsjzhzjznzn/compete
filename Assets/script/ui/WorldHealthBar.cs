@@ -76,7 +76,10 @@ public class WorldHealthBar : MonoBehaviour
 
     private void LateUpdate()
     {
-        if (faceCamera && targetCamera != null)
+        if (!faceCamera) return;
+        if (targetCamera == null)
+            targetCamera = Camera.main != null ? Camera.main : Object.FindFirstObjectByType<Camera>();
+        if (targetCamera != null)
         {
             transform.rotation = targetCamera.transform.rotation;
         }

@@ -39,6 +39,9 @@ public class CharacterCombo
     /// <summary>技能招式数据（技能状态用）</summary>
     public ComboData SkillCombo => comboData?.skillCombo;
 
+    /// <summary>轻击连招容器（远程镜像端回退取当前连招用）</summary>
+    public ComboContainerData LightCombo => comboData?.lightCombo;
+
     // ==================== 输入门控 ====================
 
     /// <summary>是否允许发动基础连招：处于可输入窗口且当前未在执行其他招式</summary>
@@ -64,6 +67,7 @@ public class CharacterCombo
 
         // 确保前进攻击后首段恢复正常普攻
         reusableData.currentCombo.ResetComboDates();
+        player.SyncForwardATK(false);   // 同步给网络：远程端把轻击首段还原为普攻
         ExecuteBaseCombo();
     }
 
@@ -92,6 +96,7 @@ public class CharacterCombo
         }
 
         reusableData.currentCombo.SwitchForwardATK();
+        player.SyncForwardATK(true);   // 同步给网络：远程端把轻击首段切换为前进攻击段
         ReSetComboInfo();
         ExecuteBaseCombo();
     }
@@ -204,7 +209,12 @@ public class CharacterCombo
                 attacker = player.gameObject,
                 defender = target.gameObject,
             });
-            target.TakeDamage(result.finalDamage, player.gameObject, result.isCritical);
+            // 网络伤害：命中远程玩家 → RPC 转发到目标拥有者端结算（受击/飘字在对方端走本地链路）；
+            // 单机敌人（未 spawn）直接本地结算，保持原逻辑
+            if (target.IsSpawned)
+                target.ApplyNetworkDamage(result.finalDamage, player.NetworkObjectId, result.isCritical);
+            else
+                target.TakeDamage(result.finalDamage, player.gameObject, result.isCritical);
 
             // 命中附带 Buff：本次伤害先结算完再挂状态（挂的增伤/减伤从下一击生效，不影响本次）
             if (data.hitBuff != null)

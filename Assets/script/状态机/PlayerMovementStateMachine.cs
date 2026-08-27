@@ -40,4 +40,12 @@ public class PlayerMovementStateMachine : StateMachine
       //  onSwitchOutState = new PlayerOnSwitchOutState(this);
         playerMovementNullState = new PlayerMovementNullState(this);
     }
+
+    protected override void OnStateSwitched()
+    {
+        base.OnStateSwitched();
+        // 移动状态变化 → 同步给网络（拥有者写入；远程端据此回放动画）
+        if (CurrentState is PlayerMovementState moveState)
+            player.SyncMoveState(moveState.StateType);
+    }
 }

@@ -17,6 +17,8 @@ public class PlayerIdlingState : PlayerMovementState
 
     public PlayerIdlingState(PlayerMovementStateMachine stateMachine) : base(stateMachine) { }
 
+    public override MovementStateType StateType => MovementStateType.Idle;
+
     public override void Enter()
     {
         base.Enter();
@@ -26,6 +28,7 @@ public class PlayerIdlingState : PlayerMovementState
     protected override void AddInputActionCallBacks()
     {
         base.AddInputActionCallBacks();
+        if (player.IsRemote) return;   // 远程镜像端不跑轻点计时器
         CharacterInputSystem.MainInstance.inputActions.player.move.started += BufferToMove;
     }
 

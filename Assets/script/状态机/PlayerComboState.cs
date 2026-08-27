@@ -26,6 +26,9 @@ public abstract class PlayerComboState : IState
         reusableData = stateMachine.ReusableData;
     }
 
+    /// <summary>状态类型（网络同步标识，子类必须实现）</summary>
+    public abstract ComboStateType StateType { get; }
+
     // ==================== IState ====================
 
     public virtual void Enter()
@@ -48,6 +51,9 @@ public abstract class PlayerComboState : IState
 
     protected virtual void AddInputActionCallBacks()
     {
+        // 远程镜像端不订阅输入（全局输入单例，避免多角色争抢）
+        if (player.IsRemote) return;
+
         CharacterInputSystem.MainInstance.inputActions.player.attack.started += OnAttackInput;
         CharacterInputSystem.MainInstance.inputActions.player.defense.started += OnHeavyAttackInput;
         CharacterInputSystem.MainInstance.inputActions.player.skill.started += OnSkillInput;
@@ -55,6 +61,8 @@ public abstract class PlayerComboState : IState
 
     protected virtual void RemoveInputActionCallBacks()
     {
+        if (player.IsRemote) return;
+
         CharacterInputSystem.MainInstance.inputActions.player.attack.started -= OnAttackInput;
         CharacterInputSystem.MainInstance.inputActions.player.defense.started -= OnHeavyAttackInput;
         CharacterInputSystem.MainInstance.inputActions.player.skill.started -= OnSkillInput;
@@ -99,6 +107,15 @@ public abstract class PlayerComboState : IState
         // 清除该状态上可能残留的动画事件：同一 clip 被重复播放时会复用同一个 state，
         // 不清除会导致检查点/打击帧回调重复注册、同一帧被多次触发
         state.Events.Clear();
+
+        // 远程镜像端：只播动画并保留收尾 OnEnd（与拥有者同时进收尾），
+        // 不注册连击检查点/打击帧事件（避免远程端重复伤害判定与全局顿帧），也不播音效语音
+        if (player.IsRemote)
+        {
+            state.Events.OnEnd = OnAnimationEndEvent;
+            return;
+        }
+
         state.Events.OnEnd = OnAnimationEndEvent;
 
         // 触发本段的角色语音与武器挥砍音效
@@ -142,10 +159,11 @@ public abstract class PlayerComboState : IState
         state.Events.OnEnd = OnRecoveryEnd;
     }
 
-    /// <summary>设置当前段数（变化时自动通知动画/UI 订阅方）</summary>
+    /// <summary>设置当前段数（变化时自动通知动画/UI 订阅方，并同步给网络）</summary>
     protected void SetATKIndex(int index)
     {
         reusableData.currentIndex.Value = index;
+        player.SyncComboIndex(index);   // 拥有者端写入网络，远程端据此重播新段动画
     }
 
     /// <summary>清除动画结束回调，避免切换状态后误触发</summary>

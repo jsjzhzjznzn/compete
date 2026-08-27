@@ -17,16 +17,25 @@ using UnityEngine.InputSystem;
 /// </summary>
 public class PlayerATKIngState : PlayerComboState
 {
-    /// <summary>是否处于收尾动画阶段（此阶段允许移动 / 重新起手）</summary>
+    /// <summary>是否处于收尾动画阶段（此阶段允许移动 / 重新起手；远程端判断是否重播段动画用）</summary>
+    public bool IsRecovery => isRecovery;
+
     private bool isRecovery;
 
     public PlayerATKIngState(PlayerComboStateMachine stateMachine) : base(stateMachine) { }
+
+    public override ComboStateType StateType => ComboStateType.Attacking;
 
     public override void Enter()
     {
         base.Enter();
         isRecovery = false;
-      //  FaceAttackDirection();
+
+        // 远程镜像端：currentCombo 只由拥有者输入写入，这里回退到角色的轻击连招容器
+        if (player.IsRemote && reusableData.currentCombo == null)
+            reusableData.currentCombo = stateMachine.characterCombo.LightCombo;
+
+        //  FaceAttackDirection();
         PlayAttackClip();
     }
 

@@ -38,7 +38,8 @@ using UnityEngine;
             }
             else
             {
-                Destroy(gameObject);
+                // 只移除重复组件，不销毁整个 GameObject：防止误挂在网络预制体上时连 NetworkObject 一起删掉
+                Destroy(this);
             }
         }
     }

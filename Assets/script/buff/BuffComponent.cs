@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using Unity.Netcode;
 
 /// <summary>
 /// Buff 管理组件（MonoBehaviour，挂角色身上，与 HealthModel 并列）
@@ -19,7 +20,7 @@ using UnityEngine;
 ///
 /// 计时用 Time.deltaTime（受 timeScale 影响）：顿帧/慢动作时 Buff 计时同步暂停，符合直觉。
 /// </summary>
-public class BuffComponent : MonoBehaviour
+public class BuffComponent : NetworkBehaviour
 {
     /// <summary>当前角色身上的全部 Buff 实例（只读遍历用，修改必须走 AddBuff/RemoveBuff）</summary>
     public IReadOnlyList<BuffInstance> Buffs => _buffs;
@@ -33,6 +34,9 @@ public class BuffComponent : MonoBehaviour
 
     private void Update()
     {
+        // 非拥有者端不结算 Buff：DoT/回血/到期只由拥有者端模拟
+        if (IsSpawned && !IsOwner) return;
+
         // 死亡清空：角色血量归零后把所有 Buff 移除（尸体上挂持续效果没意义，也防泄漏）
         var health = Health;
         if (health != null && !health.IsAlive)
@@ -88,6 +92,7 @@ public class BuffComponent : MonoBehaviour
     public void AddBuff(BuffData data, GameObject source = null, int stacks = 1)
     {
         if (data == null) return;
+        if (IsSpawned && !IsOwner) return;   // Buff 状态只在拥有者端变更
 
         var existing = _buffs.Find(b => b.data.buffIdHash == data.buffIdHash);
         if (existing != null)
@@ -108,6 +113,7 @@ public class BuffComponent : MonoBehaviour
     public void RemoveBuff(BuffData data)
     {
         if (data == null) return;
+        if (IsSpawned && !IsOwner) return;   // Buff 状态只在拥有者端变更
 
         for (int i = _buffs.Count - 1; i >= 0; i--)
         {
@@ -124,6 +130,8 @@ public class BuffComponent : MonoBehaviour
     /// <summary>清空全部 Buff（死亡/场景切换用），逐个调用策略 OnRemove 并派发 E_BuffRemove</summary>
     public void RemoveAllBuffs()
     {
+        if (IsSpawned && !IsOwner) return;   // Buff 状态只在拥有者端变更
+
         for (int i = _buffs.Count - 1; i >= 0; i--)
         {
             var buff = _buffs[i];

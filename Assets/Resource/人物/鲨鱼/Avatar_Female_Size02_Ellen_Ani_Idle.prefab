@@ -7756,18 +7756,18 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7087329623341072967}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2795187802
+  GlobalObjectIdHash: 3164824583
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
   AlwaysReplicateAsRoot: 0
   SynchronizeTransform: 1
-  m_InScenePlaced: 1
+  m_InScenePlaced: 0
   ActiveSceneSynchronization: 0
   SceneMigrationSynchronization: 0
   SpawnWithObservers: 1
@@ -7799,7 +7799,7 @@ MonoBehaviour:
   RotationMaxInterpolationTime: 0.1
   ScaleLerpSmoothing: 1
   ScaleMaxInterpolationTime: 0.1
-  AuthorityMode: 0
+  AuthorityMode: 1
   TickSyncChildren: 0
   UseUnreliableDeltas: 0
   SyncPositionX: 1
@@ -7872,6 +7872,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ba77e3b96e01b2245be7ce28af919155, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Player
+  ShowTopMostFoldoutHeaderGroup: 1
   characterGravity: -9
   maxVerticalSpeed: 20
   minVerticalSpeed: -30
@@ -7886,6 +7887,7 @@ MonoBehaviour:
   SlopDetectionLenth: 1
   moveMult: 1
   currentMovementState: 
+  currentComboState: 
   playerSO: {fileID: 11400000, guid: 84a52e4701d6a2b428c92e6e920ad450, type: 2}
   playerCameraUtility:
     <virtualCamera>k__BackingField: {fileID: 0}
@@ -7904,6 +7906,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d30f242eb04012646b529d52d1d17045, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HealthModel
+  ShowTopMostFoldoutHeaderGroup: 1
   initialMaxHP: 100
   initialHP: 100
 --- !u!1 &7089656301185432323

@@ -30,4 +30,12 @@ public class PlayerComboStateMachine : StateMachine
         NullState = new PlayerNullState(this);
         SkillState = new PlayerSkillState(this);
     }
+
+    protected override void OnStateSwitched()
+    {
+        base.OnStateSwitched();
+        // 连击状态变化 → 同步给网络（拥有者写入；远程端据此播放攻击/技能动画）
+        if (CurrentState is PlayerComboState comboState)
+            Player.SyncComboState(comboState.StateType);
+    }
 }

@@ -1,5 +1,6 @@
 using Animancer;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using Unity.Netcode;
 
 /// <summary>
@@ -66,6 +67,9 @@ public class CharacterMoveControllerBase : NetworkBehaviour
 
     protected virtual void Update()
     {
+        // 非拥有者端不做本地模拟：位置由 NetworkTransform 插值同步
+        if (IsSpawned && !IsOwner) return;
+
         GroundDetection();           // 每帧检测是否着地
         UpdateCharacterGravity();    // 更新竖直速度（重力/贴地）
         UpdateVerticalVelocity();    // 应用竖直方向位移
@@ -82,6 +86,9 @@ public class CharacterMoveControllerBase : NetworkBehaviour
     /// </summary>
     protected virtual void OnAnimatorMove()
     {
+        // 非拥有者端不应用根运动：位置由 NetworkTransform 同步
+        if (IsSpawned && !IsOwner) return;
+
         UpdateCharacterVelocity(characterAnimancer.Animator.deltaPosition);   // 取出本帧位移量，传给CharacterController
     }
 

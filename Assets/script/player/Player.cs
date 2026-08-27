@@ -1,4 +1,5 @@
 using Animancer;
+using Unity.Netcode;
 using UnityEngine;
 
 /// <summary>
@@ -65,6 +66,48 @@ public class Player : CharacterMoveControllerBase
     /// <summary>连击状态机（调试组件读取当前连招/判定数据用）</summary>
     public PlayerComboStateMachine ComboStateMachine => comboStateMachine;
 
+    // ================================================================
+    // 网络动画状态同步（拥有者写入，远程端回放动画）
+    // ================================================================
+
+    /// <summary>移动状态同步变量（拥有者写入；远程端 OnValueChanged 回放对应状态动画）</summary>
+    private readonly NetworkVariable<MovementStateType> netMoveState =
+        new(MovementStateType.Idle, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+
+    /// <summary>连击状态同步变量（拥有者写入；远程端据此播放攻击/技能动画）</summary>
+    private readonly NetworkVariable<ComboStateType> netComboState =
+        new(ComboStateType.Null, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+
+    /// <summary>连击段数同步变量（拥有者写入；远程端段数前进时重播新段攻击动画）</summary>
+    private readonly NetworkVariable<int> netComboIndex =
+        new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+
+    /// <summary>前进攻击标识（拥有者写入；远程端把轻击容器首段切换/还原为前进攻击段）</summary>
+    private readonly NetworkVariable<bool> netForwardATK =
+        new(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+
+    /// <summary>是否作为远程镜像端（联网且非拥有者）；单机永远为 false</summary>
+    public bool IsRemote => IsSpawned && !IsOwner;
+
+    public override void OnNetworkSpawn()
+    {
+        base.OnNetworkSpawn();
+        netMoveState.OnValueChanged += OnMoveStateChanged;
+        netComboState.OnValueChanged += OnComboStateChanged;
+        netComboIndex.OnValueChanged += OnComboIndexChanged;
+        netForwardATK.OnValueChanged += OnForwardATKChanged;
+
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        base.OnNetworkDespawn();
+        netMoveState.OnValueChanged -= OnMoveStateChanged;
+        netComboState.OnValueChanged -= OnComboStateChanged;
+        netComboIndex.OnValueChanged -= OnComboIndexChanged;
+        netForwardATK.OnValueChanged -= OnForwardATKChanged;
+    }
+
     protected override void Awake()
     {
         base.Awake();
@@ -82,16 +125,29 @@ public class Player : CharacterMoveControllerBase
     protected override void Start()
     {
         base.Start();
-        stateMachine.SwitchState(stateMachine.idlingState);   // 初始进入待机
-        comboStateMachine.SwitchState(comboStateMachine.NullState);   // 连击初始进入空状态
+        // 联网时状态由 NetworkVariable 同步驱动：拥有者端在此做初始切换（写入网络），
+        // 远程端跳过（OnNetworkSpawn 时已收到拥有者当前状态并回放）；单机走本地初始切换
+        if (!IsSpawned || IsOwner)
+        {
+            stateMachine.SwitchState(stateMachine.idlingState);   // 初始进入待机
+            comboStateMachine.SwitchState(comboStateMachine.NullState);   // 连击初始进入空状态
+        }
 
-        // 游戏运行时锁定并隐藏鼠标光标（用鼠标视角）
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
+        // 相机绑定已移除：不再在生成时自动绑定镜头
+
+        // 游戏运行时锁定并隐藏鼠标光标（用鼠标视角）；非拥有者端不抢光标
+        if (!IsSpawned || IsOwner)
+        {
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+        }
     }
 
     protected override void Update()
     {
+        // 非拥有者端不做本地模拟：状态机/输入只驱动自己的角色
+        if (IsSpawned && !IsOwner) return;
+
         base.Update();                        // 地面检测 + 重力 + 竖直速度
         stateMachine?.Update();               // 状态机Tick
         comboStateMachine?.Update();          // 连击状态机Tick
@@ -118,10 +174,102 @@ public class Player : CharacterMoveControllerBase
 
     private void OnDamageTaken(DamageData data)
     {
+        if (IsSpawned && !IsOwner) return;   // 血量只在拥有者端结算，事件也只在拥有者端派发
         if (data.target == gameObject && !data.isDoT)   // DoT（灼烧类）不进受击硬直
         {
             TakeHit();
         }
+    }
+
+    // ================================================================
+    // 状态同步写入（状态机 SwitchState 钩子 / 连击辅助类调用；只允许拥有者写）
+    // ================================================================
+
+    /// <summary>同步移动状态（拥有者写入；单机/远程端为空操作）</summary>
+    public void SyncMoveState(MovementStateType type)
+    {
+        if (!IsSpawned || !IsOwner) return;
+        netMoveState.Value = type;
+    }
+
+    /// <summary>同步连击状态（拥有者写入；单机/远程端为空操作）</summary>
+    public void SyncComboState(ComboStateType type)
+    {
+        if (!IsSpawned || !IsOwner) return;
+        netComboState.Value = type;
+    }
+
+    /// <summary>同步连击段数（拥有者写入；单机/远程端为空操作）</summary>
+    public void SyncComboIndex(int index)
+    {
+        if (!IsSpawned || !IsOwner) return;
+        netComboIndex.Value = index;
+    }
+
+    /// <summary>同步前进攻击标识（拥有者写入；单机/远程端为空操作）</summary>
+    public void SyncForwardATK(bool isForward)
+    {
+        if (!IsSpawned || !IsOwner) return;
+        netForwardATK.Value = isForward;
+    }
+
+    // ================================================================
+    // 状态同步回放（远程端：收到状态变化 → 切换对应状态播动画）
+    // ================================================================
+
+    private void OnMoveStateChanged(MovementStateType previous, MovementStateType current)
+    {
+        if (IsOwner) return;   // 拥有者端状态本来就是本地切换的，不需要回放
+        if (stateMachine == null) return;
+
+        switch (current)
+        {
+            case MovementStateType.Idle: stateMachine.SwitchState(stateMachine.idlingState); break;
+            case MovementStateType.Walking: stateMachine.SwitchState(stateMachine.walkingState); break;
+            case MovementStateType.WalkStop: stateMachine.SwitchState(stateMachine.walkStopState); break;
+            case MovementStateType.Dashing: stateMachine.SwitchState(stateMachine.dashingState); break;
+            case MovementStateType.Dodge: stateMachine.SwitchState(stateMachine.dodgeState); break;
+            case MovementStateType.Hurt: stateMachine.SwitchState(stateMachine.hurtState); break;
+            case MovementStateType.Null: stateMachine.SwitchState(stateMachine.playerMovementNullState); break;
+        }
+    }
+
+    private void OnComboStateChanged(ComboStateType previous, ComboStateType current)
+    {
+        if (IsOwner) return;
+        if (comboStateMachine == null) return;
+
+        switch (current)
+        {
+            case ComboStateType.Null: comboStateMachine.SwitchState(comboStateMachine.NullState); break;
+            case ComboStateType.Attacking: comboStateMachine.SwitchState(comboStateMachine.ATKIngState); break;
+            case ComboStateType.Skill: comboStateMachine.SwitchState(comboStateMachine.SkillState); break;
+        }
+    }
+
+    private void OnComboIndexChanged(int previous, int current)
+    {
+        if (IsOwner) return;
+        if (comboStateMachine == null) return;
+
+        comboStateMachine.ReusableData.currentIndex.Value = current;
+
+        // 段数前进 = 拥有者切到下一段：重进攻击状态播放新段动画（当前正处于攻击段且非收尾时）
+        if (current > previous && comboStateMachine.CurrentState is PlayerATKIngState { IsRecovery: false })
+        {
+            comboStateMachine.SwitchState(comboStateMachine.ATKIngState);
+        }
+    }
+
+    private void OnForwardATKChanged(bool previous, bool current)
+    {
+        if (IsOwner) return;
+
+        // 把本端轻击容器首段切换/还原为前进攻击段（与拥有者同一份配置资源，各自本地修改）
+        var lightCombo = playerSO?.comboData?.comboData?.lightCombo;
+        if (lightCombo == null) return;
+        if (current) lightCombo.SwitchForwardATK();
+        else lightCombo.ResetComboDates();
     }
 
     /// <summary>
@@ -175,6 +323,7 @@ public class Player : CharacterMoveControllerBase
     /// <summary>无敌窗口内被打中：伤害已拦下，切入闪避状态（DoT 无视无敌直接扣血，不会走到这里）</summary>
     private void OnDamageBlocked(DamageData data)
     {
+        if (IsSpawned && !IsOwner) return;   // 非拥有者端不参与本地状态切换
         if (data.target != gameObject) return;
         EnterDodgeState();
     }

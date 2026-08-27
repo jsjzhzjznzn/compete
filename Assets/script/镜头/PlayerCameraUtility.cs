@@ -32,11 +32,15 @@ public class PlayerCameraUtility
 
     /// <summary>
     /// 初始化：缓存获取 CinemachinePOV 组件引用。
-    /// 在 Player.Awake() 中调用。
+    /// 在 Player.Awake() 中调用。未配置 virtualCamera 时自动查找场景中的虚拟相机。
     /// </summary>
     public void Init()
     {
-        cinemachinePOV = virtualCamera.GetCinemachineComponent<CinemachinePOV>();
+        if (virtualCamera == null)
+            virtualCamera = Object.FindFirstObjectByType<CinemachineVirtualCamera>();
+        cinemachinePOV = virtualCamera != null
+            ? virtualCamera.GetCinemachineComponent<CinemachinePOV>()
+            : null;
     }
 
     /// <summary>
@@ -47,6 +51,7 @@ public class PlayerCameraUtility
     /// <param name="recenteringTime">回正时间，为 -1 使用默认值</param>
     public void EnableRecentering(float waitTime = -1f, float recenteringTime = -1f)
     {
+        if (cinemachinePOV == null) return;
         cinemachinePOV.m_HorizontalRecentering.m_enabled = true;
 
         if (waitTime != -1f)
@@ -60,6 +65,7 @@ public class PlayerCameraUtility
     /// </summary>
     public void DisableRecentering()
     {
+        if (cinemachinePOV == null) return;
         cinemachinePOV.m_HorizontalRecentering.m_enabled = false;
     }
 }

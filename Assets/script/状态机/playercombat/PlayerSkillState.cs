@@ -15,6 +15,8 @@ public class PlayerSkillState : PlayerComboState
 {
     public PlayerSkillState(PlayerComboStateMachine stateMachine) : base(stateMachine) { }
 
+    public override ComboStateType StateType => ComboStateType.Skill;
+
     public override void Enter()
     {
         // 订阅本状态要用的输入事件（attack / heavyattk / skill）
@@ -22,6 +24,10 @@ public class PlayerSkillState : PlayerComboState
 
         // 取出共享数据里的当前技能（PlayerNullState 在切状态前填好的）
         var skill = reusableData.currentSkill;
+
+        // 远程镜像端：技能数据由拥有者输入写入，这里回退到配置里的技能
+        if (skill == null && player.IsRemote)
+            skill = stateMachine.characterCombo.SkillCombo;
 
         // 防御性校验：技能数据为空，或没配攻击动画 → 恢复移动并直接回待机，不播任何东西
         if (skill == null || skill.attackClip == null)

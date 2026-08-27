@@ -1009,13 +1009,13 @@ GameObject:
   - component: {fileID: 3105226991006617104}
   - component: {fileID: 3833520378460755471}
   - component: {fileID: 4109284901263348454}
-  - component: {fileID: 3027312461591046213}
-  - component: {fileID: 5354638931950435848}
+  - component: {fileID: 1082505316932062163}
   - component: {fileID: 8673733211711200553}
   - component: {fileID: 2582996426902965486}
   - component: {fileID: 2533818803263052575}
   - component: {fileID: 4260916641304214122}
-  - component: {fileID: 4214638941339612486}
+  - component: {fileID: 2726077170051019829}
+  - component: {fileID: 6344931191336353271}
   m_Layer: 3
   m_Name: "\u5B89\u6BD4"
   m_TagString: Untagged
@@ -1141,19 +1141,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Animancer::Animancer.AnimancerComponent
   _Animator: {fileID: 2585875827088708114}
   _ActionOnDisable: 0
---- !u!114 &3027312461591046213
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1449095386312702362}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 768fd008c7e945d46916da0dbd4eb735, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CharacterInputSystem
---- !u!114 &5354638931950435848
+--- !u!114 &1082505316932062163
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1165,7 +1153,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 19667024
+  GlobalObjectIdHash: 707681640
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -1173,7 +1161,7 @@ MonoBehaviour:
   SynchronizeTransform: 1
   m_InScenePlaced: 0
   ActiveSceneSynchronization: 0
-  SceneMigrationSynchronization: 0
+  SceneMigrationSynchronization: 1
   SpawnWithObservers: 1
   DontDestroyWithOwner: 0
   AutoObjectParentSync: 1
@@ -1246,6 +1234,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d30f242eb04012646b529d52d1d17045, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HealthModel
+  ShowTopMostFoldoutHeaderGroup: 1
   initialMaxHP: 100
   initialHP: 100
 --- !u!114 &4260916641304214122
@@ -1260,7 +1249,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 846ab60fd21094f408968a05014a075e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BuffComponent
---- !u!114 &4214638941339612486
+  ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &2726077170051019829
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1284,7 +1274,7 @@ MonoBehaviour:
   RotationMaxInterpolationTime: 0.1
   ScaleLerpSmoothing: 1
   ScaleMaxInterpolationTime: 0.1
-  AuthorityMode: 0
+  AuthorityMode: 1
   TickSyncChildren: 0
   UseUnreliableDeltas: 0
   SyncPositionX: 1
@@ -1306,6 +1296,18 @@ MonoBehaviour:
   SwitchTransformSpaceWhenParented: 0
   Interpolate: 1
   SlerpPosition: 0
+--- !u!114 &6344931191336353271
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1449095386312702362}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 768fd008c7e945d46916da0dbd4eb735, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CharacterInputSystem
 --- !u!1 &1487283508334861685
 GameObject:
   m_ObjectHideFlags: 0

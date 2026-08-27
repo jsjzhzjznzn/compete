@@ -18,6 +18,8 @@ public class PlayerNullState : PlayerComboState
 {
     public PlayerNullState(PlayerComboStateMachine stateMachine) : base(stateMachine) { }
 
+    public override ComboStateType StateType => ComboStateType.Null;
+
     public override void Enter()
     {
         // 1. 订阅本状态要用的输入事件（attack / heavyattk / skill）

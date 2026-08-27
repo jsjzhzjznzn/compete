@@ -29,6 +29,9 @@ public abstract class PlayerMovementState : IState
         reusableData = stateMachine.reusableData;
     }
 
+    /// <summary>状态类型（网络同步标识，子类必须实现）</summary>
+    public abstract MovementStateType StateType { get; }
+
     public virtual void Enter()
     {
         AddInputActionCallBacks();
@@ -46,6 +49,9 @@ public abstract class PlayerMovementState : IState
     /// <summary>进入状态时调用，子类可覆写订阅输入事件</summary>
     protected virtual void AddInputActionCallBacks()
     {
+        // 远程镜像端不订阅输入：CharacterInputSystem 是每客户端单例，订阅会导致多个角色争抢同一输入
+        if (player.IsRemote) return;
+
         // 相机水平回正：按移动方向（W 关 / A·D·S 开）+ 相机俯仰角匹配回正配置（参考 ZZZ 项目）
         CharacterInputSystem.MainInstance.inputActions.player.move.performed += UpdateCameraRecenteringState;
         CharacterInputSystem.MainInstance.inputActions.player.move.canceled += DisableCameraRecentering;
@@ -55,6 +61,8 @@ public abstract class PlayerMovementState : IState
     /// <summary>退出状态时调用，子类可覆写退订输入事件</summary>
     protected virtual void RemoveInputActionCallBacks()
     {
+        if (player.IsRemote) return;
+
         CharacterInputSystem.MainInstance.inputActions.player.move.performed -= UpdateCameraRecenteringState;
         CharacterInputSystem.MainInstance.inputActions.player.move.canceled -= DisableCameraRecentering;
         CharacterInputSystem.MainInstance.inputActions.player.look.started -= OnLookStarted;

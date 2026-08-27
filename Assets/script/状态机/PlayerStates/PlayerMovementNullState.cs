@@ -5,6 +5,8 @@ public class PlayerMovementNullState : PlayerMovementState
 {
     public PlayerMovementNullState(PlayerMovementStateMachine stateMachine) : base(stateMachine) { }
 
+    public override MovementStateType StateType => MovementStateType.Null;
+
     public override void Enter()
     {
         base.Enter();

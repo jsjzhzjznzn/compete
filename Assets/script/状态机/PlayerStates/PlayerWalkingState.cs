@@ -11,6 +11,8 @@ public class PlayerWalkingState : PlayerMovementState
 
     public PlayerWalkingState(PlayerMovementStateMachine stateMachine) : base(stateMachine) { }
 
+    public override MovementStateType StateType => MovementStateType.Walking;
+
     public override void Enter()
     {
         base.Enter();

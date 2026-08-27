@@ -12,7 +12,11 @@ public class StateMachine
         CurrentState?.Exit();
         CurrentState = newState;
         CurrentState?.Enter();
+        OnStateSwitched();
     }
+
+    /// <summary>状态切换完成钩子（子类覆写，用于网络状态同步等）</summary>
+    protected virtual void OnStateSwitched() { }
 
     public void Update()
     {

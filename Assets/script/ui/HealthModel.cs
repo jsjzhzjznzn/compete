@@ -1,4 +1,5 @@
 using UnityEngine;
+using Unity.Netcode;
 
 /// <summary>
 /// 血量组件（MonoBehaviour），挂载角色身上
@@ -11,7 +12,7 @@ using UnityEngine;
 ///   - 死亡 → E_OnDeath（DeathData）：生命归零派发一次
 /// 血条 UI 同时直接订阅 CurrentHP / MaxHP 的 BindableProperty 变化刷新。
 /// </summary>
-public class HealthModel : MonoBehaviour
+public class HealthModel : NetworkBehaviour
 {
     [Header("初始属性")]
     [SerializeField] private float initialMaxHP = 100f;
@@ -38,6 +39,51 @@ public class HealthModel : MonoBehaviour
         ResetHealth(initialHP, initialMaxHP);
     }
 
+    // ============ 网络伤害入口（攻击者端命中远程玩家时走这里） ============
+
+    /// <summary>
+    /// 网络伤害入口：攻击者（任意端）命中远程玩家时调用。
+    /// 血量只在拥有者端结算，这里把伤害通过 ServerRpc → ClientRpc 转发到目标拥有者端执行本地 TakeDamage。
+    /// 单机模式（未 spawn）直接本地结算，保持原逻辑。
+    /// </summary>
+    /// <param name="amount">扣血量</param>
+    /// <param name="sourceId">伤害来源 NetworkObjectId（未 spawn 时忽略）</param>
+    /// <param name="isCritical">是否暴击（飘字样式区分）</param>
+    /// <param name="isDoT">是否持续伤害（Buff 灼烧类 tick；订阅方据此跳过受击硬直/闪避触发）</param>
+    public void ApplyNetworkDamage(float amount, ulong sourceId, bool isCritical = false, bool isDoT = false)
+    {
+        if (!IsSpawned)
+        {
+            // 单机模式：攻击者即本地玩家，直接走本地结算链路
+            TakeDamage(amount, GetSourceObject(sourceId), isCritical, isDoT);
+            return;
+        }
+        ApplyDamageServerRpc(amount, sourceId, isCritical, isDoT);
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    private void ApplyDamageServerRpc(float amount, ulong sourceId, bool isCritical, bool isDoT)
+    {
+        // 服务器不直接结算血量（血量归拥有者端），只做转发
+        ApplyDamageClientRpc(amount, sourceId, isCritical, isDoT);
+    }
+
+    [ClientRpc]
+    private void ApplyDamageClientRpc(float amount, ulong sourceId, bool isCritical, bool isDoT)
+    {
+        if (!IsOwner) return;   // 只有目标拥有者端执行本地结算（受击/飘字/血条全走本地链路）
+        TakeDamage(amount, GetSourceObject(sourceId), isCritical, isDoT);
+    }
+
+    /// <summary>按 NetworkObjectId 查伤害来源 GameObject（查不到返回 null）</summary>
+    private static GameObject GetSourceObject(ulong sourceId)
+    {
+        if (sourceId == 0 || NetworkManager.Singleton == null) return null;
+        return NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(sourceId, out var sourceNo)
+            ? sourceNo.gameObject
+            : null;
+    }
+
     // ============ 扣血逻辑 ============
 
     /// <summary>扣血逻辑：直接派发 E_OnDamage / E_OnDeath 到全局事件中心</summary>
@@ -48,6 +94,8 @@ public class HealthModel : MonoBehaviour
     public void TakeDamage(float amount, GameObject source = null, bool isCritical = false, bool isDoT = false)
     {
         if (!IsAlive || _isDead) return;
+        // 血量只在拥有者端结算（网络伤害走 RPC 转发到拥有者端执行）
+        if (IsSpawned && !IsOwner) return;
 
         // 无敌窗口（闪避等）：普通打击被拦下，派发 E_DamageBlocked（闪避触发/UI 表现听这个）。
         // DoT（灼烧类）无视无敌：闪避只能躲开"一下下的打击"，解不了已经挂在身上的持续伤害
@@ -94,6 +142,7 @@ public class HealthModel : MonoBehaviour
     public void Heal(float amount)
     {
         if (!IsAlive || _isDead) return;
+        if (IsSpawned && !IsOwner) return;   // 血量只在拥有者端结算
 
         CurrentHP.Value = Mathf.Min(MaxHP.Value, CurrentHP.Value + amount);
     }
@@ -107,6 +156,7 @@ public class HealthModel : MonoBehaviour
     public void SetInvincible(float seconds)
     {
         if (seconds <= 0f) return;
+        if (IsSpawned && !IsOwner) return;   // 无敌状态只在拥有者端维护
 
         // 取消上一次计时（若仍在跑），重新计时
         if (_invincibleTimer != null)
@@ -125,6 +175,8 @@ public class HealthModel : MonoBehaviour
     /// <summary>修改最大血量上限</summary>
     public void SetMaxHP(float value)
     {
+        if (IsSpawned && !IsOwner) return;   // 血量只在拥有者端结算
+
         MaxHP.Value = Mathf.Max(0f, value);
         CurrentHP.Value = Mathf.Min(CurrentHP.Value, MaxHP.Value);
     }
@@ -132,6 +184,8 @@ public class HealthModel : MonoBehaviour
     /// <summary>重置血量（复活/读档使用）</summary>
     public void ResetHealth(float current, float max)
     {
+        if (IsSpawned && !IsOwner) return;   // 血量只在拥有者端结算
+
         max = Mathf.Max(0f, max);
         current = Mathf.Clamp(current, 0f, max);
         MaxHP.Value = max;

@@ -13,6 +13,8 @@ public class PlayerDodgeState : PlayerMovementState
 {
     public PlayerDodgeState(PlayerMovementStateMachine stateMachine) : base(stateMachine) { }
 
+    public override MovementStateType StateType => MovementStateType.Dodge;
+
     public override void Enter()
     {
         // 不调用 base.Enter()：闪避期间不订阅任何移动输入

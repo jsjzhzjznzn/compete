@@ -12,6 +12,8 @@ public class PlayerHurtState : PlayerMovementState
 {
     public PlayerHurtState(PlayerMovementStateMachine stateMachine) : base(stateMachine) { }
 
+    public override MovementStateType StateType => MovementStateType.Hurt;
+
     public override void Enter()
     {
         // 不调用 base.Enter()：硬直期间不订阅任何移动输入

@@ -9,6 +9,8 @@ public class PlayerDashingState : PlayerMovementState
 
     public PlayerDashingState(PlayerMovementStateMachine stateMachine) : base(stateMachine) { }
 
+    public override MovementStateType StateType => MovementStateType.Dashing;
+
     public override void Enter()
     {
         base.Enter();

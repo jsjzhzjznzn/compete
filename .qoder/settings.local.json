@@ -8,7 +8,21 @@
   "permissions": {
     "allow": [
       "mcp__unityMCP__execute_menu_item",
-      "mcp__unityMCP__*"
+      "mcp__unityMCP__*",
+      "Bash(find \"D:/project/KitchenChaos_Multiplayer_001_Intro/Assets/Scripts\" -name \"*.cs\" | sort)",
+      "Read(//d/project/KitchenChaos_Multiplayer_001_Intro/Assets/**)",
+      "Bash(cd \"D:\\\\project\\\\compete\" && grep -oE \"guid: [a-f0-9]{32}\" \"Assets/Resource/人物/安比.prefab\" | sort -u | head -50)",
+      "Bash(cd \"D:\\\\project\\\\compete\" && grep -oE \"guid: [a-f0-9]{32}\" \"Assets/DefaultNetworkPrefabs.asset\" | sort -u)",
+      "Bash(cd \"D:\\\\project\\\\compete\" && grep -n -B5 \"guid: 0cd44c1031e13a943bb63640046fad76\\\\|guid: 62899f850307741f2a39c98a8b639597\\\\|guid: d5a57f767e5e46a458fc5d3c628d0cbb\\\\|guid: e96cb6065543e43c4a752faaa1468eb1\" \"Assets/Resource/人物/安比.prefab\" | head -60)",
+      "Bash(cd \"D:\\\\project\\\\compete\" && grep -n -B8 \"guid: e651dbb3fbac04af2b8f5abf007ddc23\" \"Assets/DefaultNetworkPrefabs.asset\" | head -40)",
+      "Bash(cd \"D:\\\\project\\\\compete\" && ls Packages 2>/dev/null; echo ---; ls Library/PackageCache 2>/dev/null | head -30)",
+      "Bash(cd \"D:\\\\project\\\\compete\" && for g in 0cd44c1031e13a943bb63640046fad76 62899f850307741f2a39c98a8b639597 d5a57f767e5e46a458fc5d3c628d0cbb e96cb6065543e43c4a752faaa1468eb1 e651dbb3fbac04af2b8f5abf007ddc23; do found=$\\(grep -rl \"guid: $g\" --include=\"*.meta\" Packages Library/PackageCache 2>/dev/null | head -1\\); if [ -z \"$found\" ]; then echo \"MISSING everywhere: $g\"; else echo \"OK: $g -> $found\"; fi; done)",
+      "Bash(cd \"D:\\\\project\\\\compete\" && grep -n \"PrefabsList\\\\|NetworkPrefabs\" Assets/Scenes/SampleScene.unity | head; echo ===; grep -rn \"guid:\" --include=\"*.meta\" \"Library/PackageCache/com.unity.netcode.gameobjects@2.13.1/Runtime/Configuration/NetworkPrefabsList.cs.meta\" \"Library/PackageCache/com.unity.netcode.gameobjects@2.13.1/Runtime/Configuration/\" 2>/dev/null | head -5; echo ===; ls Library/PackageCache/ | grep -i netcode)",
+      "Bash(cd \"D:\\\\project\\\\compete\" && cat \"Assets/Resource/人物生成.asset\")",
+      "Bash(curl -s http://127.0.0.1:8080/api/instances 2>/dev/null | head -c 2000; echo; echo \"---\"; cat \"D:\\\\project\\\\compete\\\\Library\\\\MCPForUnity\\\\RunState\\\\mcp_http_8080.pid\" 2>/dev/null)",
+      "Bash(cd \"D:\\\\project\\\\compete\" && awk '/m_Script: {fileID: 11500000, guid: ba77e3b96e01b2245be7ce28af919155/, /^  [a-zA-Z_]+: \\\\{[^}]*\\\\}$/' \"Assets/Resource/人物/安比.prefab\" | head -5; echo \"=== Player 组件序列化块 ===\"; grep -n -A 30 \"m_Script: {fileID: 11500000, guid: ba77e3b96e01b2245be7ce28af919155\" \"Assets/Resource/人物/安比.prefab\" | head -40)",
+      "Bash(cd \"D:\\\\project\\\\compete\" && grep -n -B3 -A40 \"UnityTransport\" Assets/Scenes/SampleScene.unity | sed -n '1,80p')",
+      "Bash(cd \"D:\\\\project\\\\compete\" && ls Library/PackageCache/ 2>/dev/null | grep -i \"playmode\\\\|multiplayer\"; echo \"---MPPM进程---\"; tasklist 2>/dev/null | grep -i \"unity\\\\|mpm\" | head -10)"
     ]
   }
 }
