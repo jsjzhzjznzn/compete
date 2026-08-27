@@ -7,6 +7,9 @@ using Unity.Netcode;
 /// 职责：血量数据的存储 + 加减血业务逻辑，事件直接派发到全局事件中心。
 /// 每个角色各自挂一份，血量互不共享（无全局单例，天然支持 1v1 双方各挂一个）。
 ///
+/// 网络：血量在拥有者端结算（权威），结算结果通过 NetworkVariable 广播给所有端，
+/// 远程端据此刷新本地血条显示（CurrentHP / MaxHP 变化驱动 UI）。
+///
 /// 事件（走 EventCenter 全局总线，不设本地 C# 事件中转）：
 ///   - 扣血 → E_OnDamage（DamageData）：血条/飘字/震屏订阅
 ///   - 死亡 → E_OnDeath（DeathData）：生命归零派发一次
@@ -26,6 +29,16 @@ public class HealthModel : NetworkBehaviour
     /// <summary>最大血量（外部只读）</summary>
     public BindableProperty<float> MaxHP { get; } = new();
 
+    // ============ 网络同步（拥有者写入，全员可读） ============
+
+    /// <summary>当前血量网络同步变量（拥有者写入；远程端据此刷新本地血条）</summary>
+    private readonly NetworkVariable<float> netCurrentHP =
+        new(100f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+
+    /// <summary>最大血量网络同步变量（拥有者写入）</summary>
+    private readonly NetworkVariable<float> netMaxHP =
+        new(100f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+
     /// <summary>是否存活</summary>
     public bool IsAlive => CurrentHP.Value > 0f;
 
@@ -37,6 +50,39 @@ public class HealthModel : NetworkBehaviour
     private void Awake()
     {
         ResetHealth(initialHP, initialMaxHP);
+    }
+
+    // ============ 网络同步：血量值广播给所有端（远程端血条实时刷新） ============
+
+    public override void OnNetworkSpawn()
+    {
+        netCurrentHP.OnValueChanged += OnNetHPChanged;
+        netMaxHP.OnValueChanged += OnNetHPChanged;
+
+        // 拥有者端把本地初始血量推上网络；远程端随后收到并刷新本地血条
+        if (IsOwner) SyncHPToNetwork();
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        netCurrentHP.OnValueChanged -= OnNetHPChanged;
+        netMaxHP.OnValueChanged -= OnNetHPChanged;
+    }
+
+    /// <summary>网络血量变化 → 刷新本地 BindableProperty（血条 UI 订阅的就是它）</summary>
+    private void OnNetHPChanged(float previous, float current)
+    {
+        if (IsOwner) return;   // 拥有者端本地值即权威，无需回写
+        CurrentHP.Value = netCurrentHP.Value;
+        MaxHP.Value = netMaxHP.Value;
+    }
+
+    /// <summary>把本地血量推送到网络变量（所有改血入口在改完后调用；单机未 spawn 时为空操作）</summary>
+    private void SyncHPToNetwork()
+    {
+        if (!IsSpawned || !IsOwner) return;
+        netCurrentHP.Value = CurrentHP.Value;
+        netMaxHP.Value = MaxHP.Value;
     }
 
     // ============ 网络伤害入口（攻击者端命中远程玩家时走这里） ============
@@ -114,6 +160,7 @@ public class HealthModel : NetworkBehaviour
 
         float nextHP = Mathf.Max(0f, CurrentHP.Value - amount);
         CurrentHP.Value = nextHP;
+        SyncHPToNetwork();   // 血量变化推上网络，远程端血条同步
 
         // 派发受伤事件（飘字/受击/闪避订阅）
         EventCenter.MainInstance.Dispatch(E_EventType.E_OnDamage, new DamageData
@@ -145,6 +192,7 @@ public class HealthModel : NetworkBehaviour
         if (IsSpawned && !IsOwner) return;   // 血量只在拥有者端结算
 
         CurrentHP.Value = Mathf.Min(MaxHP.Value, CurrentHP.Value + amount);
+        SyncHPToNetwork();   // 回血也要同步给远程端
     }
 
     // ============ 无敌 ============
@@ -179,6 +227,7 @@ public class HealthModel : NetworkBehaviour
 
         MaxHP.Value = Mathf.Max(0f, value);
         CurrentHP.Value = Mathf.Min(CurrentHP.Value, MaxHP.Value);
+        SyncHPToNetwork();   // 上限变化同步给远程端
     }
 
     /// <summary>重置血量（复活/读档使用）</summary>
@@ -191,5 +240,6 @@ public class HealthModel : NetworkBehaviour
         MaxHP.Value = max;
         CurrentHP.Value = current;
         _isDead = false;
+        SyncHPToNetwork();   // 复活/重置后同步给远程端
     }
 }
