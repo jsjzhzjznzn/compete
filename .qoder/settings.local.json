@@ -22,7 +22,10 @@
       "Bash(curl -s http://127.0.0.1:8080/api/instances 2>/dev/null | head -c 2000; echo; echo \"---\"; cat \"D:\\\\project\\\\compete\\\\Library\\\\MCPForUnity\\\\RunState\\\\mcp_http_8080.pid\" 2>/dev/null)",
       "Bash(cd \"D:\\\\project\\\\compete\" && awk '/m_Script: {fileID: 11500000, guid: ba77e3b96e01b2245be7ce28af919155/, /^  [a-zA-Z_]+: \\\\{[^}]*\\\\}$/' \"Assets/Resource/人物/安比.prefab\" | head -5; echo \"=== Player 组件序列化块 ===\"; grep -n -A 30 \"m_Script: {fileID: 11500000, guid: ba77e3b96e01b2245be7ce28af919155\" \"Assets/Resource/人物/安比.prefab\" | head -40)",
       "Bash(cd \"D:\\\\project\\\\compete\" && grep -n -B3 -A40 \"UnityTransport\" Assets/Scenes/SampleScene.unity | sed -n '1,80p')",
-      "Bash(cd \"D:\\\\project\\\\compete\" && ls Library/PackageCache/ 2>/dev/null | grep -i \"playmode\\\\|multiplayer\"; echo \"---MPPM进程---\"; tasklist 2>/dev/null | grep -i \"unity\\\\|mpm\" | head -10)"
+      "Bash(cd \"D:\\\\project\\\\compete\" && ls Library/PackageCache/ 2>/dev/null | grep -i \"playmode\\\\|multiplayer\"; echo \"---MPPM进程---\"; tasklist 2>/dev/null | grep -i \"unity\\\\|mpm\" | head -10)",
+      "Bash(cd \"D:/project/compete/Assets\" && grep -nE \"m_Name: \\(Plane|NetworkManager|Ground|Floor\\)\" Scenes/SampleScene.unity | head; echo \"===\"; grep -n \"NetworkManager\" Scenes/SampleScene.unity | head)",
+      "Bash(cd \"D:/project/compete/Assets\" && sed -n '920,990p' Scenes/SampleScene.unity)",
+      "Bash(cd \"D:/project/compete/Assets\" && grep -n -A10 \"m_GameObject: {fileID: 386581839}\" Scenes/SampleScene.unity | grep -A6 \"Transform:\" ; grep -n \"386581839\" Scenes/SampleScene.unity | head; echo \"=== find its Transform block ===\"; awk '/m_GameObject: \\\\{fileID: 386581839\\\\}/{found=NR} END{}' Scenes/SampleScene.unity; grep -n -B2 -A8 \"^Transform:\" Scenes/SampleScene.unity | grep -A8 -B2 \"386581839\" | head -15)"
     ]
   }
 }
