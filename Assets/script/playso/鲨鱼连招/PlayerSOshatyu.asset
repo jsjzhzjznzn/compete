@@ -33,7 +33,7 @@ MonoBehaviour:
       <fadeDuration>k__BackingField: 0.15
       <rotationTime>k__BackingField: 1
     <dodgeData>k__BackingField:
-      <animationClip>k__BackingField: {fileID: 0}
+      <animationClip>k__BackingField: {fileID: 1827226128182048838, guid: eef83630ede704945afa73e39de7996a, type: 3}
       <playSpeed>k__BackingField: 1
       <fadeDuration>k__BackingField: 0.3
       <rotationTime>k__BackingField: 0.04

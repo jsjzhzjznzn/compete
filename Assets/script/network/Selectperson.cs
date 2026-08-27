@@ -10,7 +10,7 @@ using UnityEngine.UI;
 /// </summary>
 public class Selectperson : MonoBehaviour
 {
-    [SerializeField] private string spawnRequestName = "RequestSpawnAnBi"; //发给服务端的消息名，按钮不同则不同
+    [SerializeField] private string spawnRequestName;
 
     private void Awake()
     {
@@ -18,12 +18,12 @@ public class Selectperson : MonoBehaviour
         if (button != null)
         {
             button.onClick.RemoveAllListeners();
-            button.onClick.AddListener(OnClickSelectAnBi);
+            button.onClick.AddListener(OnClickSelect);
         }
     }
 
     //客户端UI按钮调用
-    public void OnClickSelectAnBi()
+    public void OnClickSelect()
     {
         if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsClient)
         {

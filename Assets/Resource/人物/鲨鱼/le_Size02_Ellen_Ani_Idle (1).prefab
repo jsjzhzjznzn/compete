@@ -3896,14 +3896,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c3766ec1a6590a648a69c76e115d2414, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ActorAudioComponent
-  sfx3DGroup: {fileID: 0}
+  sfx3DGroup: {fileID: 7053371031126030321, guid: 0a160249e0ab21a4587ff588efadcf81, type: 2}
   minDistance: 1
   maxDistance: 30
   rolloffMode: 1
   oneShotPoolSize: 4
   minPlayInterval: 0.05
   footstepInterval: 0.45
-  soundData: {fileID: 0}
+  soundData: {fileID: 11400000, guid: 2a58fe5382f29fc4b8c898493ae92405, type: 2}
   characterName: 9
 --- !u!114 &8445038704846135043
 MonoBehaviour:

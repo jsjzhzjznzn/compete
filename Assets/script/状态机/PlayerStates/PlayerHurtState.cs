@@ -30,6 +30,7 @@ public class PlayerHurtState : PlayerMovementState
         {
             // 受击动画时长即僵直时长，播完 OnHurtEnd 自动恢复
             var state = player.characterAnimancer.Play(data.animationClip, data.fadeDuration);
+            player.ApplyRemotePhaseOffset(state);   // 远程端：按拥有者已播放时长定位起点
             state.Events.Clear();
             state.Events.OnEnd = OnHurtEnd;
         }

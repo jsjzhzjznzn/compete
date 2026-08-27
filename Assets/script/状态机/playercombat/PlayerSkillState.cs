@@ -39,6 +39,7 @@ public class PlayerSkillState : PlayerComboState
 
         // 用 Animancer 播放技能的攻击动画（ClipTransition），返回 AnimancerState
         var state = player.characterAnimancer.Play(skill.attackClip);
+        player.ApplyRemotePhaseOffset(state);   // 远程端：按拥有者已播放时长定位起点
 
         // 挂播完回调：动画走到最后一帧时触发 OnSkillAnimationEnd
         state.Events.OnEnd = OnSkillAnimationEnd;

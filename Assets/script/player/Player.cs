@@ -71,6 +71,11 @@ public class Player : CharacterMoveControllerBase
     // 网络动画状态同步（拥有者写入，远程端回放动画）
     // ================================================================
 
+    /// <summary>状态起始的服务端时间戳（秒）：远程端据此计算"状态已播放时长"做相位对齐。
+    /// 注意：必须声明在所有状态变量之前（NetworkVariable 按声明顺序应用，保证状态回调里读到的已是最新值）</summary>
+    private readonly NetworkVariable<float> netStateStartTime =
+        new(0f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+
     /// <summary>移动状态同步变量（拥有者写入；远程端 OnValueChanged 回放对应状态动画）</summary>
     private readonly NetworkVariable<MovementStateType> netMoveState =
         new(MovementStateType.Idle, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
@@ -216,6 +221,7 @@ public class Player : CharacterMoveControllerBase
     {
         if (!IsSpawned || !IsOwner) return;
         netMoveState.Value = type;
+        netStateStartTime.Value = (float)NetworkManager.ServerTime.Time;   // 状态起始时间戳（相位对齐用）
     }
 
     /// <summary>同步连击状态（拥有者写入；单机/远程端为空操作）</summary>
@@ -223,6 +229,7 @@ public class Player : CharacterMoveControllerBase
     {
         if (!IsSpawned || !IsOwner) return;
         netComboState.Value = type;
+        netStateStartTime.Value = (float)NetworkManager.ServerTime.Time;   // 状态起始时间戳（相位对齐用）
     }
 
     /// <summary>同步连击段数（拥有者写入；单机/远程端为空操作）</summary>
@@ -230,6 +237,7 @@ public class Player : CharacterMoveControllerBase
     {
         if (!IsSpawned || !IsOwner) return;
         netComboIndex.Value = index;
+        netStateStartTime.Value = (float)NetworkManager.ServerTime.Time;   // 状态起始时间戳（相位对齐用）
     }
 
     /// <summary>同步前进攻击标识（拥有者写入；单机/远程端为空操作）</summary>
@@ -248,6 +256,7 @@ public class Player : CharacterMoveControllerBase
         if (IsOwner) return;   // 拥有者端状态本来就是本地切换的，不需要回放
         if (stateMachine == null) return;
 
+        MarkPhaseOffsetPending();
         switch (current)
         {
             case MovementStateType.Idle: stateMachine.SwitchState(stateMachine.idlingState); break;
@@ -258,6 +267,7 @@ public class Player : CharacterMoveControllerBase
             case MovementStateType.Hurt: stateMachine.SwitchState(stateMachine.hurtState); break;
             case MovementStateType.Null: stateMachine.SwitchState(stateMachine.playerMovementNullState); break;
         }
+        ClearPhaseOffsetPending();
     }
 
     private void OnComboStateChanged(ComboStateType previous, ComboStateType current)
@@ -265,12 +275,14 @@ public class Player : CharacterMoveControllerBase
         if (IsOwner) return;
         if (comboStateMachine == null) return;
 
+        MarkPhaseOffsetPending();
         switch (current)
         {
             case ComboStateType.Null: comboStateMachine.SwitchState(comboStateMachine.NullState); break;
             case ComboStateType.Attacking: comboStateMachine.SwitchState(comboStateMachine.ATKIngState); break;
             case ComboStateType.Skill: comboStateMachine.SwitchState(comboStateMachine.SkillState); break;
         }
+        ClearPhaseOffsetPending();
     }
 
     private void OnComboIndexChanged(int previous, int current)
@@ -283,7 +295,9 @@ public class Player : CharacterMoveControllerBase
         // 段数前进 = 拥有者切到下一段：重进攻击状态播放新段动画（当前正处于攻击段且非收尾时）
         if (current > previous && comboStateMachine.CurrentState is PlayerATKIngState { IsRecovery: false })
         {
+            MarkPhaseOffsetPending();
             comboStateMachine.SwitchState(comboStateMachine.ATKIngState);
+            ClearPhaseOffsetPending();
         }
     }
 
@@ -296,6 +310,38 @@ public class Player : CharacterMoveControllerBase
         if (lightCombo == null) return;
         if (current) lightCombo.SwitchForwardATK();
         else lightCombo.ResetComboDates();
+    }
+
+    // ================================================================
+    // 远程端动画相位对齐（状态变化 → 按已播放时长定位起点，而非从头重放）
+    // ================================================================
+
+    /// <summary>相位缓冲：防网络抖动导致远程端超前于拥有者，预留一点"慢半拍"的余量</summary>
+    private const float RemotePhaseBuffer = 0.05f;
+
+    /// <summary>本次网络状态切换是否带相位偏移（进入状态播放第一个动画时消费）</summary>
+    private bool phaseOffsetPending;
+
+    /// <summary>状态回调触发时标记：下一次播放动画按时间戳偏移起播</summary>
+    private void MarkPhaseOffsetPending()
+    {
+        phaseOffsetPending = IsRemote;
+    }
+
+    private void ClearPhaseOffsetPending()
+    {
+        phaseOffsetPending = false;
+    }
+
+    /// <summary>起播时按时间戳对齐：已播放时长 - 缓冲，钳制到片段长度内；消费后自动清除</summary>
+    public void ApplyRemotePhaseOffset(Animancer.AnimancerState state)
+    {
+        if (!phaseOffsetPending || state == null) return;
+        phaseOffsetPending = false;
+
+        float elapsed = Mathf.Max(0f, (float)NetworkManager.ServerTime.Time - netStateStartTime.Value);
+        if (elapsed <= RemotePhaseBuffer) return;
+        state.Time = Mathf.Min(elapsed - RemotePhaseBuffer, Mathf.Max(0f, state.Length));
     }
 
     /// <summary>
@@ -375,12 +421,12 @@ public class Player : CharacterMoveControllerBase
 
     public void PlayAnimation(AnimationClip clip)
     {
-        characterAnimancer.Play(clip);
+        ApplyRemotePhaseOffset(characterAnimancer.Play(clip));
     }
 
     public void PlayAnimation(AnimationClip clip, float fadeDuration)
     {
-        characterAnimancer.Play(clip, fadeDuration);
+        ApplyRemotePhaseOffset(characterAnimancer.Play(clip, fadeDuration));
     }
 
     // ================================================================

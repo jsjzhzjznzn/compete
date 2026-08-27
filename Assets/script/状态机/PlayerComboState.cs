@@ -103,6 +103,7 @@ public abstract class PlayerComboState : IState
         if (transition == null) return;
 
         var state = player.characterAnimancer.Play(transition);
+        player.ApplyRemotePhaseOffset(state);   // 远程端：按拥有者已播放时长定位起点
 
         // 清除该状态上可能残留的动画事件：同一 clip 被重复播放时会复用同一个 state，
         // 不清除会导致检查点/打击帧回调重复注册、同一帧被多次触发
