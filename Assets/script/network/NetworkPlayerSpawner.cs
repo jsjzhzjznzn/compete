@@ -1,51 +1,38 @@
-using UnityEngine;
 using Unity.Netcode;
+using UnityEngine;
 
+/// <summary>
+/// 挂在 NetworkManager 物体上（不会被销毁）：
+/// 服务端会话启动后（CustomMessagingManager 可用时）注册安比生成请求处理。
+/// </summary>
 public class NetworkPlayerSpawner : MonoBehaviour
 {
+    [SerializeField] private GameObject anbiPrefab; //安比预制体，与 Selectperson 引用同一个
+
     private void Start()
     {
-        // 放到Start，NetworkManager.Awake已经跑完，Singleton一定初始化完成
-        NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
+        if (NetworkManager.Singleton == null)
+        {
+            return;
+        }
+        //Start 时网络会话还没启动，CustomMessagingManager 不可用，等 OnServerStarted 再注册
+        NetworkManager.Singleton.OnServerStarted += RegisterHandler;
+        if (NetworkManager.Singleton.IsServer)
+        {
+            RegisterHandler();
+        }
     }
 
     private void OnDestroy()
     {
         if (NetworkManager.Singleton != null)
         {
-            NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
+            NetworkManager.Singleton.OnServerStarted -= RegisterHandler;
         }
     }
 
-    private void OnClientConnected(ulong clientId)
+    private void RegisterHandler()
     {
-        if (!NetworkManager.Singleton.IsServer)
-        {
-            return;
-        }
-        // 列表顺序约定: [0] 给 Host 自己, [1] 给连接的客户端
-        int prefabIndex = clientId == NetworkManager.Singleton.LocalClientId ? 0 : 1;
-        var prefabs = NetworkManager.Singleton.NetworkConfig.Prefabs.Prefabs;
-        if (prefabIndex >= prefabs.Count)
-        {
-            return;
-        }
-        var prefab = prefabs[prefabIndex].Prefab;
-        var instance = Instantiate(prefab, GetSpawnPosition(clientId), Quaternion.identity);
-        instance.GetComponent<NetworkObject>().SpawnAsPlayerObject(clientId);
-    }
-
-    /// <summary>
-    /// 生成点：Plane 平台中心上方（y+1 让角色站在表面）。
-    /// 按 clientId 在 X 向错开间距，避免 Host 与客户端角色出生时叠在一起。
-    /// 场景里没有名为 Plane 的对象时回退到 NetworkManager 位置。
-    /// </summary>
-    private Vector3 GetSpawnPosition(ulong clientId)
-    {
-        var plane = GameObject.Find("Plane");
-        Vector3 basePos = plane != null
-            ? plane.transform.position + Vector3.up
-            : NetworkManager.Singleton.transform.position;
-        return basePos + new Vector3(clientId * 1.5f, 0f, 0f);
+        Selectperson.RegisterServerHandler(anbiPrefab);
     }
 }

@@ -10,6 +10,7 @@ public class NetworkManagerUI : MonoBehaviour
     [SerializeField] private Button hostButton;
     [SerializeField] private Button clientButton;
     [SerializeField] private TextMeshProUGUI statusText;
+    [SerializeField] private Canvas canvas;
 
     private void Start()
     {
@@ -73,6 +74,8 @@ public class NetworkManagerUI : MonoBehaviour
         {
             SetStatus("Host 启动失败");
         }
+        if (canvas != null) canvas.gameObject.SetActive(true);
+        Destroy(gameObject);
     }
 
     private void StartClient()
@@ -85,6 +88,8 @@ public class NetworkManagerUI : MonoBehaviour
         {
             SetStatus("Client 启动失败");
         }
+        if (canvas != null) canvas.gameObject.SetActive(true);
+        Destroy(gameObject);
     }
 
     private void SetStatus(string message)
