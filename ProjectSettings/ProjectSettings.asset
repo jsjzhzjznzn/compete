@@ -827,24 +827,24 @@ PlayerSettings:
   webWasm2023: 0
   webEnableSubmoduleStrippingCompatibility: 0
   scriptingDefineSymbols:
-    Android: DOTWEEN
-    EmbeddedLinux: DOTWEEN
-    GameCoreScarlett: DOTWEEN
-    GameCoreXboxOne: DOTWEEN
-    Kepler: DOTWEEN
-    LinuxHeadlessSimulation: DOTWEEN
-    Nintendo Switch: DOTWEEN
-    Nintendo Switch 2: DOTWEEN
-    PS4: DOTWEEN
-    PS5: DOTWEEN
-    QNX: DOTWEEN
-    Standalone: DOTWEEN;MAGICACLOTH2
-    VisionOS: DOTWEEN
-    WebGL: DOTWEEN
+    Android: DOTWEEN;DOTWEEN_PRO
+    EmbeddedLinux: DOTWEEN;DOTWEEN_PRO
+    GameCoreScarlett: DOTWEEN;DOTWEEN_PRO
+    GameCoreXboxOne: DOTWEEN;DOTWEEN_PRO
+    Kepler: DOTWEEN;DOTWEEN_PRO
+    LinuxHeadlessSimulation: DOTWEEN;DOTWEEN_PRO
+    Nintendo Switch: DOTWEEN;DOTWEEN_PRO
+    Nintendo Switch 2: DOTWEEN;DOTWEEN_PRO
+    PS4: DOTWEEN;DOTWEEN_PRO
+    PS5: DOTWEEN;DOTWEEN_PRO
+    QNX: DOTWEEN;DOTWEEN_PRO
+    Standalone: DOTWEEN;MAGICACLOTH2;DOTWEEN_PRO
+    VisionOS: DOTWEEN;DOTWEEN_PRO
+    WebGL: DOTWEEN;DOTWEEN_PRO
     Windows Store Apps: DOTWEEN
-    XboxOne: DOTWEEN
+    XboxOne: DOTWEEN;DOTWEEN_PRO
     iPhone: DOTWEEN
-    tvOS: DOTWEEN
+    tvOS: DOTWEEN;DOTWEEN_PRO
   additionalCompilerArguments: {}
   platformArchitecture: {}
   scriptingBackend:

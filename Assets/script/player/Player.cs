@@ -1,4 +1,5 @@
 using Animancer;
+using Cinemachine;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -97,6 +98,8 @@ public class Player : CharacterMoveControllerBase
         netComboIndex.OnValueChanged += OnComboIndexChanged;
         netForwardATK.OnValueChanged += OnForwardATKChanged;
 
+        // 本地玩家生成后立即绑定场景虚拟相机（远程端共享同一相机，只绑拥有者）
+        if (IsOwner) BindCamera();
     }
 
     public override void OnNetworkDespawn()
@@ -133,7 +136,8 @@ public class Player : CharacterMoveControllerBase
             comboStateMachine.SwitchState(comboStateMachine.NullState);   // 连击初始进入空状态
         }
 
-        // 相机绑定已移除：不再在生成时自动绑定镜头
+        // 单机场景（非网络生成）直接放置的玩家也绑定相机；联机场景已在 OnNetworkSpawn 绑过，这里幂等跳过
+        if (!IsSpawned) BindCamera();
 
         // 游戏运行时锁定并隐藏鼠标光标（用鼠标视角）；非拥有者端不抢光标
         if (!IsSpawned || IsOwner)
@@ -153,6 +157,28 @@ public class Player : CharacterMoveControllerBase
         comboStateMachine?.Update();          // 连击状态机Tick
         HandleDodgeInput();                   // 右键开无敌窗口（带冷却）
         //currentMovementState = stateMachine.CurrentState?.GetType().Name;   // 同步调试显示
+    }
+
+    // ================================================================
+    // 相机绑定（本地玩家生成后自动绑定场景虚拟相机）
+    // ================================================================
+
+    /// <summary>
+    /// 把场景中的 CinemachineVirtualCamera 的 Follow/LookAt 绑到本玩家。
+    /// 联机：OnNetworkSpawn 中仅拥有者端调用；单机：Start 中兜底调用。
+    /// 优先复用 playerCameraUtility 缓存的虚拟相机，未配置时自行查找。
+    /// </summary>
+    private void BindCamera()
+    {
+        var vcam = playerCameraUtility?.virtualCamera
+            ?? FindFirstObjectByType<CinemachineVirtualCamera>();
+        if (vcam == null)
+        {
+            Debug.LogWarning($"[{name}] 场景中没有 CinemachineVirtualCamera，相机不会跟随", this);
+            return;
+        }
+        vcam.Follow = transform;
+        vcam.LookAt = transform;
     }
 
     // ================================================================

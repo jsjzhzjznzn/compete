@@ -3624,6 +3624,10 @@ GameObject:
   - component: {fileID: 3291903869823991758}
   - component: {fileID: 3345767207651634220}
   - component: {fileID: 3263970748729153458}
+  - component: {fileID: -5472819756669924478}
+  - component: {fileID: 5863966973596992123}
+  - component: {fileID: -5433872970178183769}
+  - component: {fileID: 8445038704846135043}
   m_Layer: 3
   m_Name: le_Size02_Ellen_Ani_Idle (1)
   m_TagString: Untagged
@@ -3838,6 +3842,82 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   initialMaxHP: 100
   initialHP: 100
+--- !u!114 &-5472819756669924478
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3273140266527059649}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 768fd008c7e945d46916da0dbd4eb735, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CharacterInputSystem
+--- !u!114 &5863966973596992123
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3273140266527059649}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 62899f850307741f2a39c98a8b639597, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.InputSystem::UnityEngine.InputSystem.PlayerInput
+  m_Actions: {fileID: -944628639613478452, guid: 6f29bc1edb8bbdf4288bbe256fa50363, type: 3}
+  m_NotificationBehavior: 0
+  m_UIInputModule: {fileID: 0}
+  m_DeviceLostEvent:
+    m_PersistentCalls:
+      m_Calls: []
+  m_DeviceRegainedEvent:
+    m_PersistentCalls:
+      m_Calls: []
+  m_ControlsChangedEvent:
+    m_PersistentCalls:
+      m_Calls: []
+  m_ActionEvents: []
+  m_NeverAutoSwitchControlSchemes: 0
+  m_DefaultControlScheme: 
+  m_DefaultActionMap: 
+  m_SplitScreenIndex: -1
+  m_Camera: {fileID: 0}
+--- !u!114 &-5433872970178183769
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3273140266527059649}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c3766ec1a6590a648a69c76e115d2414, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ActorAudioComponent
+  sfx3DGroup: {fileID: 0}
+  minDistance: 1
+  maxDistance: 30
+  rolloffMode: 1
+  oneShotPoolSize: 4
+  minPlayInterval: 0.05
+  footstepInterval: 0.45
+  soundData: {fileID: 0}
+  characterName: 9
+--- !u!114 &8445038704846135043
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3273140266527059649}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 846ab60fd21094f408968a05014a075e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BuffComponent
+  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!1 &3274885703481857006
 GameObject:
   m_ObjectHideFlags: 0

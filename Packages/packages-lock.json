@@ -14,6 +14,16 @@
       "dependencies": {},
       "hash": "a55636cee7f4973e1a271c791bfa5021a3540ef5"
     },
+    "com.besty.unity-skills": {
+      "version": "file:C:/Users/www11/Desktop/Unity-Skills-2.7.0/Unity-Skills-2.7.0/SkillsForUnity",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {
+        "com.unity.nuget.newtonsoft-json": "3.0.2",
+        "com.unity.timeline": "1.7.7",
+        "com.unity.ugui": "1.0.0"
+      }
+    },
     "com.code-philosophy.luban": {
       "version": "https://github.com/focus-creative-games/luban_unity.git",
       "depth": 0,
