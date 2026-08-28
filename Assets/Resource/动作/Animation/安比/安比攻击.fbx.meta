@@ -17,8 +17,7 @@ ModelImporter:
     removeConstantScaleCurves: 0
     motionNodeName: 
     animationImportErrors: 
-    animationImportWarnings: Event DisableLinkCombo has a time (0.694727) outside
-      the clip's valid range (0.000000..0.683333). It will never be fired
+    animationImportWarnings: 
     animationRetargetingWarnings: 
     animationDoRetargetingWarnings: 0
     importAnimatedCustomProperties: 0
@@ -732,7 +731,7 @@ ModelImporter:
       takeName: Avatar_Female_Size02_Anbi_Ani_Attack_Rush
       internalID: 8878247792494219741
       firstFrame: 50
-      lastFrame: 201
+      lastFrame: 150
       wrapMode: 0
       orientationOffsetY: 0
       level: 0

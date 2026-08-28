@@ -1,0 +1,56 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8f0117b483616124ab79859e5126cb0c, type: 3}
+  m_Name: anbi
+  m_EditorClassIdentifier: Assembly-CSharp::ComboData
+  characterName: 3
+  _attackStyle: 0
+  _comboName: 
+  _attackClip:
+    _FadeDuration: 0.25
+    _Events:
+      _NormalizedTimes: []
+      _Callbacks: []
+      _Names: []
+    _Clip: {fileID: 5893250592493638426, guid: 98daa5f85ba9dc146824d7488da418e9, type: 3}
+    _Speed: 1
+    _NormalizedStartTime: NaN
+  _attackEndClip:
+    _FadeDuration: 0.25
+    _Events:
+      _NormalizedTimes: []
+      _Callbacks: []
+      _Names: []
+    _Clip: {fileID: 8878247792494219741, guid: 98daa5f85ba9dc146824d7488da418e9, type: 3}
+    _Speed: 1
+    _NormalizedStartTime: NaN
+  _comboColdTime: 0
+  _comboDamage: 8
+  _critRate: 0.2
+  _critMultiplier: 2
+  _hitBuff: {fileID: 11400000, guid: 457b40010ff43b144a4437839f5f2fb6, type: 2}
+  _attackDistance: 1.5
+  _comboOffset: 0.9
+  _enemyLayer:
+    serializedVersion: 2
+    m_Bits: 0
+  _hitFrameTime: 0.35
+  _pauseFrameTime: 0
+  _shakeForce: 0
+  appAudioPrefab: 1
+  _weaponSound:
+  - {fileID: 8300000, guid: 8dd590bb7a3f66e46a3b2c08023b2af1, type: 3}
+  _characterVoice:
+  - {fileID: 8300000, guid: 96d6cac7aa3300b449f4389abfaa9110, type: 3}
+  - {fileID: 8300000, guid: 58a8e17b02c497d49ab52daf7d303508, type: 3}
+  _universalSound: 0
+  _linkCancelTime: 0.6

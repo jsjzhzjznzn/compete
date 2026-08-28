@@ -17,4 +17,4 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 6a09e1f57a0a2fc449a2790519c69083, type: 2}
   - {fileID: 11400000, guid: 7b0fda7d052847c4ca723528e4c28f07, type: 2}
   - {fileID: 11400000, guid: 136ff4285476b504da436e4b6f822a01, type: 2}
-  ForwardATKData: {fileID: 11400000, guid: c5d070cab5b13744c8a14663ee339a48, type: 2}
+  ForwardATKData: {fileID: 11400000, guid: 9a5b2e653bac91340b047ecdd939c990, type: 2}
