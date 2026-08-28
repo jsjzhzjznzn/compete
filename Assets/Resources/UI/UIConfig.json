@@ -1,0 +1,18 @@
+{
+    "items": [
+        {
+            "uiType": "UILobbyView",
+            "path": "UI/Prefabs/UILobbyView",
+            "isWindow": false,
+            "uiLayer": "NormalLayer",
+            "isAutoNavigation": false
+        },
+        {
+            "uiType": "But",
+            "path": "",
+            "isWindow": true,
+            "uiLayer": "NormalLayer",
+            "isAutoNavigation": false
+        }
+    ]
+}

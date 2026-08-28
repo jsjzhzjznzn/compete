@@ -1,7 +1,10 @@
 using Animancer;
 using Cinemachine;
+using Cysharp.Threading.Tasks;
+using System.Threading;
 using Unity.Netcode;
 using UnityEngine;
+
 
 /// <summary>
 /// 角色主控脚本，继承移动基类
@@ -444,24 +447,25 @@ public class Player : CharacterMoveControllerBase
     // 打击感辅助（命中顿帧）
     // ================================================================
 
-    private Coroutine hitStopCoroutine;
+    private CancellationTokenSource hitStopCts;
 
     /// <summary>
     /// 命中顿帧：把 timeScale 压到接近 0 制造打击停顿感，realTime 后恢复。
-    /// 用实时等待（WaitForSecondsRealtime），顿帧期间动画/Update 全部停住也不会影响恢复计时。
+    /// 用实时等待（ignoreTimeScale），顿帧期间动画/Update 全部停住也不会影响恢复计时。
     /// 注意：后续若接入游戏暂停/慢动作，这里恢复成 1f 需要改为恢复"暂停前的 timeScale"。
     /// </summary>
     public void HitStop(float realSeconds)
     {
-        if (hitStopCoroutine != null) StopCoroutine(hitStopCoroutine);
-        hitStopCoroutine = StartCoroutine(HitStopRoutine(realSeconds));
+        // 新顿帧接管：取消旧顿帧且不恢复 timeScale（保持 0.03），由新顿帧负责恢复
+        if (hitStopCts != null) { hitStopCts.Cancel(); hitStopCts.Dispose(); }
+        hitStopCts = new CancellationTokenSource();
+        Time.timeScale = 0.03f;
+        HitStopAsync(realSeconds, hitStopCts.Token);
     }
 
-    private System.Collections.IEnumerator HitStopRoutine(float realSeconds)
+    private async UniTaskVoid HitStopAsync(float realSeconds, CancellationToken token)
     {
-        Time.timeScale = 0.03f;
-        yield return new WaitForSecondsRealtime(realSeconds);
+        await UniTask.WaitForSeconds(realSeconds, ignoreTimeScale: true, cancellationToken: token);
         Time.timeScale = 1f;
-        hitStopCoroutine = null;
     }
 }

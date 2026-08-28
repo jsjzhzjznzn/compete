@@ -1,5 +1,6 @@
-using System.Collections;
 using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
+using System.Threading;
 using UnityEngine;
 using UnityEngine.Audio;
 
@@ -72,11 +73,8 @@ public class ActorAudioComponent : MonoBehaviour
     // 再把它改回 Dictionary<string, AudioSource> 按 key 区分即可。
     private AudioSource loopSource;
 
-    // 脚步循环协程引用：按 footstepInterval 间隔触发一次性脚步音，停止时 Cancel 掉
-    private Coroutine footstepRoutine;
-
-    // 脚步循环是否正在运行（供 StopLoopSound 判断要不要停协程）
-    private bool isFootstepLooping;
+    // 脚步循环取消源：按 footstepInterval 间隔触发一次性脚步音，停止时 Cancel 掉
+    private CancellationTokenSource footstepCts;
 
     // 防叠播冷却记录：SoundStyle → 上次播放的 Time.time，配合 minPlayInterval 做节流
     private readonly Dictionary<SoundStyle, float> lastStylePlayTime = new Dictionary<SoundStyle, float>();
@@ -196,28 +194,27 @@ public class ActorAudioComponent : MonoBehaviour
     /// </summary>
     private void StartFootstepLoop(SoundStyle style, float volume = 1f)
     {
-        if (isFootstepLooping) { return; }          // 已在跑就不重复启动
-        isFootstepLooping = true;
-        footstepRoutine = StartCoroutine(FootstepRoutine(style, volume));
+        if (footstepCts != null) { return; }          // 已在跑就不重复启动
+        // 绑定角色销毁：角色没了循环必须停，否则异步循环会残留
+        footstepCts = CancellationTokenSource.CreateLinkedTokenSource(this.GetCancellationTokenOnDestroy());
+        FootstepLoopAsync(style, volume, footstepCts.Token);
     }
 
     private void StopFootstepLoop()
     {
-        if (footstepRoutine != null)
-        {
-            StopCoroutine(footstepRoutine);
-            footstepRoutine = null;
-        }
-        isFootstepLooping = false;
+        footstepCts?.Cancel();
+        footstepCts?.Dispose();
+        footstepCts = null;
     }
 
-    private IEnumerator FootstepRoutine(SoundStyle style, float volume)
+    private async UniTaskVoid FootstepLoopAsync(SoundStyle style, float volume, CancellationToken token)
     {
         // 立即先响一声，再按步频间隔继续
+        // 取消（StopFootstepLoop / 角色销毁）时 await 抛出的 OperationCanceledException 由 UniTask 静默处理
         PlayByStyle(style, volume);
-        while (isFootstepLooping)
+        while (true)
         {
-            yield return new WaitForSeconds(footstepInterval);
+            await UniTask.WaitForSeconds(footstepInterval, cancellationToken: token);
             PlayByStyle(style, volume);
         }
     }
