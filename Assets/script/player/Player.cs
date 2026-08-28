@@ -370,7 +370,7 @@ public class Player : CharacterMoveControllerBase
     private float DodgeCooldown => PlayerSO?.movementData?.dodgeData?.cooldown ?? 1.5f;
 
     /// <summary>
-    /// 右键闪避：按下右键不切状态，只开启一段无敌窗口；
+    /// 右键闪避：按下右键不切状态，只开启一段无敌窗口（联网时在服务器开启，带服务器冷却限流）；
     /// 窗口内受到伤害（E_DamageBlocked）才触发闪避动画。
     /// 限制：冷却已好 + 非受击/非闪避中 + 存活。
     /// </summary>
@@ -388,8 +388,8 @@ public class Player : CharacterMoveControllerBase
         var health = GetComponent<HealthModel>();
         if (health == null || !health.IsAlive) return;
 
-        health.SetInvincible(DodgeInvincibleWindow);
-        dodgeCooldownRemain = DodgeCooldown;
+        health.RequestInvincible(DodgeInvincibleWindow, DodgeCooldown);   // 无敌窗口在服务器开（服务器另有冷却限流）
+        dodgeCooldownRemain = DodgeCooldown;   // 本地冷却只做按键手感反馈
     }
 
     /// <summary>无敌窗口内被打中：伤害已拦下，切入闪避状态（DoT 无视无敌直接扣血，不会走到这里）</summary>

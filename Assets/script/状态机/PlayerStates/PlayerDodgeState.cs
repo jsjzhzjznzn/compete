@@ -7,7 +7,8 @@ using UnityEngine;
 /// - 锁定连击输入（canInput=false，攻击/技能事件即使触发也被忽略）
 /// - 播放闪避动画，动画时长即闪避时长，播完自动恢复：
 ///   移动状态机 → 待机/行走，连击状态机 → 空状态（重新打开输入）
-/// - 闪避全程无敌（无敌时长 = 闪避动画长度，HealthModel.SetInvincible 拦截伤害）
+/// - 闪避全程无敌（无敌时长 = 闪避动画长度；联网时由服务器在拦下伤害时授予，
+///   本地只在单机模式设置，HealthModel.SetInvincible 拦截伤害）
 /// </summary>
 public class PlayerDodgeState : PlayerMovementState
 {
@@ -40,10 +41,13 @@ public class PlayerDodgeState : PlayerMovementState
             state.Events.Clear();
             state.Events.OnEnd = OnDodgeEnd;
 
-            // 闪避全程无敌：无敌时长 = 动画长度（拦下闪避期间受到的伤害）
+            // 闪避全程无敌：联网时由服务器在拦下伤害时授予（时长 = 动画长度），本地只在单机设置
             var health = player.GetComponent<HealthModel>();
             if (health != null)
-                health.SetInvincible(clip.length);
+            {
+                if (!player.IsSpawned)
+                    health.SetInvincible(clip.length);
+            }
             else
                 Debug.LogWarning($"[{player.name}] 未挂载 HealthModel，闪避无敌无效");
         }
