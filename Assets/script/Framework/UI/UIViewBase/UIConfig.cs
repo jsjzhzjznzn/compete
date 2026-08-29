@@ -29,7 +29,7 @@ namespace SkierFramework
         public Type viewType;
         public bool isWindow;
 
-        private const string UIConfigPath = "UI/UIConfig";
+        private const string UIConfigPath = "Assets/HOTS/UI/UIConfig";
 
         public static void GetAllConfigs(Action<List<UIConfig>> callback) 
         {
@@ -76,6 +76,7 @@ namespace SkierFramework
                 else
                 {
                     Debug.LogError("未找到配置：" + UIConfigPath);
+                    callback?.Invoke(new List<UIConfig>());
                 }
             }, true);
         }

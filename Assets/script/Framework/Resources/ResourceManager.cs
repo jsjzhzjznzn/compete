@@ -3,16 +3,15 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using YooAsset;
 
 namespace SkierFramework
 {
     /// <summary>
-    /// 资源管理器（适配版：基于 Resources.Load）
-    /// 原版基于 Addressables，本项目没有 Addressables，改为 Resources 加载：
-    /// - path 一律为 Resources 目录下的相对路径（不含扩展名），如 "UI/Prefabs/LoginView"
-    /// - Resources.Load 是同步的，所有回调立即执行（API 形状保持不变）
+    /// 资源管理器（基于 YooAsset）
+    /// - path 统一为 YooAsset location：完整资源路径（可带扩展名），如 "Assets/HOTS/UI/Prefabs/Mainman.prefab"
     /// - 保留引用计数 / 对象池 / 常驻资源 / 缓存语义
-    /// - 移除了热更新相关 API（CheckUpdateCor / DownLoadCor / 按 Label 预加载）
+    /// - 缓存句柄（AssetHandle）与缓存资产同生共死，卸载时统一 Release
     /// </summary>
     public class ResourceManager : Singleton<ResourceManager>
     {
@@ -20,6 +19,10 @@ namespace SkierFramework
         /// 已加载资源路径对应的资源缓存
         /// </summary>
         private Dictionary<string, UnityEngine.Object> _assetCaches = new Dictionary<string, UnityEngine.Object>();
+        /// <summary>
+        /// 已加载资源路径对应的缓存句柄（与 _assetCaches 严格同步）
+        /// </summary>
+        private Dictionary<string, AssetHandle> _assetHandles = new Dictionary<string, AssetHandle>();
         /// <summary>
         /// 常驻内存中的资源路径哈希集
         /// </summary>
@@ -42,13 +45,14 @@ namespace SkierFramework
         /// instancePool
         /// </summary>
         private InstancePool _instancePool;
-
         /// <summary>
-        /// 是否正在加载资源（Resources 加载是同步的，恒为 false，保留该字段仅为 API 兼容）
+        /// 真实加载中的资源数量
         /// </summary>
+        private int _processingLoadCount = 0;
+
         public bool IsProcessLoading
         {
-            get => false;
+            get => _processingLoadCount > 0;
         }
 
         public override void OnInitialize()
@@ -59,11 +63,11 @@ namespace SkierFramework
 
         #region 初始化/清除
         /// <summary>
-        /// 初始化（Resources 无需初始化，保留该协程仅为 API 兼容）
+        /// 初始化 YooAsset（防重入）
         /// </summary>
         public IEnumerator InitializeAsync()
         {
-            yield break;
+            yield return YooAssetService.Instance.InitializeAsync();
         }
 
         /// <summary>
@@ -98,11 +102,13 @@ namespace SkierFramework
                     _spriteCache.Remove(key);
                 }
 
+                ReleaseHandle(key);
                 _assetCaches.Remove(key);
                 _loadedAssetInstanceCountDic.Remove(key);
                 _instancePool.Clear(key);
             }
             _clearAssetsSet.Clear();
+            YooAssetService.Instance.UnloadUnusedAssets();
         }
 
         /// <summary>
@@ -110,7 +116,7 @@ namespace SkierFramework
         /// </summary>
         public void AddResidentAsset(string key)
         {
-            _residentAssetsHashSet.Add(key);
+            _residentAssetsHashSet.Add(NormalizeToLocation(key));
         }
         #endregion
 
@@ -123,27 +129,50 @@ namespace SkierFramework
                 return;
             }
 
-            if (!_assetCaches.ContainsKey(path))
+            string location = NormalizeToLocation(path);
+            if (!_assetCaches.ContainsKey(location))
             {
                 //未加载过此资源
-                if (LoadAsset<GameObject>(path) == null)
+                LoadAssetAsyncInternal<GameObject>(location, (asset) =>
                 {
-                    Debug.LogErrorFormat("[InstantiateAsync] 加载失败：{0}！", path);
-                    callback?.Invoke(null);
-                    return;
-                }
+                    if (asset == null)
+                    {
+                        Debug.LogErrorFormat("[InstantiateAsync] 加载失败：{0}！", path);
+                        callback?.Invoke(null);
+                        return;
+                    }
+                    InternalInstantiate(location, callback, active);
+                });
+                return;
             }
-            InternalInstantiate(path, callback, active);
+            InternalInstantiate(location, callback, active);
         }
 
-        public IEnumerable CoInstantiateAsync(string path, Action<UnityEngine.GameObject> callback, bool active = true)
+        public IEnumerator CoInstantiateAsync(string path, Action<UnityEngine.GameObject> callback, bool active = true)
         {
-            if (!_assetCaches.ContainsKey(path))
+            if (string.IsNullOrEmpty(path))
             {
-                LoadAsset<GameObject>(path);
+                callback?.Invoke(null);
+                yield break;
             }
-            InternalInstantiate(path, callback, active);
-            yield break;
+
+            string location = NormalizeToLocation(path);
+            bool done = _assetCaches.ContainsKey(location);
+            if (!done)
+            {
+                LoadAssetAsyncInternal<GameObject>(location, (asset) => done = true);
+            }
+            while (!done) yield return null;
+
+            if (_assetCaches.ContainsKey(location))
+            {
+                InternalInstantiate(location, callback, active);
+            }
+            else
+            {
+                Debug.LogErrorFormat("[CoInstantiateAsync] 加载失败：{0}！", path);
+                callback?.Invoke(null);
+            }
         }
 
         public void Recycle(UnityEngine.GameObject instanceObject, bool forceDestroy = false)
@@ -173,14 +202,14 @@ namespace SkierFramework
         /// <summary>
         /// 实例化
         /// </summary>
-        private void InternalInstantiate(string path, Action<UnityEngine.GameObject> callback, bool active = true)
+        private void InternalInstantiate(string location, Action<UnityEngine.GameObject> callback, bool active = true)
         {
-            GameObject result = _instancePool.Get(path);
+            GameObject result = _instancePool.Get(location);
             GameObject invokeResult = null;
 
             if (result == null)
             {
-                if (_assetCaches.TryGetValue(path, out UnityEngine.Object asset) && asset != null)
+                if (_assetCaches.TryGetValue(location, out UnityEngine.Object asset) && asset != null)
                 {
                     invokeResult = GameObject.Instantiate(asset as GameObject);
                 }
@@ -193,14 +222,14 @@ namespace SkierFramework
             if (invokeResult != null)
             {
                 _instancePool.InitInst(invokeResult, active);
-                _objectInstanceIdKeyDic[invokeResult.GetEntityId()] = path;
-                if (_loadedAssetInstanceCountDic.TryGetValue(path, out int count))
+                _objectInstanceIdKeyDic[invokeResult.GetEntityId()] = location;
+                if (_loadedAssetInstanceCountDic.TryGetValue(location, out int count))
                 {
-                    _loadedAssetInstanceCountDic[path] = count + 1;
+                    _loadedAssetInstanceCountDic[location] = count + 1;
                 }
                 else
                 {
-                    _loadedAssetInstanceCountDic[path] = 1;
+                    _loadedAssetInstanceCountDic[location] = 1;
                 }
             }
             callback?.Invoke(invokeResult);
@@ -209,7 +238,7 @@ namespace SkierFramework
 
         #region 资源加载/卸载   
         /// <summary>
-        /// 加载资源（同步，回调立即执行；已加载则走缓存）
+        /// 加载资源（异步；已加载则走缓存直接回调）
         /// </summary>
         public void LoadAssetAsync<T>(string path, Action<T> onComplete, bool autoUnload = false) where T : UnityEngine.Object
         {
@@ -219,16 +248,19 @@ namespace SkierFramework
                 return;
             }
 
-            T asset = LoadAsset<T>(path);
-            if (asset == null)
+            string location = NormalizeToLocation(path);
+            LoadAssetAsyncInternal<T>(location, (asset) =>
             {
-                Debug.LogErrorFormat("[LoadAssetAsync] {0} 加载失败！", path);
-            }
-            onComplete?.Invoke(asset);
-            if (autoUnload)
-            {
-                UnLoadAsset(path);
-            }
+                if (asset == null)
+                {
+                    Debug.LogErrorFormat("[LoadAssetAsync] {0} 加载失败！", path);
+                }
+                onComplete?.Invoke(asset);
+                if (autoUnload)
+                {
+                    UnLoadAsset(location);
+                }
+            });
         }
 
         public void LoadAssetAsync<T, T1>(string path, Action<T, T1> onComplete, T1 data1, bool autoUnload = false) where T : UnityEngine.Object
@@ -240,43 +272,67 @@ namespace SkierFramework
         }
 
         /// <summary>
-        /// 同步加载并缓存：Resources.Load
+        /// 加载并缓存资源（缓存命中直接回调；句柄与缓存同生共死）
         /// </summary>
-        private T LoadAsset<T>(string path) where T : UnityEngine.Object
+        private void LoadAssetAsyncInternal<T>(string location, Action<T> onComplete) where T : UnityEngine.Object
         {
-            if (_assetCaches.TryGetValue(path, out UnityEngine.Object cached))
+            if (_assetCaches.TryGetValue(location, out UnityEngine.Object cached))
             {
-                return cached as T;
+                onComplete?.Invoke(cached as T);
+                return;
             }
 
-            T asset = Resources.Load<T>(NormalizePath(path));
-            if (asset != null)
+            if (YooAssetService.Instance.Package == null)
             {
-                _assetCaches[path] = asset as UnityEngine.Object;
-                if (!_loadedAssetInstanceCountDic.ContainsKey(path))
-                {
-                    _loadedAssetInstanceCountDic.Add(path, 1);
-                }
+                Debug.LogErrorFormat("[LoadAssetAsync] {0} 加载失败：YooAsset 尚未初始化！", location);
+                onComplete?.Invoke(null);
+                return;
             }
-            return asset;
+
+            _processingLoadCount++;
+            var handle = YooAssetService.Instance.LoadAssetAsync<T>(location);
+            handle.Completed += (h) =>
+            {
+                _processingLoadCount--;
+                if (h.Status == EOperationStatus.Succeeded && h.AssetObject != null)
+                {
+                    if (_assetCaches.TryGetValue(location, out UnityEngine.Object other))
+                    {
+                        // 并发加载：另一请求先完成并已缓存，本句柄立即自释放
+                        if (h.IsValid) h.Release();
+                        onComplete?.Invoke(other as T);
+                        return;
+                    }
+                    _assetCaches[location] = h.AssetObject;
+                    _assetHandles[location] = h;
+                    if (!_loadedAssetInstanceCountDic.ContainsKey(location))
+                    {
+                        _loadedAssetInstanceCountDic.Add(location, 1);
+                    }
+                    onComplete?.Invoke(h.AssetObject as T);
+                }
+                else
+                {
+                    Debug.LogErrorFormat("[LoadAssetAsync] {0} 加载失败！{1}", location, h.Error);
+                    if (h.IsValid) h.Release();
+                    onComplete?.Invoke(null);
+                }
+            };
         }
 
         /// <summary>
-        /// 兼容编辑器写入的完整资源路径："Assets/Resources/UI/Prefabs/Mainman.prefab" -> "UI/Prefabs/Mainman"
+        /// 释放缓存句柄（与 _assetCaches 同步移除）
         /// </summary>
-        private static string NormalizePath(string path)
+        private void ReleaseHandle(string location)
         {
-            const string prefix = "Assets/Resources/";
-            if (path.StartsWith(prefix))
+            if (_assetHandles.TryGetValue(location, out AssetHandle handle))
             {
-                path = path.Substring(prefix.Length);
+                if (handle.IsValid)
+                {
+                    handle.Release();
+                }
+                _assetHandles.Remove(location);
             }
-            int extIndex = path.LastIndexOf('.');
-            if (extIndex >= 0)
-            {
-                path = path.Substring(0, extIndex);
-            }
-            return path;
         }
 
         /// <summary>
@@ -284,24 +340,31 @@ namespace SkierFramework
         /// </summary>
         public void UnLoadAsset(string path)
         {
+            string location = NormalizeToLocation(path);
+
             //判断卸载是否是一个常驻资源
-            if (_residentAssetsHashSet.Contains(path))
+            if (_residentAssetsHashSet.Contains(location))
             {
                 Debug.LogErrorFormat("[UnLoadAsset] 禁止卸载常驻资源：{0} ！", path);
                 return;
             }
 
-            if (_assetCaches.ContainsKey(path))
+            if (_assetCaches.ContainsKey(location))
             {
                 Debug.Log(string.Format("[UnLoadAsset] 卸载资源：{0} ！", path));
 
-                if (_spriteCache.TryGetValue(path, out SpriteAtlas spriteAtlas))
+                if (_spriteCache.TryGetValue(location, out SpriteAtlas spriteAtlas))
                 {
                     spriteAtlas.Cleanup();
-                    _spriteCache.Remove(path);
+                    _spriteCache.Remove(location);
                 }
-                _assetCaches.Remove(path);
-                _loadedAssetInstanceCountDic.Remove(path);
+                ReleaseHandle(location);
+                _assetCaches.Remove(location);
+                _loadedAssetInstanceCountDic.Remove(location);
+                if (YooAssetService.Instance.Package != null)
+                {
+                    YooAssetService.Instance.Package.TryUnloadUnusedAsset(location);
+                }
             }
             else
             {
@@ -314,12 +377,13 @@ namespace SkierFramework
         /// </summary>
         public void ReleaseRef(string path)
         {
-            if (_loadedAssetInstanceCountDic.TryGetValue(path, out int count))
+            string location = NormalizeToLocation(path);
+            if (_loadedAssetInstanceCountDic.TryGetValue(location, out int count))
             {
-                _loadedAssetInstanceCountDic[path] = --count;
+                _loadedAssetInstanceCountDic[location] = --count;
                 if (count <= 0)
                 {
-                    UnLoadAsset(path);
+                    UnLoadAsset(location);
                 }
             }
         }
@@ -336,18 +400,45 @@ namespace SkierFramework
 
         public IEnumerator CoPreLoadAsset<T>(string path) where T : UnityEngine.Object
         {
-            LoadAsset<T>(path);
-            yield break;
+            if (string.IsNullOrEmpty(path)) yield break;
+
+            string location = NormalizeToLocation(path);
+            if (_assetCaches.ContainsKey(location)) yield break;
+
+            bool done = false;
+            LoadAssetAsyncInternal<T>(location, (asset) => done = true);
+            while (!done) yield return null;
         }
 
         public bool TryGetAsset<T>(string path, out T target) where T : UnityEngine.Object
         {
             target = null;
-            if (_assetCaches.TryGetValue(path, out UnityEngine.Object cached))
+            string location = NormalizeToLocation(path);
+            if (_assetCaches.TryGetValue(location, out UnityEngine.Object cached))
             {
                 target = cached as T;
                 return target != null;
             }
+
+            if (YooAssetService.Instance.Package == null)
+            {
+                return false;
+            }
+
+            var handle = YooAssetService.Instance.LoadAssetSync<T>(location);
+            if (handle.Status == EOperationStatus.Succeeded && handle.AssetObject != null)
+            {
+                _assetCaches[location] = handle.AssetObject;
+                _assetHandles[location] = handle;
+                if (!_loadedAssetInstanceCountDic.ContainsKey(location))
+                {
+                    _loadedAssetInstanceCountDic.Add(location, 1);
+                }
+                target = handle.AssetObject as T;
+                return target != null;
+            }
+
+            if (handle.IsValid) handle.Release();
             return false;
         }
         #endregion
@@ -390,27 +481,28 @@ namespace SkierFramework
                 return;
             }
 
+            string location = NormalizeToLocation(atlasPath);
             SpriteAtlas atlas = null;
-            if (_spriteCache.TryGetValue(atlasPath, out atlas))
+            if (_spriteCache.TryGetValue(location, out atlas))
             {
                 callback?.Invoke(atlas.Get(spriteName));
             }
             else
             {
-                LoadAssetAsync<UnityEngine.U2D.SpriteAtlas>(atlasPath, (obj) =>
+                LoadAssetAsync<UnityEngine.U2D.SpriteAtlas>(location, (obj) =>
                 {
                     if (obj == null)
                     {
                         Debug.LogErrorFormat("[LoadSpriteAsync] load failed：atlasPath = {0}！", atlasPath);
                         return;
                     }
-                    if (_spriteCache.TryGetValue(atlasPath, out atlas))
+                    if (_spriteCache.TryGetValue(location, out atlas))
                     {
                         callback?.Invoke(atlas.Get(spriteName));
                         return;
                     }
                     atlas = new SpriteAtlas { spriteAtlas = obj };
-                    _spriteCache.Add(atlasPath, atlas);
+                    _spriteCache.Add(location, atlas);
                     callback?.Invoke(atlas.Get(spriteName));
                 });
             }
@@ -420,15 +512,16 @@ namespace SkierFramework
         #region 场景加载
         public void LoadSceneAsync(string name, LoadSceneMode loadMode = LoadSceneMode.Single, Action<AsyncOperation> callback = null)
         {
-            AsyncOperation op = SceneManager.LoadSceneAsync(name, loadMode);
-            if (op != null)
-            {
-                op.completed += (asyncOp) => callback?.Invoke(asyncOp);
-            }
-            else
+            if (YooAssetService.Instance.Package == null)
             {
                 callback?.Invoke(null);
+                return;
             }
+
+            string location = NormalizeToLocation(name);
+            var handle = YooAssetService.Instance.LoadSceneAsync(location, loadMode);
+            // SceneHandle 不是 UnityEngine.AsyncOperation，回调仅作完成通知
+            handle.Completed += (h) => callback?.Invoke(null);
         }
 
         public void UnloadSceneAsync(Scene scene, Action callback)
@@ -520,16 +613,24 @@ namespace SkierFramework
 
         public byte[] ReadTextBytes(string path)
         {
-            byte[] result = null;
-            LoadAssetAsync<TextAsset>(path,
-                (text) => {
-                    if (text != null)
-                    {
-                        result = text.bytes;
-                    }
-                },
-                true);
-            return result;
+            if (YooAssetService.Instance.Package == null)
+            {
+                return null;
+            }
+
+            string location = NormalizeToLocation(path);
+            var handle = YooAssetService.Instance.LoadAssetSync<TextAsset>(location);
+            if (handle.Status == EOperationStatus.Succeeded && handle.AssetObject != null)
+            {
+                var text = handle.AssetObject as TextAsset;
+                byte[] result = text.bytes;
+                handle.Release();
+                return result;
+            }
+
+            if (handle.IsValid) handle.Release();
+            Debug.LogErrorFormat("[ReadTextStreamAsync] load failed：path = {0}！", path);
+            return null;
         }
         #endregion
 
@@ -540,6 +641,30 @@ namespace SkierFramework
             {
                 Debug.LogFormat("Asset Key: {0}, Count: {1}", item.Key, item.Value);
             }
+        }
+        #endregion
+
+        #region 路径归一化
+        /// <summary>
+        /// 统一转成 YooAsset location：
+        /// "Assets/HOTS/UI/Prefabs/Mainman.prefab" → "Assets/HOTS/UI/Prefabs/Mainman"
+        /// 兼容旧适配版的 "Assets/Resources/xxx" 前缀；其余相对路径原样保留（Addressable 模式下可用）
+        /// </summary>
+        private static string NormalizeToLocation(string path)
+        {
+            path = path.Trim();
+            const string resPrefix = "Assets/Resources/";
+            if (path.StartsWith(resPrefix))
+            {
+                path = path.Substring(resPrefix.Length);
+            }
+            int extIndex = path.LastIndexOf('.');
+            int slashIndex = path.LastIndexOf('/');
+            if (extIndex > slashIndex)
+            {
+                path = path.Substring(0, extIndex);
+            }
+            return path;
         }
         #endregion
     }

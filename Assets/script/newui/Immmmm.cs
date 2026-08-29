@@ -6,19 +6,9 @@ using TMPro;
 
 namespace SkierFramework
 {
-    public class Mainman : UIView
+    public class Immmmm : UIView
     {
-        #region 控件绑定变量声明，自动生成请勿手改
-		#pragma warning disable 0649
-		[ControlBinding]
-		private Button kaishi;
-		[ControlBinding]
-		private Button jieshu;
-
-		#pragma warning restore 0649
-#endregion
-
-
+        
 
         public override void OnInit(UIControlData uIControlData, UIViewController controller)
         {
@@ -33,25 +23,11 @@ namespace SkierFramework
         public override void OnAddListener()
         {
             base.OnAddListener();
-            kaishi.onClick.AddListener(OnClickKaishi);
-            jieshu.onClick.AddListener(OnClickJieshu);
         }
 
         public override void OnRemoveListener()
         {
             base.OnRemoveListener();
-            kaishi.onClick.RemoveListener(OnClickKaishi);
-            jieshu.onClick.RemoveListener(OnClickJieshu);
-        }
-
-        private void OnClickKaishi()
-        {
-            UIManager.Instance.Open(UIType.Test1);
-        }
-
-        private void OnClickJieshu()
-        {
-            UIManager.Instance.Open(UIType.Immmmm);
         }
 
         public override void OnClose()

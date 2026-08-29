@@ -1,5 +1,6 @@
 ﻿using DG.Tweening;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -51,6 +52,18 @@ namespace SkierFramework
         private HashSet<UIType> _residentViews;
         private List<UIJumpData> _uiJumpDatas;
         private bool _isConfigInit;
+        /// <summary>
+        /// 初始化协程进行中（YooAsset 初始化 + 配置加载是异步的）
+        /// </summary>
+        private bool _isInitializing;
+        /// <summary>
+        /// UI 配置是否已真正解析完成（区别于 _isConfigInit 发起即置 true）
+        /// </summary>
+        private bool _isConfigLoaded;
+        /// <summary>
+        /// 初始化完成前发起的操作，就绪后按序执行
+        /// </summary>
+        private readonly List<Action> _pendingActions = new List<Action>();
 
         public EventSystem EventSystem { get; private set; }
         public EventController<UIEvent> Event { get; private set; }
@@ -276,17 +289,65 @@ namespace SkierFramework
         }
 
         /// <summary>
-        /// 首次使用时自动初始化，无需外部引导
+        /// 是否初始化完成（YooAsset + UI 配置均就绪）
         /// </summary>
-        private void EnsureInitialized()
+        private bool IsReady => _viewControllers != null && _isConfigLoaded;
+
+        /// <summary>
+        /// 就绪则返回 true；否则将操作入队并（首次）启动初始化协程，返回 false
+        /// </summary>
+        private bool TryEnsureInitialized(Action pendingAction)
         {
-            if (_viewControllers == null)
+            if (IsReady)
             {
-                Initialize();
+                return true;
             }
-            if (!_isConfigInit)
+
+            if (pendingAction != null)
             {
-                InitUIConfig();
+                _pendingActions.Add(pendingAction);
+            }
+            if (_isInitializing)
+            {
+                return false;
+            }
+
+            _isInitializing = true;
+            StartCoroutine(InitializeCoroutine());
+            return false;
+        }
+
+        private IEnumerator InitializeCoroutine()
+        {
+            // 1) YooAsset 初始化（编辑器模拟模式内含 simulate build，可能耗时数秒）
+            yield return ResourceManager.Instance.InitializeAsync();
+            if (!YooAssetService.Instance.IsInitialized)
+            {
+                Debug.LogError("[UIManager] YooAsset 初始化失败，UI 系统初始化中止！");
+                _isInitializing = false;
+                _pendingActions.Clear();
+                yield break;
+            }
+
+            // 2) UI 根节点/分层
+            Initialize();
+
+            // 3) 异步加载 UI 配置
+            bool configDone = false;
+            InitUIConfig(() => configDone = true);
+            while (!configDone)
+            {
+                yield return null;
+            }
+            _isConfigLoaded = true;
+            _isInitializing = false;
+
+            // 4) 按序执行排队操作
+            var actions = _pendingActions.ToArray();
+            _pendingActions.Clear();
+            foreach (var action in actions)
+            {
+                action();
             }
         }
 
@@ -295,7 +356,7 @@ namespace SkierFramework
         /// </summary>
         public void Open(UIType type, object userData = null, Action callback = null)
         {
-            EnsureInitialized();
+            if (!TryEnsureInitialized(() => Open(type, userData, callback))) return;
 
             if (!_viewControllers.ContainsKey(type))
             {
@@ -312,6 +373,8 @@ namespace SkierFramework
         /// </summary>
         public void Close(UIType type, Action callback = null, bool isJump = false)
         {
+            if (!TryEnsureInitialized(() => Close(type, callback, isJump))) return;
+
             if (!_viewControllers.ContainsKey(type))
             {
                 Debug.LogErrorFormat("未配置uiType:{0}， 请检查UIConfig.cs！", type.ToString());
@@ -332,6 +395,8 @@ namespace SkierFramework
         /// </summary>
         public void JumpUI(UIType curUIType, object curUserData, UIType nextUIType, object nextUserData)
         {
+            if (!TryEnsureInitialized(() => JumpUI(curUIType, curUserData, nextUIType, nextUserData))) return;
+
             if (IsOpen(curUIType))
             {
                 int order = _viewControllers[curUIType].order;
@@ -376,6 +441,8 @@ namespace SkierFramework
 
         public void Preload(UIType type)
         {
+            if (!TryEnsureInitialized(() => Preload(type))) return;
+
             if (!_viewControllers.TryGetValue(type, out var controller))
             {
                 Debug.LogErrorFormat("未配置uiType:{0}， 请检查UIConfig.cs！", type.ToString());
@@ -386,6 +453,8 @@ namespace SkierFramework
 
         public void PreloadAll()
         {
+            if (!TryEnsureInitialized(PreloadAll)) return;
+
             foreach (var controller in _viewControllers.Values)
             {
                 ResourceManager.Instance.LoadAssetAsync<GameObject>(controller.uiPath, null);
@@ -394,6 +463,11 @@ namespace SkierFramework
 
         public bool IsOpen(UIType type)
         {
+            if (!IsReady)
+            {
+                Debug.LogError("[UIManager] 尚未初始化完成，无法查询！");
+                return false;
+            }
             return _openViews.Contains(type);
         }
 
@@ -402,6 +476,12 @@ namespace SkierFramework
         /// </summary>
         public T GetView<T>(UIType type) where T : UIView
         {
+            if (!IsReady)
+            {
+                Debug.LogError("[UIManager] 尚未初始化完成，无法获取视图！");
+                return null;
+            }
+
             if (!_viewControllers.ContainsKey(type))
             {
                 Debug.LogErrorFormat("未配置uiType:{0}， 请检查UIConfig.cs！", type.ToString());
@@ -416,6 +496,12 @@ namespace SkierFramework
         /// </summary>
         public UIView GetOpenedView(UIType type)
         {
+            if (!IsReady)
+            {
+                Debug.LogError("[UIManager] 尚未初始化完成，无法获取视图！");
+                return null;
+            }
+
             if (_viewControllers.TryGetValue(type, out var viewController))
             {
                 if (viewController.uiView != null && viewController.isOpen)
@@ -428,6 +514,8 @@ namespace SkierFramework
 
         public void CloseAll(UIType ignoreType = UIType.Max, bool closeResidentView = false)
         {
+            if (!TryEnsureInitialized(() => CloseAll(ignoreType, closeResidentView))) return;
+
             _uiJumpDatas.Clear();
             var list = ListPool<UIType>.Get();
 
@@ -450,6 +538,8 @@ namespace SkierFramework
 
         public void ReleaseAll()
         {
+            if (!TryEnsureInitialized(ReleaseAll)) return;
+
             _uiJumpDatas.Clear();
             foreach (var controller in _viewControllers.Values)
             {
@@ -491,6 +581,11 @@ namespace SkierFramework
 
         public void Cancel()
         {
+            if (!IsReady)
+            {
+                return;
+            }
+
             if (_layers.TryGetValue(UILayer.NormalLayer, out var layer) && layer.openedViews.Count > 0)
             {
                 var viewController = layer.openedViews[layer.openedViews.Count - 1];

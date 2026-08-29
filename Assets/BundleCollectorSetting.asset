@@ -38,22 +38,11 @@ MonoBehaviour:
         FilterRuleName: CollectAll
         AssetTags: 
         UserData: 
-    - GroupName: Default Group
-      GroupDesc: 
-      AssetTags: 
-      ActiveRuleName: EnableGroup
-      Collectors: []
-    - GroupName: Default Group
-      GroupDesc: 
-      AssetTags: 
-      ActiveRuleName: EnableGroup
-      Collectors: []
-  - PackageName: DefaultPackage
-    PackageDesc: 
-    EnableAddressable: 0
-    SupportExtensionless: 1
-    LocationToLower: 0
-    IncludeAssetGUID: 0
-    AutoCollectShaders: 1
-    IgnoreRuleName: NormalIgnoreRule
-    Groups: []
+      - CollectPath: Assets/HOTS/UI/UIConfig.json
+        CollectorGUID: a6f136f3e8daea34cb1cced47bc147cb
+        CollectorType: 0
+        AddressRuleName: AddressByFileName
+        PackRuleName: PackSeparately
+        FilterRuleName: CollectAll
+        AssetTags: 
+        UserData: 

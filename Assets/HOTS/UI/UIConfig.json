@@ -13,6 +13,13 @@
             "isWindow": true,
             "uiLayer": "NormalLayer",
             "isAutoNavigation": false
+        },
+        {
+            "uiType": "Immmmm",
+            "path": "Assets/HOTS/UI/Prefabs/Immmmm.prefab",
+            "isWindow": true,
+            "uiLayer": "InfoLayer",
+            "isAutoNavigation": false
         }
     ]
 }
