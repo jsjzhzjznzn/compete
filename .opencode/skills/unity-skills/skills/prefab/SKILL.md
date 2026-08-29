@@ -1,0 +1,269 @@
+---
+name: unity-prefab
+description: Manage Prefabs and variants
+---
+
+> **Before calling any skill in this module:** if you are about to call a skill with parameters guessed from its name or description, STOP — read this file (or fetch its schema via `GET /skills/recommend?includeSchema=true`) first. If you already have the parameter definitions from recommend/schema, you may proceed straight to dryRun.
+
+## Triggers
+- Creating or editing prefabs
+- Instantiating or applying prefab changes
+- Finding instances in scenes
+- Creating prefab variants
+- 创建或编辑预制体、实例化或应用预制体改动、在场景中查找实例、创建预制体变体
+
+# Unity Prefab Skills
+
+> **BATCH-FIRST**: Use `prefab_instantiate_batch` when spawning 2+ prefab instances.
+
+## Operating Mode
+
+Approval 模式下本模块为 Mixed —— 只读 skill `prefab_get_overrides` / `prefab_find_instances`（标 `ReadOnly = true`, `Mode = SkillMode.SemiAuto`）可直接执行；其余 9 个写类 skill (`prefab_create` / `prefab_instantiate` / `prefab_instantiate_batch` / `prefab_apply` / `prefab_unpack` / `prefab_revert_overrides` / `prefab_apply_overrides` / `prefab_create_variant` / `prefab_set_property`) 为 `SkillMode.FullAuto`，需用户 grant 单次执行返结果。Auto / Bypass 直接执行。本模块**不含 NeverInSemi 高危 skill**（无 Delete / PlayMode / Reload）。
+
+**DO NOT** (common hallucinations):
+- `prefab_create_from_object` does not exist → use `prefab_create` (takes scene object name/instanceId and savePath)
+- `prefab_spawn` does not exist → use `prefab_instantiate`
+- `prefab_edit` / `prefab_modify` do not exist → use `prefab_set_property` (edit prefab asset directly) or instantiate, modify, then `prefab_apply`
+- `prefab_save` does not exist → use `prefab_apply` (applies instance changes to source prefab)
+
+**Routing**:
+- To modify components on a prefab instance in scene → use `component` module skills, then `prefab_apply`
+- To set a property directly on the prefab asset → `prefab_set_property` (this module)
+- To find all instances of a prefab → `prefab_find_instances` (this module)
+
+## Skills Overview
+
+| Single Object | Batch Version | Use Batch When |
+|---------------|---------------|----------------|
+| `prefab_instantiate` | `prefab_instantiate_batch` | Spawning 2+ instances |
+
+**No batch needed**:
+- `prefab_create` - Create prefab from scene object
+- `prefab_apply` - Apply instance changes to prefab
+- `prefab_unpack` - Unpack prefab instance
+- `prefab_get_overrides` - Get instance overrides
+- `prefab_revert_overrides` - Revert to prefab values
+- `prefab_apply_overrides` - Apply overrides to prefab
+- `prefab_create_variant` - Create a prefab variant
+- `prefab_find_instances` - Find all instances of a prefab in scene
+- `prefab_set_property` - Set a property on a component inside a Prefab asset (supports basic types, vectors, colors, and asset references)
+
+---
+
+## Skills
+
+### prefab_create
+Create a prefab from a scene GameObject.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name` | string | No* | Source object name |
+| `instanceId` | int | No* | Instance ID (preferred) |
+| `path` | string | No* | Object path |
+| `savePath` | string | Yes | Prefab save path |
+
+*At least one source identifier required.
+
+**Returns**: `{success, prefabPath, name}`
+
+### prefab_instantiate
+Instantiate a prefab into the scene.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `prefabPath` | string | Yes | - | Prefab asset path |
+| `name` | string | No | prefab name | Instance name |
+| `x`, `y`, `z` | float | No | 0 | Local position (relative to parent if set) |
+| `parentEntityId` | string | No | null | Parent entity ID (Unity 6000.4+, preferred) |
+| `parentName` | string | No | null | Parent object name |
+| `parentInstanceId` | int | No | 0 | Parent instance ID |
+| `parentPath` | string | No | null | Parent hierarchy path |
+
+**Returns**: `{success, name, entityId, instanceId, path}`
+
+### prefab_instantiate_batch
+Instantiate multiple prefabs in one call.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `items` | array | Yes | Array of instantiation configs |
+
+**Item properties**: `prefabPath`, `name`, `x`, `y`, `z`, `rotX`, `rotY`, `rotZ`, `scaleX`, `scaleY`, `scaleZ`, `parentEntityId`, `parentName`, `parentInstanceId`, `parentPath`
+
+**Returns**: `{success, totalItems, successCount, failCount, results: [{success, name, entityId, instanceId, position}]}`
+
+```python
+unity_skills.call_skill("prefab_instantiate_batch", items=[
+    {"prefabPath": "Assets/Prefabs/Enemy.prefab", "x": 0, "z": 0, "name": "Enemy_01"},
+    {"prefabPath": "Assets/Prefabs/Enemy.prefab", "x": 2, "z": 0, "name": "Enemy_02"},
+    {"prefabPath": "Assets/Prefabs/Enemy.prefab", "x": 4, "z": 0, "name": "Enemy_03"}
+])
+```
+
+### prefab_apply
+Apply instance changes back to the prefab asset.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name` | string | No* | Prefab instance name |
+| `instanceId` | int | No* | Instance ID (preferred) |
+| `path` | string | No* | Object path |
+
+*At least one identifier required.
+
+**Returns**: `{success, appliedTo}` (`appliedTo` is the prefab asset path)
+
+### prefab_unpack
+Unpack a prefab instance (break prefab connection).
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `name` | string | No* | - | Prefab instance name |
+| `instanceId` | int | No* | - | Instance ID (preferred) |
+| `path` | string | No* | - | Object path |
+| `completely` | bool | No | false | Unpack all nested prefabs |
+
+*At least one identifier required.
+
+**Returns**: `{success, unpacked}` (`unpacked` is the instance's GameObject name)
+
+### prefab_get_overrides
+Get a summary of property overrides on a prefab instance (counts, not the individual override list).
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name` | string | No* | Prefab instance name |
+| `instanceId` | int | No* | Instance ID |
+
+**Returns**: `{success, prefabPath, propertyOverrides, addedComponents, removedComponents, addedGameObjects, hasOverrides}` — `propertyOverrides`/`addedComponents`/`removedComponents`/`addedGameObjects` are **counts** (int), not arrays; `hasOverrides` is `true` when any of those counts is non-zero.
+
+### prefab_revert_overrides
+Revert all overrides on a prefab instance back to prefab values.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name` | string | No* | Prefab instance name |
+| `instanceId` | int | No* | Instance ID |
+
+**Returns**: `{success, reverted}` (`reverted` is the prefab root's GameObject name)
+
+### prefab_apply_overrides
+Apply all overrides from instance to source prefab asset.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name` | string | No* | Prefab instance name |
+| `instanceId` | int | No* | Instance ID |
+
+**Returns**: `{success, appliedTo}` (`appliedTo` is the prefab asset path)
+
+### prefab_create_variant
+Create a prefab variant from an existing prefab.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `sourcePrefabPath` | string | Yes | - | Path to the source prefab asset |
+| `variantPath` | string | Yes | - | Save path for the new variant |
+
+**Returns:** `{ success, sourcePath, variantPath, name }`
+
+### prefab_find_instances
+Find all instances of a prefab in the current scene.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `prefabPath` | string | Yes | - | Prefab asset path to search for |
+| `limit` | int | No | 50 | Maximum number of instances to return |
+
+**Returns:** `{ success, prefabPath, count, instances: [{ name, path, entityId, instanceId }] }`
+
+### prefab_set_property
+Set a property on a component inside a Prefab asset file (without instantiating it). Supports basic types, vectors, colors, enums, and asset references.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `prefabPath` | string | Yes | - | Path to the prefab asset |
+| `componentType` | string | Yes | - | Component type name |
+| `propertyName` | string | Yes | - | Serialized property name |
+| `value` | string | Cond. | null | Value for basic types (int/float/bool/string/enum/vector/color/quaternion) |
+| `assetReferencePath` | string | Cond. | null | Asset path for Object reference fields (Material, Texture, AudioClip, ScriptableObject, etc.) |
+| `gameObjectName` | string | No | null | Child object name inside prefab (defaults to root) |
+
+> Provide either `value` (basic types) or `assetReferencePath` (asset references).
+
+`value` covers Integer, Float, Boolean, String, Enum, Color, Vector2/3/4, Vector2Int/3Int, Quaternion, Rect, Bounds and LayerMask. A quaternion (`localRotation`) accepts 3 components as euler degrees (`"0,90,0"`) or 4 as raw x,y,z,w. Any other serialized type answers `SEMANTIC_INVALID` naming the type — that is the signal to use `assetReferencePath`, not to reformat `value`.
+
+**Returns:** `{ success, prefabPath, gameObject, component, property, valueSet }`
+
+```python
+# Set a float property on prefab root
+unity_skills.call_skill("prefab_set_property",
+    prefabPath="Assets/Prefabs/Enemy.prefab",
+    componentType="EnemyStats",
+    propertyName="maxHealth",
+    value="100"
+)
+
+# Assign an asset reference to a prefab component
+unity_skills.call_skill("prefab_set_property",
+    prefabPath="Assets/Prefabs/Enemy.prefab",
+    componentType="AudioSource",
+    propertyName="m_audioClip",
+    assetReferencePath="Assets/Audio/hit.wav"
+)
+
+# Edit a child object inside a prefab
+unity_skills.call_skill("prefab_set_property",
+    prefabPath="Assets/Prefabs/Player.prefab",
+    componentType="MeshRenderer",
+    propertyName="m_Materials.Array.data[0]",
+    assetReferencePath="Assets/Materials/PlayerSkin.mat",
+    gameObjectName="Body"
+)
+```
+
+---
+
+## Example: Efficient Enemy Spawning
+
+```python
+import unity_skills
+
+# BAD: 10 API calls for 10 enemies
+for i in range(10):
+    unity_skills.call_skill("prefab_instantiate",
+        prefabPath="Assets/Prefabs/Enemy.prefab",
+        name=f"Enemy_{i}",
+        x=i * 2
+    )
+
+# GOOD: 1 API call for 10 enemies
+unity_skills.call_skill("prefab_instantiate_batch", items=[
+    {"prefabPath": "Assets/Prefabs/Enemy.prefab", "name": f"Enemy_{i}", "x": i * 2}
+    for i in range(10)
+])
+```
+
+## Best Practices
+
+1. Organize prefabs in dedicated folders
+2. Use prefabs for repeated objects
+3. Apply changes to update all instances
+4. Unpack only when unique modifications needed
+5. Use batch instantiation for level generation
+
+---
+## Exact Signatures
+
+Exact names, parameters, defaults, and returns are defined by `GET /skills/schema` or `unity_skills.get_skill_schema()`, not by this file.
+
+## Common Errors
+
+Full transport-level codes (COMPILING/RATE_LIMIT etc.) → ../../references/protocol-error-codes.md
+
+| Error | Trigger | Fix |
+|---|---|---|
+| `TARGET_NOT_FOUND` | The prefab asset, source prefab, child GameObject inside a prefab, component, or asset reference could not be found. | Confirm the prefab path with `asset_find` / `prefab_find_instances`, check child/component names, and retry with exact identifiers. |
+| `MISSING_PARAM` | A required parameter is missing, such as `savePath`, `prefabPath`, `sourcePrefabPath`, `componentType`, or `propertyName`. | Provide the missing parameter; use `mode=dryRun` to inspect the full schema. |
+| `SEMANTIC_INVALID` | The target is not a prefab instance, the property is not an Object reference field, or a serialized value could not be parsed. | Ensure the object is a prefab instance (`prefab_get_overrides` can verify), match the property type, and retry with a valid value. |
+| `SKILL_ERROR` | A low-level operation failed, such as `Failed to instantiate prefab` or `Failed to set value ... (type: ...)`. | Resolve the underlying cause named in the message (e.g., prefab corruption, type mismatch) and retry. |

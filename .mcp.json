@@ -1,3 +1,11 @@
 {
-  "mcpServers": {}
+  "mcpServers": {
+    "unity": {
+      "command": "npx",
+      "args": ["-y", "mcp-proxy@latest", "http://localhost:11434/sse"],
+      "env": {
+        "NODE_OPTIONS": "--max-old-space-size=4096"
+      }
+    }
+  }
 }
