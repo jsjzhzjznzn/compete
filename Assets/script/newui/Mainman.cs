@@ -33,18 +33,11 @@ namespace SkierFramework
         public override void OnAddListener()
         {
             base.OnAddListener();
-            kaishi.onClick.AddListener(OnClickKaishi);
         }
 
         public override void OnRemoveListener()
         {
             base.OnRemoveListener();
-            kaishi.onClick.RemoveListener(OnClickKaishi);
-        }
-
-        private void OnClickKaishi()
-        {
-            UIManager.Instance.Open(UIType.Test1);
         }
 
         public override void OnClose()

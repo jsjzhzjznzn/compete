@@ -2,16 +2,16 @@
     "items": [
         {
             "uiType": "Mainman",
-            "path": "Assets/Resources/UI/Prefabs/Mainman.prefab",
+            "path": "Assets/HOTS/UI/Prefabs/Mainman.prefab",
             "isWindow": true,
             "uiLayer": "NormalLayer",
             "isAutoNavigation": false
         },
         {
             "uiType": "Test1",
-            "path": "Assets/Resources/UI/Prefabs/Test1.prefab",
+            "path": "Assets/HOTS/UI/Prefabs/Test1.prefab",
             "isWindow": true,
-            "uiLayer": "InfoLayer",
+            "uiLayer": "NormalLayer",
             "isAutoNavigation": false
         }
     ]
