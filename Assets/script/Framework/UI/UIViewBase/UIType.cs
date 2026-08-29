@@ -2,11 +2,9 @@ namespace SkierFramework
 {
     public enum UIType
     {
-        UILoadingView,
-        UILoginView,
-        UIMessageBoxView,
-		UILobbyView,
-		But,
+
+		Mainman,
+		Test1,
 		Max,
     }
 }

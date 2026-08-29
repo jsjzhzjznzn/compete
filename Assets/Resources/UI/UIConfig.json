@@ -1,17 +1,17 @@
 {
     "items": [
         {
-            "uiType": "UILobbyView",
-            "path": "UI/Prefabs/UILobbyView",
-            "isWindow": false,
+            "uiType": "Mainman",
+            "path": "Assets/Resources/UI/Prefabs/Mainman.prefab",
+            "isWindow": true,
             "uiLayer": "NormalLayer",
             "isAutoNavigation": false
         },
         {
-            "uiType": "But",
-            "path": "",
+            "uiType": "Test1",
+            "path": "Assets/Resources/UI/Prefabs/Test1.prefab",
             "isWindow": true,
-            "uiLayer": "NormalLayer",
+            "uiLayer": "InfoLayer",
             "isAutoNavigation": false
         }
     ]

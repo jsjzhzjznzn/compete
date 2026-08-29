@@ -50,6 +50,7 @@ namespace SkierFramework
         private HashSet<UIType> _openViews;
         private HashSet<UIType> _residentViews;
         private List<UIJumpData> _uiJumpDatas;
+        private bool _isConfigInit;
 
         public EventSystem EventSystem { get; private set; }
         public EventController<UIEvent> Event { get; private set; }
@@ -232,8 +233,16 @@ namespace SkierFramework
             _backgroundMask.alpha = enable ? 1 : 0;
         }
 
-        public void InitUIConfig()
+        public void InitUIConfig(Action onCompleted = null)
         {
+            // 重复调用自动跳过
+            if (_isConfigInit)
+            {
+                onCompleted?.Invoke();
+                return;
+            }
+            _isConfigInit = true;
+
             // 初始化需要加载所有UI的配置
             UIConfig.GetAllConfigs((list) =>
             {
@@ -254,6 +263,7 @@ namespace SkierFramework
                         isWindow = cfg.isWindow,
                     });
                 }
+                onCompleted?.Invoke();
             });
         }
 
@@ -266,10 +276,27 @@ namespace SkierFramework
         }
 
         /// <summary>
+        /// 首次使用时自动初始化，无需外部引导
+        /// </summary>
+        private void EnsureInitialized()
+        {
+            if (_viewControllers == null)
+            {
+                Initialize();
+            }
+            if (!_isConfigInit)
+            {
+                InitUIConfig();
+            }
+        }
+
+        /// <summary>
         /// 开启UI
         /// </summary>
         public void Open(UIType type, object userData = null, Action callback = null)
         {
+            EnsureInitialized();
+
             if (!_viewControllers.ContainsKey(type))
             {
                 Debug.LogErrorFormat("未配置uiType:{0}， 请检查UIConfig.cs！", type.ToString());

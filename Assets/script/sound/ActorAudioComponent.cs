@@ -197,7 +197,7 @@ public class ActorAudioComponent : MonoBehaviour
         if (footstepCts != null) { return; }          // 已在跑就不重复启动
         // 绑定角色销毁：角色没了循环必须停，否则异步循环会残留
         footstepCts = CancellationTokenSource.CreateLinkedTokenSource(this.GetCancellationTokenOnDestroy());
-        FootstepLoopAsync(style, volume, footstepCts.Token);
+        _ = FootstepLoopAsync(style, volume, footstepCts.Token);
     }
 
     private void StopFootstepLoop()

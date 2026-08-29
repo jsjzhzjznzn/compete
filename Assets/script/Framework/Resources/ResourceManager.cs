@@ -34,10 +34,10 @@ namespace SkierFramework
         private Dictionary<string, int> _loadedAssetInstanceCountDic = new Dictionary<string, int>();
         /// <summary>
         /// 已实例化对象对应的Key
-        /// key: instanceId
+        /// key: entityId
         /// value: path
         /// </summary>
-        private Dictionary<int, string> _objectInstanceIdKeyDic = new Dictionary<int, string>();
+        private Dictionary<EntityId, string> _objectInstanceIdKeyDic = new Dictionary<EntityId, string>();
         /// <summary>
         /// instancePool
         /// </summary>
@@ -153,7 +153,7 @@ namespace SkierFramework
                 return;
             }
 
-            int id = instanceObject.GetInstanceID();
+            EntityId id = instanceObject.GetEntityId();
             if (_objectInstanceIdKeyDic.TryGetValue(id, out string path))
             {
                 _instancePool.Recycle(path, instanceObject, forceDestroy);
@@ -193,7 +193,7 @@ namespace SkierFramework
             if (invokeResult != null)
             {
                 _instancePool.InitInst(invokeResult, active);
-                _objectInstanceIdKeyDic[invokeResult.GetInstanceID()] = path;
+                _objectInstanceIdKeyDic[invokeResult.GetEntityId()] = path;
                 if (_loadedAssetInstanceCountDic.TryGetValue(path, out int count))
                 {
                     _loadedAssetInstanceCountDic[path] = count + 1;
@@ -249,7 +249,7 @@ namespace SkierFramework
                 return cached as T;
             }
 
-            T asset = Resources.Load<T>(path);
+            T asset = Resources.Load<T>(NormalizePath(path));
             if (asset != null)
             {
                 _assetCaches[path] = asset as UnityEngine.Object;
@@ -259,6 +259,24 @@ namespace SkierFramework
                 }
             }
             return asset;
+        }
+
+        /// <summary>
+        /// 兼容编辑器写入的完整资源路径："Assets/Resources/UI/Prefabs/Mainman.prefab" -> "UI/Prefabs/Mainman"
+        /// </summary>
+        private static string NormalizePath(string path)
+        {
+            const string prefix = "Assets/Resources/";
+            if (path.StartsWith(prefix))
+            {
+                path = path.Substring(prefix.Length);
+            }
+            int extIndex = path.LastIndexOf('.');
+            if (extIndex >= 0)
+            {
+                path = path.Substring(0, extIndex);
+            }
+            return path;
         }
 
         /// <summary>

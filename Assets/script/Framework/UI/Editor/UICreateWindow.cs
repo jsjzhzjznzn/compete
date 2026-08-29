@@ -170,14 +170,32 @@ public class UICreateWindow : EditorWindow
                                     isAutoNavigation = isAutoNavigation,
                                 };
 
-                                uiJsonDatas.Add(uiName, jsonData);
-                                uiNames.Add(uiName, newPath);
+                                uiJsonDatas.AddOrUpdate(uiName, jsonData);
+                                uiNames.AddOrUpdate(uiName, newPath);
                                 SaveJson();
 
-                                // 生成UIType
-                                var newStr = Regex.Replace(File.ReadAllText(UIType), "Max,", $"{uiName},\n\t\tMax,");
-                                File.Delete(UIType);
-                                File.WriteAllText(UIType, newStr);
+                                // 生成UIType：先清理历史重复项，已存在则不再写入
+                                var uiTypeStr = File.ReadAllText(UIType);
+                                var seen = new HashSet<string>();
+                                var newLines = new List<string>();
+                                foreach (var line in uiTypeStr.Split('\n'))
+                                {
+                                    var trimmed = line.Trim();
+                                    if (trimmed.EndsWith(",") && !seen.Add(trimmed)) continue;
+                                    newLines.Add(line);
+                                }
+                                var dedupedStr = string.Join("\n", newLines);
+                                var hasType = Array.Exists(dedupedStr.Split(','), s => s.Trim().Equals(uiName));
+                                var finalStr = hasType ? dedupedStr : Regex.Replace(dedupedStr, "Max,", $"{uiName},\n\t\tMax,");
+                                if (finalStr != uiTypeStr)
+                                {
+                                    File.Delete(UIType);
+                                    File.WriteAllText(UIType, finalStr);
+                                }
+                                if (hasType)
+                                {
+                                    Debug.Log($"UIType中已存在{uiName}，跳过写入");
+                                }
 
                                 Debug.Log("生成成功：" + newPath);
 

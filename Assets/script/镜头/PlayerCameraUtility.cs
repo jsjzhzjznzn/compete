@@ -37,7 +37,7 @@ public class PlayerCameraUtility
     public void Init()
     {
         if (virtualCamera == null)
-            virtualCamera = Object.FindFirstObjectByType<CinemachineVirtualCamera>();
+            virtualCamera = Object.FindAnyObjectByType<CinemachineVirtualCamera>();
         cinemachinePOV = virtualCamera != null
             ? virtualCamera.GetCinemachineComponent<CinemachinePOV>()
             : null;

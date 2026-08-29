@@ -34,6 +34,15 @@ namespace SkierFramework
             }
             ResourceManager.Instance.InstantiateAsync(uiPath, (go) =>
             {
+                if (go == null)
+                {
+                    // 资源加载失败，避免后续空引用
+                    isLoading = false;
+                    Release();
+                    callback?.Invoke();
+                    return;
+                }
+
                 if (!isLoading)
                 {
                     ResourceManager.Instance.Recycle(go);

@@ -18,13 +18,13 @@ namespace SkierFramework
         private Camera m_Camera;
         private RawImage m_RawImage;
         private RenderTexture m_RenderTexture;
-        private Dictionary<int, Target> m_Targets = new Dictionary<int, Target>();
+        private Dictionary<EntityId, Target> m_Targets = new Dictionary<EntityId, Target>();
         private int m_Index = -1;
         private Transform m_DragTarget;
         private float m_orthographicSize = 1;
 
         public Camera Camera => m_Camera;
-        public Dictionary<int, Target> Targets => m_Targets;
+        public Dictionary<EntityId, Target> Targets => m_Targets;
         public int Index => m_Index;
         /// <summary>
         /// 目标被点击
@@ -91,9 +91,9 @@ namespace SkierFramework
             if (target)
             {
                 if (m_Targets == null)
-                    m_Targets = new Dictionary<int, Target>();
+                    m_Targets = new Dictionary<EntityId, Target>();
 
-                int id = target.GetInstanceID();
+                EntityId id = target.GetEntityId();
                 if (!m_Targets.ContainsKey(id))
                 {
                     m_Targets.Add(id, new Target { gameObject = target, canDrag = canDrag });
@@ -182,7 +182,7 @@ namespace SkierFramework
             SetClickTarget(eventData.position);
 
             // 不能拖拽时置空
-            if (m_DragTarget != null && m_Targets.TryGetValue(m_DragTarget.GetInstanceID(), out Target target) && !target.canDrag)
+            if (m_DragTarget != null && m_Targets.TryGetValue(m_DragTarget.GetEntityId(), out Target target) && !target.canDrag)
             {
                 m_DragTarget = null;
             }

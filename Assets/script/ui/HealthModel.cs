@@ -114,7 +114,7 @@ public class HealthModel : NetworkBehaviour
         SendDamageServerRpc(amount, sourceId, isCritical, isDoT);
     }
 
-    [ServerRpc(RequireOwnership = false)]
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     private void SendDamageServerRpc(float amount, ulong sourceId, bool isCritical, bool isDoT)
     {
         if (!IsServer) return;

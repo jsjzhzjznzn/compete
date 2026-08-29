@@ -32,7 +32,7 @@ namespace SkierFramework
             m_UIModelLight.transform.SetParentEx(m_UIModelRoot);
 
             m_UIModelLight.transform.localEulerAngles = new Vector3(36, 180, 0);
-            m_UIModelLight.cookieSize = 10;
+            m_UIModelLight.cookieSize2D = new Vector2(10, 10);
             m_UIModelLight.type = LightType.Directional;
             m_UIModelLight.cullingMask = 1 << Layer.UI | 1 << Layer.UIRenderToTarget;
             m_UIModelLight.shadows = LightShadows.None;
@@ -100,7 +100,7 @@ namespace SkierFramework
             if (rawImage != null && go != null)
             {
                 UIRenderToTexture renderToTexture = rawImage.GetComponent<UIRenderToTexture>();
-                int id = go.GetInstanceID();
+                EntityId id = go.GetEntityId();
                 if (renderToTexture != null && renderToTexture.Targets != null && renderToTexture.Targets.ContainsKey(id))
                 {
                     renderToTexture.Targets.Remove(id);

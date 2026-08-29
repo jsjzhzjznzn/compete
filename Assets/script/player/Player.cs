@@ -179,7 +179,7 @@ public class Player : CharacterMoveControllerBase
     private void BindCamera()
     {
         var vcam = playerCameraUtility?.virtualCamera
-            ?? FindFirstObjectByType<CinemachineVirtualCamera>();
+            ?? FindAnyObjectByType<CinemachineVirtualCamera>();
         if (vcam == null)
         {
             Debug.LogWarning($"[{name}] 场景中没有 CinemachineVirtualCamera，相机不会跟随", this);
@@ -460,7 +460,7 @@ public class Player : CharacterMoveControllerBase
         if (hitStopCts != null) { hitStopCts.Cancel(); hitStopCts.Dispose(); }
         hitStopCts = new CancellationTokenSource();
         Time.timeScale = 0.03f;
-        HitStopAsync(realSeconds, hitStopCts.Token);
+        _ = HitStopAsync(realSeconds, hitStopCts.Token);
     }
 
     private async UniTaskVoid HitStopAsync(float realSeconds, CancellationToken token)

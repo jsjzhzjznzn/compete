@@ -11,7 +11,21 @@ namespace SkierFramework
     public class UIControlDataEditor : Editor
     {
         public static GUISkin               skin;
-        public static GUIStyle              popupAlignLeft; // TODO 挪出去一个 SkinManager
+        private static GUIStyle             _popupAlignLeft; // TODO 挪出去一个 SkinManager
+
+        // 命名GUIStyle只能在OnGUI期间创建（依赖当前皮肤），因此惰性初始化
+        public static GUIStyle popupAlignLeft
+        {
+            get
+            {
+                if (_popupAlignLeft == null)
+                {
+                    _popupAlignLeft = new GUIStyle("Popup");
+                    _popupAlignLeft.alignment = TextAnchor.MiddleLeft;
+                }
+                return _popupAlignLeft;
+            }
+        }
 
         public string[]                     allTypeNames;
         public Type[]                       allTypes;
@@ -30,12 +44,6 @@ namespace SkierFramework
                     skin = Resources.Load("Editor/UIControlDataSkinPro") as GUISkin;
                 else
                     skin = Resources.Load("Editor/UIControlDataSkinPersonal") as GUISkin;
-            }
-            
-            if(popupAlignLeft == null)
-            {
-                popupAlignLeft = new GUIStyle("Popup");
-                popupAlignLeft.alignment = TextAnchor.MiddleLeft;
             }
 
             allTypeNames = UIControlData.GetAllTypeNames();

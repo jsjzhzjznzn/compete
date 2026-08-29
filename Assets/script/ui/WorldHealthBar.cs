@@ -78,7 +78,7 @@ public class WorldHealthBar : MonoBehaviour
     {
         if (!faceCamera) return;
         if (targetCamera == null)
-            targetCamera = Camera.main != null ? Camera.main : Object.FindFirstObjectByType<Camera>();
+            targetCamera = Camera.main != null ? Camera.main : Object.FindAnyObjectByType<Camera>();
         if (targetCamera != null)
         {
             transform.rotation = targetCamera.transform.rotation;

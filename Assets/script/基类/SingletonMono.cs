@@ -22,7 +22,7 @@ public class SingletonMono<T> : MonoBehaviour where T : SingletonMono<T>
             if (instance == null)
             {
                 // 先在场景查找已手动挂载的实例
-                instance = FindObjectOfType<T>();
+                instance = FindAnyObjectByType<T>();
 
                 // 若场景未手动挂载，自动创建物体兜底
                 if (instance == null)

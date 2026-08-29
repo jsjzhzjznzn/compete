@@ -35,7 +35,7 @@ public class SingletonEagerMono<T> : MonoBehaviour where T : SingletonEagerMono<
         {
             // 静态构造函数保证此处 instance 非 null
             if (instance == null)
-                instance = FindFirstObjectByType<T>();
+                instance = FindAnyObjectByType<T>();
             return instance;
         }
     }
