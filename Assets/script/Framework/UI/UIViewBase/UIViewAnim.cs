@@ -48,9 +48,11 @@ namespace SkierFramework
             if (viewType == ViewType.Close)
             {
                 this.callback?.Invoke();
+                this.callback = null;
             }
             if (!gameObject.activeSelf)
             {
+                Finish();
                 callback?.Invoke();
                 return;
             }
@@ -108,7 +110,7 @@ namespace SkierFramework
                     }
                     animtion.Play();
                 }
-                else if (openType == UIAppearType.Animation)
+                else if (closeType == UIAppearType.Animation)
                 {
                     playRate = 0;
                     Finish();

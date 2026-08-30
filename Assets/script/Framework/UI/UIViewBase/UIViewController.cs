@@ -150,7 +150,7 @@ namespace SkierFramework
                 if (isOpen)
                     TrueClose();
                 uiView.OnRelease();
-                GameObject.Destroy(uiView.gameObject);
+                ResourceManager.Instance.Recycle(uiView.gameObject);
             }
             uiView = null;
             uiViewAnim = null;

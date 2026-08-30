@@ -282,7 +282,7 @@ namespace SkierFramework
                 return;
             }
 
-            if (YooAssetService.Instance.Package == null)
+            if (!YooAssetService.Instance.IsInitialized)
             {
                 Debug.LogErrorFormat("[LoadAssetAsync] {0} 加载失败：YooAsset 尚未初始化！", location);
                 onComplete?.Invoke(null);
@@ -305,10 +305,6 @@ namespace SkierFramework
                     }
                     _assetCaches[location] = h.AssetObject;
                     _assetHandles[location] = h;
-                    if (!_loadedAssetInstanceCountDic.ContainsKey(location))
-                    {
-                        _loadedAssetInstanceCountDic.Add(location, 1);
-                    }
                     onComplete?.Invoke(h.AssetObject as T);
                 }
                 else
@@ -361,10 +357,7 @@ namespace SkierFramework
                 ReleaseHandle(location);
                 _assetCaches.Remove(location);
                 _loadedAssetInstanceCountDic.Remove(location);
-                if (YooAssetService.Instance.Package != null)
-                {
-                    YooAssetService.Instance.Package.TryUnloadUnusedAsset(location);
-                }
+                YooAssetService.Instance.TryUnloadUnusedAsset(location);
             }
             else
             {
@@ -420,7 +413,7 @@ namespace SkierFramework
                 return target != null;
             }
 
-            if (YooAssetService.Instance.Package == null)
+            if (!YooAssetService.Instance.IsInitialized)
             {
                 return false;
             }
@@ -477,7 +470,7 @@ namespace SkierFramework
             if (string.IsNullOrEmpty(atlasPath) || string.IsNullOrEmpty(spriteName))
             {
                 Debug.LogErrorFormat("[LoadSpriteAsync] error：atlasPath = {0}, spriteName = {1}！", atlasPath, spriteName);
-                callback.Invoke(null);
+                callback?.Invoke(null);
                 return;
             }
 
@@ -494,6 +487,7 @@ namespace SkierFramework
                     if (obj == null)
                     {
                         Debug.LogErrorFormat("[LoadSpriteAsync] load failed：atlasPath = {0}！", atlasPath);
+                        callback?.Invoke(null);
                         return;
                     }
                     if (_spriteCache.TryGetValue(location, out atlas))
@@ -512,7 +506,7 @@ namespace SkierFramework
         #region 场景加载
         public void LoadSceneAsync(string name, LoadSceneMode loadMode = LoadSceneMode.Single, Action<AsyncOperation> callback = null)
         {
-            if (YooAssetService.Instance.Package == null)
+            if (!YooAssetService.Instance.IsInitialized)
             {
                 callback?.Invoke(null);
                 return;
@@ -613,7 +607,7 @@ namespace SkierFramework
 
         public byte[] ReadTextBytes(string path)
         {
-            if (YooAssetService.Instance.Package == null)
+            if (!YooAssetService.Instance.IsInitialized)
             {
                 return null;
             }

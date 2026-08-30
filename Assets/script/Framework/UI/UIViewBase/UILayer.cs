@@ -34,8 +34,10 @@ namespace SkierFramework
 
         public void CloseUI(UIViewController closedUI)
         {
+            if (closedUI.order == 0) return;
+
             int order = closedUI.order;
-            PushOrder(closedUI);
+            if (!PushOrder(closedUI)) return;
             closedUI.order = 0;
 
             if (openedViews.Count > 0)
