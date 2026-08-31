@@ -45,7 +45,9 @@ namespace SkierFramework
 
                 if (!isLoading)
                 {
+                    // 加载期间面板已关闭：回收实例 + 卸载底层 AssetHandle，防止句柄泄漏
                     ResourceManager.Instance.Recycle(go);
+                    ResourceManager.Instance.UnLoadAsset(uiPath);
                     callback?.Invoke();
                     Release();
                     return;
@@ -157,6 +159,16 @@ namespace SkierFramework
             isLoading = false;
             isOpen = false;
             order = 0;
+        }
+
+        /// <summary>
+        /// 彻底释放：销毁实例 + 卸载底层 AssetHandle（句柄泄漏兜底）
+        /// 调用时机：UIManager.ReleaseAll / 非常驻面板 CloseAll 后统一清理
+        /// </summary>
+        public void FullRelease()
+        {
+            Release();
+            ResourceManager.Instance.UnLoadAsset(uiPath);
         }
 
         private void TrueOpen(object userData = null, Action callback = null, bool isFirstOpen = false)

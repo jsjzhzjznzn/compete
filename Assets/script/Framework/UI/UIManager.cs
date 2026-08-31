@@ -546,7 +546,7 @@ namespace SkierFramework
                 if (!_residentViews.Contains(controller.uiType))
                 {
                     _openViews.Remove(controller.uiType);
-                    controller.Release();
+                    controller.FullRelease();
                 }
             }
         }
