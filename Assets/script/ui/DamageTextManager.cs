@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
+using SkierFramework;
 
 /// <summary>
 /// 伤害飘字管理器（单例，DontDestroyOnLoad）
@@ -49,7 +51,6 @@ public class DamageTextManager : Singleton<DamageTextManager>
     [SerializeField, Min(1)] private int poolSize = 10;           // 预创建数量，不够时自动扩
 
     private Canvas canvas;
-    private Camera mainCamera;   // 缓存的场景相机（不依赖 MainCamera tag）
     private readonly Stack<DamageText> pool = new Stack<DamageText>();
 
     protected override void Awake()
@@ -62,7 +63,8 @@ public class DamageTextManager : Singleton<DamageTextManager>
     private void EnsureReady()
     {
         if (canvas != null) return;
-        EnsureCanvas();
+        canvas = UIManager.Instance.GetLayerCanvas(UILayer.DamageLayer);
+        if (canvas == null) return;
         for (int i = 0; i < poolSize; i++) pool.Push(CreateText());
     }
 
@@ -86,13 +88,11 @@ public class DamageTextManager : Singleton<DamageTextManager>
         // 受击者头顶（世界坐标）→ 屏幕坐标
         Vector3 worldPos = data.target.transform.position + Vector3.up * headOffsetY;
 
-        // 相机：优先 Camera.main，没有 MainCamera tag 时兜底找场景任意相机并缓存
-        if (mainCamera == null)
-        {
-            mainCamera = Camera.main != null ? Camera.main : Object.FindAnyObjectByType<Camera>();
-            if (mainCamera == null) return;
-        }
-        Vector3 screenPos = mainCamera.WorldToScreenPoint(worldPos);
+        // 使用UI框架的UICamera进行坐标转换
+        Camera uiCamera = UIManager.Instance.UICamera;
+        if (uiCamera == null) return;
+
+        Vector3 screenPos = uiCamera.WorldToScreenPoint(worldPos);
 
         // z < 0 说明目标在相机背后，屏幕坐标是镜像位置，直接跳过
         if (screenPos.z < 0f) return;
@@ -102,8 +102,11 @@ public class DamageTextManager : Singleton<DamageTextManager>
         screenPos.x += offset.x;
         screenPos.y += offset.y;
 
+        // 屏幕坐标转换为Canvas坐标
+        Vector2 canvasPos = ScreenToCanvasPosition(screenPos);
+
         // 伤害显示为整数；暴击用暴击样式
-        Show(Mathf.RoundToInt(data.amount), screenPos, data.isCritical ? criticalStyle : normalStyle);
+        Show(Mathf.RoundToInt(data.amount), canvasPos, data.isCritical ? criticalStyle : normalStyle);
     }
 
     /// <summary>
@@ -117,6 +120,32 @@ public class DamageTextManager : Singleton<DamageTextManager>
         DamageText text = GetText();
         // 动画播完回调里回收自己，形成"取用 → 播放 → 归还"闭环
         text.Show(amount, screenPos, style, floatHeight, duration, () => Recycle(text));
+    }
+
+    /// <summary>屏幕像素坐标转换为Canvas坐标</summary>
+    private Vector2 ScreenToCanvasPosition(Vector2 screenPos)
+    {
+        if (canvas == null) return screenPos;
+
+        CanvasScaler scaler = canvas.GetComponent<CanvasScaler>();
+        if (scaler == null) return screenPos;
+
+        // 参考分辨率
+        Vector2 referenceResolution = scaler.referenceResolution;
+        // 屏幕尺寸
+        float screenWidth = Screen.width;
+        float screenHeight = Screen.height;
+
+        // 计算缩放比例（Expand模式：取较小比例）
+        float scaleX = screenWidth / referenceResolution.x;
+        float scaleY = screenHeight / referenceResolution.y;
+        float scale = Mathf.Min(scaleX, scaleY);
+
+        // 转换为Canvas坐标（以参考分辨率中心为原点）
+        float canvasX = screenPos.x / scale;
+        float canvasY = screenPos.y / scale;
+
+        return new Vector2(canvasX, canvasY);
     }
 
     // ==================== 对象池 ====================
@@ -171,18 +200,6 @@ public class DamageTextManager : Singleton<DamageTextManager>
 
     // ==================== 环境自动创建 ====================
 
-    /// <summary>确保 Overlay Canvas 存在（挂在管理器下，随单例 DontDestroyOnLoad）</summary>
-    private void EnsureCanvas()
-    {
-        if (canvas != null) return;
-        GameObject go = new GameObject("DamageTextCanvas");
-        go.transform.SetParent(transform, false);
-        canvas = go.AddComponent<Canvas>();
-        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = 100;   // 盖在普通 UI 上面，飘字永远可见
-    }
-
-    
 }
    //  下面的注释  agent 你必须保留，作为 TMP 批处理优化的知识点，方便后续维护和优化
 

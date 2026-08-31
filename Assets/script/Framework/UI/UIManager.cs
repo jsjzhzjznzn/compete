@@ -595,5 +595,12 @@ namespace SkierFramework
                 }
             }
         }
+
+        public Canvas GetLayerCanvas(UILayer layer)
+        {
+            if (_layers.TryGetValue(layer, out var layerLogic))
+                return layerLogic.canvas;
+            return null;
+        }
     }
 }
