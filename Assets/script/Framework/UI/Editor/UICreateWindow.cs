@@ -42,6 +42,7 @@ public class UICreateWindow : EditorWindow
     private Vector2 scroll2;
     private Vector2 scroll3;
     private string UIViewTemplate;
+    private string UIViewLuaTemplate;
     private string UIConfig;
     private string UIType;
     private string saveUIPath;
@@ -52,13 +53,17 @@ public class UICreateWindow : EditorWindow
     private Dictionary<string, UIConfigJson> uiJsonDatas = new Dictionary<string, UIConfigJson>();
 
     private bool isWindow = true;
-    private bool isLuaUI = false;
+    /// <summary>
+    /// true=热更新UI：生成 UILuaView C#壳(可和Lua交互) + Lua模板(pppp风格)；false=不热更新UI：纯C#代码(继承UIView，无Lua)
+    /// </summary>
+    private bool isHotUI = true;
     private UILayer layer = UILayer.NormalLayer;
     private bool isAutoNavigation = false;
 
     private void OnEnable()
     {
         TryGetPath(ref UIViewTemplate, nameof(UIViewTemplate), ".txt");
+        TryGetPath(ref UIViewLuaTemplate, nameof(UIViewLuaTemplate), ".txt");
         TryGetPath(ref UIType, nameof(UIType), ".cs");
         TryGetPath(ref UIConfig, nameof(UIConfig), ".json");
         saveUIPath = PlayerPrefs.GetString(nameof(saveUIPath), "Assets/script/ui");
@@ -86,7 +91,8 @@ public class UICreateWindow : EditorWindow
         {
             EditorGUILayout.HelpBox("UI基础文件", MessageType.Info);
             {
-                PathField("UI模板文件.txt", ref UIViewTemplate, nameof(UIViewTemplate), ".txt");
+                PathField("纯C#模板.txt", ref UIViewTemplate, nameof(UIViewTemplate), ".txt");
+                PathField("Lua壳模板.txt", ref UIViewLuaTemplate, nameof(UIViewLuaTemplate), ".txt");
                 PathField("UI配置文件.json", ref UIConfig, nameof(UIConfig), ".json");
                 PathField("UIType.cs", ref UIType, nameof(UIType), ".cs");
             }
@@ -148,21 +154,40 @@ public class UICreateWindow : EditorWindow
                             && (jsonData.isLuaUI || !string.IsNullOrEmpty(uiScriptPath));
                         if (!isCreated)
                         {
-                            if (GUILayout.Button($"选择创建路径:{saveUIPath}"))
+                            EditorGUILayout.LabelField("UI类型", EditorStyles.boldLabel);
+                            EditorGUILayout.BeginHorizontal();
                             {
-                                var newPath = EditorUtility.OpenFolderPanel("UI生成路径", saveUIPath, "");
-                                saveUIPath = newPath.Replace(Application.dataPath, "Assets");
-                                PlayerPrefs.SetString(nameof(saveUIPath), saveUIPath);
+                                if (GUILayout.Toggle(!isHotUI, "不热更新UI（纯C#代码）", "Button")) isHotUI = false;
+                                if (GUILayout.Toggle(isHotUI, "热更新UI（C#壳+Lua）", "Button")) isHotUI = true;
                             }
+                            EditorGUILayout.EndHorizontal();
                             if (uiPrefab != null)
                             {
-                                if (isLuaUI)
-                                    EditorGUILayout.TextField("Lua模块路径", $"{luaSavePath}/UI/{uiName}.lua.txt");
+                                if (isHotUI)
+                                {
+                                    EditorGUILayout.HelpBox("生成 UILuaView C#壳（控件绑定字段+事件桥接到Lua），业务逻辑写在Lua模块可热更。注意：每新增一个界面仍需编译C#壳，要打C#包", MessageType.Info);
+                                }
                                 else
-                                    EditorGUILayout.TextField("UI生成路径", $"{saveUIPath}/{uiName}.cs");
+                                {
+                                    EditorGUILayout.HelpBox("生成纯 C# View类（继承UIView，Mainman风格），逻辑写C#、不生成Lua文件，无法热更", MessageType.Info);
+                                }
+                                if (GUILayout.Button($"选择创建路径:{saveUIPath}"))
+                                {
+                                    var newPath = EditorUtility.OpenFolderPanel("UI生成路径", saveUIPath, "");
+                                    saveUIPath = newPath.Replace(Application.dataPath, "Assets");
+                                    PlayerPrefs.SetString(nameof(saveUIPath), saveUIPath);
+                                }
+                                if (isHotUI)
+                                {
+                                    EditorGUILayout.TextField("C#壳路径", $"{saveUIPath}/{uiName}.cs");
+                                    EditorGUILayout.TextField("Lua模块路径", $"{luaSavePath}/UI/{uiName}.lua.txt");
+                                }
+                                else
+                                {
+                                    EditorGUILayout.TextField("C#脚本路径", $"{saveUIPath}/{uiName}.cs");
+                                }
                             }
 
-                            isLuaUI = EditorGUILayout.Toggle("纯Lua热更UI(不生成C#脚本/不进UIType，逻辑全写Lua)", isLuaUI);
                             isWindow = EditorGUILayout.Toggle("是否为窗口", isWindow);
                             layer = (UILayer)EditorGUILayout.EnumPopup("UILayer设置", layer);
                             isAutoNavigation = EditorGUILayout.Toggle("是否激活自动导航(测试阶段)", isAutoNavigation);
@@ -171,21 +196,19 @@ public class UICreateWindow : EditorWindow
                             GUI.color = Color.green;
                             if (GUILayout.Button("创建UI"))
                             {
-                                if (!isLuaUI)
+                                // 生成 C# 代码：热更新UI = UILuaView壳(事件桥接到Lua)；不热更新UI = 纯UIView
+                                string templatePath = isHotUI ? UIViewLuaTemplate : UIViewTemplate;
+                                string str = Regex.Replace(File.ReadAllText(templatePath), "UIXXXView", uiName);
+                                UIControlData uiControlData = uiPrefab.GetComponent<UIControlData>();
+                                if (uiControlData != null)
                                 {
-                                    // 生成 C# 代码
-                                    string str = Regex.Replace(File.ReadAllText(UIViewTemplate), "UIXXXView", uiName);
-                                    UIControlData uiControlData = uiPrefab.GetComponent<UIControlData>();
-                                    if (uiControlData != null)
-                                    {
-                                        uiControlData.CopyCodeToClipBoardPrivate();
-                                    }
-                                    str = Regex.Replace(str, "//UIControlData", uiControlData != null ? UnityEngine.GUIUtility.systemCopyBuffer : "");
-                                    string newPath = $"{saveUIPath}/{uiName}.cs";
-                                    File.WriteAllText(newPath, str);
-                                    uiNames.AddOrUpdate(uiName, newPath);
-                                    Debug.Log("生成成功：" + newPath);
+                                    uiControlData.CopyCodeToClipBoardPrivate();
                                 }
+                                str = Regex.Replace(str, "//UIControlData", uiControlData != null ? UnityEngine.GUIUtility.systemCopyBuffer : "");
+                                string newPath = $"{saveUIPath}/{uiName}.cs";
+                                File.WriteAllText(newPath, str);
+                                uiNames.AddOrUpdate(uiName, newPath);
+                                Debug.Log("生成成功：" + newPath);
 
                                 var newJsonData = new UIConfigJson
                                 {
@@ -194,43 +217,45 @@ public class UICreateWindow : EditorWindow
                                     isWindow = isWindow,
                                     uiLayer = layer.ToString(),
                                     isAutoNavigation = isAutoNavigation,
-                                    isLuaUI = isLuaUI,
                                 };
 
                                 uiJsonDatas.AddOrUpdate(uiName, newJsonData);
                                 SaveJson();
 
-                                if (!isLuaUI)
+                                // 生成UIType：先清理历史重复项，已存在则不再写入
+                                var uiTypeStr = File.ReadAllText(UIType);
+                                var seen = new HashSet<string>();
+                                var newLines = new List<string>();
+                                foreach (var line in uiTypeStr.Split('\n'))
                                 {
-                                    // 生成UIType：先清理历史重复项，已存在则不再写入（纯 Lua UI 不进枚举，才能只发 Lua 包热更新增）
-                                    var uiTypeStr = File.ReadAllText(UIType);
-                                    var seen = new HashSet<string>();
-                                    var newLines = new List<string>();
-                                    foreach (var line in uiTypeStr.Split('\n'))
-                                    {
-                                        var trimmed = line.Trim();
-                                        if (trimmed.EndsWith(",") && !seen.Add(trimmed)) continue;
-                                        newLines.Add(line);
-                                    }
-                                    var dedupedStr = string.Join("\n", newLines);
-                                    var hasType = Array.Exists(dedupedStr.Split(','), s => s.Trim().Equals(uiName));
-                                    var finalStr = hasType ? dedupedStr : Regex.Replace(dedupedStr, "Max,", $"{uiName},\n\t\tMax,");
-                                    if (finalStr != uiTypeStr)
-                                    {
-                                        File.Delete(UIType);
-                                        File.WriteAllText(UIType, finalStr);
-                                    }
-                                    if (hasType)
-                                    {
-                                        Debug.Log($"UIType中已存在{uiName}，跳过写入");
-                                    }
+                                    var trimmed = line.Trim();
+                                    if (trimmed.EndsWith(",") && !seen.Add(trimmed)) continue;
+                                    newLines.Add(line);
+                                }
+                                var dedupedStr = string.Join("\n", newLines);
+                                var hasType = Array.Exists(dedupedStr.Split(','), s => s.Trim().Equals(uiName));
+                                var finalStr = hasType ? dedupedStr : Regex.Replace(dedupedStr, "Max,", $"{uiName},\n\t\tMax,");
+                                if (finalStr != uiTypeStr)
+                                {
+                                    File.Delete(UIType);
+                                    File.WriteAllText(UIType, finalStr);
+                                }
+                                if (hasType)
+                                {
+                                    Debug.Log($"UIType中已存在{uiName}，跳过写入");
                                 }
 
-                                var luaMsg = UILuaTemplateGenerator.GenerateForPrefab(uiPrefab, uiName, luaSavePath);
-                                if (luaMsg != null)
-                                    Debug.Log("Lua模板已生成：" + luaMsg);
-                                if (isLuaUI)
-                                    Debug.Log($"纯 Lua 热更 UI 创建成功：{uiName}，业务逻辑写在 {luaSavePath}/UI/{uiName}.lua.txt（无需打 C# 包）");
+                                if (isHotUI)
+                                {
+                                    var luaMsg = UILuaTemplateGenerator.GenerateForPrefab(uiPrefab, uiName, luaSavePath);
+                                    if (luaMsg != null)
+                                        Debug.Log("Lua模板已生成：" + luaMsg);
+                                    Debug.Log($"热更新UI(C#壳+Lua)创建成功：{uiName}，C#壳在 {newPath}，业务逻辑写在Lua模块");
+                                }
+                                else
+                                {
+                                    Debug.Log($"纯C# UI创建成功：{uiName}（逻辑写C#，不生成Lua）");
+                                }
 
                                 AssetDatabase.SaveAssets();
                                 AssetDatabase.Refresh();

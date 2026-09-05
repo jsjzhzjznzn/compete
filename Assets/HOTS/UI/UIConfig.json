@@ -3,30 +3,38 @@
         {
             "uiType": "Mainman",
             "path": "Assets/HOTS/UI/Prefabs/Mainman.prefab",
-            "isWindow": true,
+            "isWindow": false,
             "uiLayer": "NormalLayer",
-            "isAutoNavigation": false
+            "isAutoNavigation": false,
+            "isLuaUI": false,
+            "luaModuleName": ""
         },
         {
             "uiType": "Test1",
             "path": "Assets/HOTS/UI/Prefabs/Test1.prefab",
-            "isWindow": true,
+            "isWindow": false,
             "uiLayer": "NormalLayer",
-            "isAutoNavigation": false
+            "isAutoNavigation": false,
+            "isLuaUI": false,
+            "luaModuleName": ""
         },
         {
             "uiType": "Immmmm",
             "path": "Assets/HOTS/UI/Prefabs/Immmmm.prefab",
-            "isWindow": true,
+            "isWindow": false,
             "uiLayer": "InfoLayer",
-            "isAutoNavigation": false
+            "isAutoNavigation": false,
+            "isLuaUI": false,
+            "luaModuleName": ""
         },
         {
             "uiType": "pppp",
             "path": "Assets/HOTS/UI/Prefabs/pppp.prefab",
-            "isWindow": true,
+            "isWindow": false,
             "uiLayer": "NormalLayer",
-            "isAutoNavigation": false
+            "isAutoNavigation": false,
+            "isLuaUI": false,
+            "luaModuleName": ""
         }
     ]
 }

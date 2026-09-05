@@ -6,7 +6,7 @@ using TMPro;
 
 namespace SkierFramework
 {
-    public class UIXXXView : UIView
+    public class UIXXXView : UILuaView
     {
         //UIControlData
 
