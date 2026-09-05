@@ -396,7 +396,25 @@ namespace SkierFramework
             s_moduleCache.Remove(GetType());
             _module = null;
             UnwireEvents();
-            if (_ctrlData != null && EnsureModule())
+            if (_ctrlData == null)
+                return;
+
+            if (_env == null)
+                _env = LuaLauncher.LuaEnv;
+            if (_env == null)
+                return;
+
+            // 必须清 Lua 侧 require 缓存，否则 require 命中 package.loaded 直接返回旧模块表，重载不生效
+            try
+            {
+                _env.DoString("package.loaded['" + LuaModuleName + "'] = nil", "UILuaView:ReloadLuaModule");
+            }
+            catch (Exception e)
+            {
+                Debug.LogError("[UILuaView] 清除 Lua 模块缓存失败: " + LuaModuleName + "\n" + e);
+            }
+
+            if (EnsureModule())
             {
                 InjectControls();
                 InvokeLua("OnInit");
