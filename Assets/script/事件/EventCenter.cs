@@ -11,7 +11,7 @@ using UnityEngine;
 //
 // 【为什么用枚举 + 泛型容器】
 //   - 枚举事件名：编译期就能发现拼写错误，比字符串事件安全
-//   - EventInfo<T> 泛型容器：每个事件只绑定一种参数类型，参数类型不匹配
+//   - EventContainer<T> 泛型容器：每个事件只绑定一种参数类型，参数类型不匹配
 //     在订阅/派发时直接报错，不会运行到一半才崩溃
 //   - struct 参数包裹：多个参数塞进一个 struct，字段名即文档，
 //     比 CallEvent(float, string, bool, ...) 这种靠顺序猜的可读得多
@@ -130,13 +130,13 @@ public struct BuffChangeData
 // 3. 多态事件容器基类
 // ============================================================
 // 为什么要这层基类？
-//   事件中心内部用 Dictionary<E_EventType, EventInfoBase> 存所有事件，
-//   但事件分"无参(EventInfo)"和"带参(EventInfo<T>)"两种，类型不同没法
+//   事件中心内部用 Dictionary<E_EventType, EventContainerBase> 存所有事件，
+//   但事件分"无参(EventContainer)"和"带参(EventContainer<T>)"两种，类型不同没法
 //   存进同一个字典。基类给了它们一个公共类型，字典就能存了。
 //
 //   Remove(Delegate)：UnregisterTarget 批量注销时，按一个 Delegate 就能
 //   从容器里删订阅，不用知道它是无参还是带参。
-public abstract class EventInfoBase
+public abstract class EventContainerBase
 {
     /// <summary>是否有人订阅（调试/清理判断用）</summary>
     public abstract bool HasListeners { get; }
@@ -148,7 +148,7 @@ public abstract class EventInfoBase
 // ============================================================
 // 4. 无参事件容器（E_RoundStart、E_OnKill 这类不带数据的）
 // ============================================================
-public class EventInfo : EventInfoBase
+public class EventContainer : EventContainerBase
 {
     /// <summary>C# event 委托：多个订阅者会以 += 链式串联</summary>
     private event Action actions;
@@ -177,7 +177,7 @@ public class EventInfo : EventInfoBase
 // 5. 带参事件容器（E_OnDamage、E_Attack 这类带数据的）
 // ============================================================
 // 泛型 T 就是第 2 节定义的那些 struct。
-public class EventInfo<T> : EventInfoBase
+public class EventContainer<T> : EventContainerBase
 {
     private event Action<T> actions;
 
@@ -228,7 +228,7 @@ public class EventCenter
     public static EventCenter MainInstance => _mainInstance ??= new EventCenter();
 
     /// <summary>事件类型 → 容器（一个事件只允许一种参数签名）</summary>
-    private readonly Dictionary<E_EventType, EventInfoBase> _eventDict = new Dictionary<E_EventType, EventInfoBase>();
+    private readonly Dictionary<E_EventType, EventContainerBase> _eventDict = new Dictionary<E_EventType, EventContainerBase>();
 
     /// <summary>订阅目标 → 注册记录列表（供 UnregisterTarget 一键注销）</summary>
     /// <remarks>
@@ -257,7 +257,7 @@ public class EventCenter
         if (_eventDict.TryGetValue(evt, out var info))
         {
             // 事件已存在：必须是同类型（无参）容器，否则说明签名冲突
-            if (info is EventInfo eventInfo)
+            if (info is EventContainer eventInfo)
                 eventInfo.Add(callback);
             else
                 Debug.LogError($"[EventCenter] 事件 {evt} 已注册为带参类型，不能用无参订阅");
@@ -265,7 +265,7 @@ public class EventCenter
         else
         {
             // 事件第一次被订阅：创建无参容器并放进字典
-            var eventInfo = new EventInfo();
+            var eventInfo = new EventContainer();
             eventInfo.Add(callback);
             _eventDict[evt] = eventInfo;
         }
@@ -283,7 +283,7 @@ public class EventCenter
         {
             // 类型检查：泛型 T 必须和第一次订阅时的类型完全一致，
             // 否则派发时拿到的参数无法安全传给回调 → 直接报错提前暴露问题
-            if (info is EventInfo<T> eventInfo)
+            if (info is EventContainer<T> eventInfo)
                 eventInfo.Add(callback);
             else
                 Debug.LogError($"[EventCenter] 事件 {evt} 参数类型不匹配，" +
@@ -291,7 +291,7 @@ public class EventCenter
         }
         else
         {
-            var eventInfo = new EventInfo<T>();
+            var eventInfo = new EventContainer<T>();
             eventInfo.Add(callback);
             _eventDict[evt] = eventInfo;
         }
@@ -353,7 +353,7 @@ public class EventCenter
     {
         if (_eventDict.TryGetValue(evt, out var info))
         {
-            if (info is EventInfo eventInfo)
+            if (info is EventContainer eventInfo)
                 eventInfo.Invoke();
             else
                 Debug.LogError($"[EventCenter] 触发事件 {evt} 时类型不匹配，" +
@@ -367,7 +367,7 @@ public class EventCenter
     {
         if (_eventDict.TryGetValue(evt, out var info))
         {
-            if (info is EventInfo<T> eventInfo)
+            if (info is EventContainer<T> eventInfo)
                 eventInfo.Invoke(data);
             else
                 Debug.LogError($"[EventCenter] 触发事件 {evt} 时类型不匹配，" +
@@ -428,7 +428,7 @@ public class EventCenter
     }
 
     /// <summary>提取带参容器的泛型参数类型名（错误提示用）</summary>
-    private static string GetEventArgType(EventInfoBase info)
+    private static string GetEventArgType(EventContainerBase info)
     {
         var t = info.GetType();
         var args = t.GetGenericArguments();

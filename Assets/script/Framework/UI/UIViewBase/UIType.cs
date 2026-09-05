@@ -6,6 +6,7 @@ namespace SkierFramework
 		Mainman,
 		Test1,
 		Immmmm,
+		pppp,
 		Max,
     }
 }

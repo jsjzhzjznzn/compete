@@ -1,0 +1,3 @@
+-- xlua 入口脚本（由 LuaLauncher.StartLuaVM 的 require('Main') 加载）
+-- 编辑器模式对应磁盘文件: Assets/LuaScripts/Main.lua.txt
+print("[Lua] Main.lua 加载成功")

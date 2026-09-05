@@ -6,9 +6,19 @@ using TMPro;
 
 namespace SkierFramework
 {
-    public class UIXXXView : UILuaView
+    public class pppp : UILuaView
     {
-        //UIControlData
+        #region 控件绑定变量声明，自动生成请勿手改
+		#pragma warning disable 0649
+		[ControlBinding]
+		private Button Button;
+		[ControlBinding]
+		private Button OOOO;
+
+		#pragma warning restore 0649
+#endregion
+
+
 
         public override void OnInit(UIControlData uIControlData, UIViewController controller)
         {

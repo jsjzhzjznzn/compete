@@ -802,6 +802,19 @@ namespace SkierFramework
         }
 
 
+        [ContextMenu("生成/更新 Lua 模板文件")]
+        public void GenerateLuaTemplateFile()
+        {
+            // 与“复制代码到剪贴板”一致：有需要才保存，保证以落盘绑定数据为准
+            if (IsNeedSave())
+                UIBindingPrefabSaveHelper.SavePrefab(gameObject);
+
+            string path = UILuaTemplateGenerator.GenerateForInstance(gameObject);
+            if (path != null)
+                Debug.Log("Lua 模板就绪: " + path);
+        }
+
+
         public void SetDirty()
         {
 #if UNITY_EDITOR

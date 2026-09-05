@@ -20,6 +20,13 @@
             "isWindow": true,
             "uiLayer": "InfoLayer",
             "isAutoNavigation": false
+        },
+        {
+            "uiType": "pppp",
+            "path": "Assets/HOTS/UI/Prefabs/pppp.prefab",
+            "isWindow": true,
+            "uiLayer": "NormalLayer",
+            "isAutoNavigation": false
         }
     ]
 }

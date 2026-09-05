@@ -45,6 +45,7 @@ public class UICreateWindow : EditorWindow
     private string UIConfig;
     private string UIType;
     private string saveUIPath;
+    private string luaSavePath;
     private string uiName;
     public GameObject uiPrefab;
     private Dictionary<string, string> uiNames = new Dictionary<string, string>();
@@ -60,6 +61,7 @@ public class UICreateWindow : EditorWindow
         TryGetPath(ref UIType, nameof(UIType), ".cs");
         TryGetPath(ref UIConfig, nameof(UIConfig), ".json");
         saveUIPath = PlayerPrefs.GetString(nameof(saveUIPath), "Assets/script/ui");
+        luaSavePath = UILuaTemplateGenerator.GetLuaDir();
 
         uiJsonDatas.Clear();
         uiNames.Clear();
@@ -127,6 +129,16 @@ public class UICreateWindow : EditorWindow
                     uiPrefab = EditorGUILayout.ObjectField("UI预制体", uiPrefab, typeof(GameObject), true) as GameObject;
                     if (uiPrefab != null)
                     {
+                        if (GUILayout.Button("Lua模板生成目录:" + luaSavePath))
+                        {
+                            var newPath = EditorUtility.OpenFolderPanel("Lua模板生成目录", luaSavePath, "");
+                            if (!string.IsNullOrEmpty(newPath))
+                            {
+                                luaSavePath = newPath.Replace(Application.dataPath, "Assets");
+                                UILuaTemplateGenerator.SetLuaDir(luaSavePath);
+                                PlayerPrefs.Save();
+                            }
+                        }
                         uiName = uiPrefab.name;
                         var uiScriptPath = GetUIScript(uiName);
                         if (string.IsNullOrEmpty(uiScriptPath))
@@ -199,6 +211,10 @@ public class UICreateWindow : EditorWindow
 
                                 Debug.Log("生成成功：" + newPath);
 
+                                var luaMsg = UILuaTemplateGenerator.GenerateForPrefab(uiPrefab, uiName, luaSavePath);
+                                if (luaMsg != null)
+                                    Debug.Log("Lua模板已生成：" + luaMsg);
+
                                 AssetDatabase.SaveAssets();
                                 AssetDatabase.Refresh();
                             }
@@ -221,6 +237,22 @@ public class UICreateWindow : EditorWindow
                                 SaveJson();
                                 AssetDatabase.SaveAssets();
                                 AssetDatabase.Refresh();
+                            }
+                            if (GUILayout.Button("生成/更新Lua模板"))
+                            {
+                                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(jsonData.path);
+                                if (prefab == null)
+                                {
+                                    Debug.LogError($"找不到UI预制体: {jsonData.path}");
+                                }
+                                else
+                                {
+                                    var luaMsg = UILuaTemplateGenerator.GenerateForPrefab(prefab, uiName, luaSavePath);
+                                    if (luaMsg != null)
+                                        Debug.Log("Lua模板已更新：" + luaMsg);
+                                    AssetDatabase.SaveAssets();
+                                    AssetDatabase.Refresh();
+                                }
                             }
                             GUI.color = defaultColor;
 

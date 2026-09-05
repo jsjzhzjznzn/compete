@@ -1,0 +1,41 @@
+--[[
+  自动生成：由 UIControlData 绑定数据生成，桩函数名请勿手改
+  require 路径: UI/pppp（C# 侧 UILuaView 按此加载）
+  重复生成只追加缺失桩，不会覆盖本文件已填写的业务逻辑
+  控件清单（运行时会按绑定名注入到本模块表）:
+    Button (Button)
+    OOOO (Button)
+]]
+local pppp = {}
+
+-- ===== 生命周期桩（C# 在对应时机自动调用，函数未定义则跳过）=====
+function pppp:OnInit()
+	-- TODO: 填写业务逻辑
+end
+
+function pppp:OnOpen(userData)
+	-- TODO: 填写业务逻辑
+end
+
+function pppp:OnAddListener()
+	-- TODO: 填写业务逻辑
+end
+
+function pppp:OnRemoveListener()
+	-- TODO: 填写业务逻辑
+end
+
+function pppp:OnClose()
+	-- TODO: 填写业务逻辑
+end
+
+-- ===== 控件事件桩（由 UIControlData 绑定数据生成，请勿改名）=====
+function pppp:OnClick_Button()
+	-- TODO: 填写业务逻辑
+end
+
+function pppp:OnClick_OOOO()
+	-- TODO: 填写业务逻辑
+end
+
+return pppp
