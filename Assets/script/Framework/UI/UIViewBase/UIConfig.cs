@@ -12,6 +12,14 @@ namespace SkierFramework
         public bool isWindow;
         public string uiLayer;
         public bool isAutoNavigation;
+        /// <summary>
+        /// 纯 Lua 热更 UI：不生成 C# View 类、不进 UIType 枚举，运行期挂 LuaOnlyView 通用壳
+        /// </summary>
+        public bool isLuaUI;
+        /// <summary>
+        /// isLuaUI=true 时 Lua 模块的 require 名，留空默认 "UI/" + uiType
+        /// </summary>
+        public string luaModuleName;
     }
 
     // JsonUtility 不支持根级数组，需要包装一层
@@ -24,10 +32,15 @@ namespace SkierFramework
     public class UIConfig
     {
         public string path;
-        public UIType uiType;
+        /// <summary>
+        /// UI 标识：C# UI 为 UIType 枚举名，纯 Lua UI 为任意不重复字符串（不要求出现在枚举里）
+        /// </summary>
+        public string uiType;
         public UILayer uiLayer;
         public Type viewType;
         public bool isWindow;
+        public bool isLuaUI;
+        public string luaModuleName;
 
         private const string UIConfigPath = "Assets/HOTS/UI/UIConfig";
 
@@ -48,16 +61,39 @@ namespace SkierFramework
                     var uiConfigs = wrapper.items;
                     foreach (var config in uiConfigs)
                     {
+                        if (string.IsNullOrEmpty(config.uiType))
+                        {
+                            Debug.LogErrorFormat("UIConfig.json 中存在缺少 uiType 的条目：{0}", config.path);
+                            continue;
+                        }
                         if (!Enum.TryParse<UILayer>(config.uiLayer, out UILayer layer))
                         {
                             layer = UILayer.NormalLayer;
                             Debug.LogErrorFormat("UIConfig.json 中的：{0}  uiLayer解析异常 {1}", config.path, config.uiLayer);
                         }
-                        if (!Enum.TryParse<UIType>(config.uiType, out UIType type))
+
+                        // 纯 Lua 热更 UI：uiType 允许不在 UIType 枚举里，也不要求存在 C# View 类，统一挂 LuaOnlyView
+                        if (config.isLuaUI)
                         {
-                            Debug.LogErrorFormat("UIConfig.json 中的：{0}  uiType解析异常 {1}", config.path, config.uiType);
+                            list.Add(new UIConfig
+                            {
+                                path = config.path,
+                                uiType = config.uiType,
+                                uiLayer = layer,
+                                viewType = typeof(LuaOnlyView),
+                                isWindow = config.isWindow,
+                                isLuaUI = true,
+                                luaModuleName = string.IsNullOrEmpty(config.luaModuleName) ? "UI/" + config.uiType : config.luaModuleName,
+                            });
+                            continue;
                         }
-                        Type viewType = GetType(config.uiType.ToString());
+
+                        // C# UI：uiType 必须是 UIType 枚举成员（新增 C# UI 需发包，与 Lua UI 无关）
+                        if (!Enum.TryParse<UIType>(config.uiType, out _))
+                        {
+                            Debug.LogErrorFormat("UIConfig.json 中的：{0}  uiType解析异常 {1}（若是纯 Lua UI 请设置 isLuaUI=true）", config.path, config.uiType);
+                        }
+                        Type viewType = GetType(config.uiType);
                         if (viewType == null)
                         {
                             viewType = GetType($"{typeof(UIConfig).Namespace}.{config.uiType}");
@@ -65,8 +101,8 @@ namespace SkierFramework
                         list.Add(new UIConfig
                         {
                             path = config.path,
+                            uiType = config.uiType,
                             uiLayer = layer,
-                            uiType = type,
                             viewType = viewType,
                             isWindow = config.isWindow
                         });

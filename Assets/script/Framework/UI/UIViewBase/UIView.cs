@@ -132,7 +132,7 @@ namespace SkierFramework
         /// </summary>
         public virtual void OnCancel()
         {
-            UIManager.Instance.Close(_controller.uiType);
+            UIManager.Instance.Close(_controller.uiId);
         }
 
         /// <summary>

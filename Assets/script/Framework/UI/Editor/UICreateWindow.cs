@@ -52,6 +52,7 @@ public class UICreateWindow : EditorWindow
     private Dictionary<string, UIConfigJson> uiJsonDatas = new Dictionary<string, UIConfigJson>();
 
     private bool isWindow = true;
+    private bool isLuaUI = false;
     private UILayer layer = UILayer.NormalLayer;
     private bool isAutoNavigation = false;
 
@@ -140,8 +141,12 @@ public class UICreateWindow : EditorWindow
                             }
                         }
                         uiName = uiPrefab.name;
+                        var jsonData = GetUIJson(uiName);
                         var uiScriptPath = GetUIScript(uiName);
-                        if (string.IsNullOrEmpty(uiScriptPath))
+                        // 已创建 = json 有记录且（纯 Lua UI 不要求 C# 脚本 / C# UI 要求脚本存在）
+                        bool isCreated = jsonData != null && !string.IsNullOrEmpty(jsonData.path)
+                            && (jsonData.isLuaUI || !string.IsNullOrEmpty(uiScriptPath));
+                        if (!isCreated)
                         {
                             if (GUILayout.Button($"选择创建路径:{saveUIPath}"))
                             {
@@ -151,9 +156,13 @@ public class UICreateWindow : EditorWindow
                             }
                             if (uiPrefab != null)
                             {
-                                EditorGUILayout.TextField("UI生成路径", $"{saveUIPath}/{uiName}.cs");
+                                if (isLuaUI)
+                                    EditorGUILayout.TextField("Lua模块路径", $"{luaSavePath}/UI/{uiName}.lua.txt");
+                                else
+                                    EditorGUILayout.TextField("UI生成路径", $"{saveUIPath}/{uiName}.cs");
                             }
 
+                            isLuaUI = EditorGUILayout.Toggle("纯Lua热更UI(不生成C#脚本/不进UIType，逻辑全写Lua)", isLuaUI);
                             isWindow = EditorGUILayout.Toggle("是否为窗口", isWindow);
                             layer = (UILayer)EditorGUILayout.EnumPopup("UILayer设置", layer);
                             isAutoNavigation = EditorGUILayout.Toggle("是否激活自动导航(测试阶段)", isAutoNavigation);
@@ -162,58 +171,66 @@ public class UICreateWindow : EditorWindow
                             GUI.color = Color.green;
                             if (GUILayout.Button("创建UI"))
                             {
-                                // 生成代码
-                                string str = Regex.Replace(File.ReadAllText(UIViewTemplate), "UIXXXView", uiName);
-                                UIControlData uiControlData = uiPrefab.GetComponent<UIControlData>();
-                                if (uiControlData != null)
+                                if (!isLuaUI)
                                 {
-                                    uiControlData.CopyCodeToClipBoardPrivate();
+                                    // 生成 C# 代码
+                                    string str = Regex.Replace(File.ReadAllText(UIViewTemplate), "UIXXXView", uiName);
+                                    UIControlData uiControlData = uiPrefab.GetComponent<UIControlData>();
+                                    if (uiControlData != null)
+                                    {
+                                        uiControlData.CopyCodeToClipBoardPrivate();
+                                    }
+                                    str = Regex.Replace(str, "//UIControlData", uiControlData != null ? UnityEngine.GUIUtility.systemCopyBuffer : "");
+                                    string newPath = $"{saveUIPath}/{uiName}.cs";
+                                    File.WriteAllText(newPath, str);
+                                    uiNames.AddOrUpdate(uiName, newPath);
+                                    Debug.Log("生成成功：" + newPath);
                                 }
-                                str = Regex.Replace(str, "//UIControlData", uiControlData != null ? UnityEngine.GUIUtility.systemCopyBuffer : "");
-                                string newPath = $"{saveUIPath}/{uiName}.cs";
-                                File.WriteAllText(newPath, str);
 
-                                var jsonData = new UIConfigJson
+                                var newJsonData = new UIConfigJson
                                 {
                                     uiType = uiName,
                                     path = AssetDatabase.GetAssetPath(uiPrefab),
                                     isWindow = isWindow,
                                     uiLayer = layer.ToString(),
                                     isAutoNavigation = isAutoNavigation,
+                                    isLuaUI = isLuaUI,
                                 };
 
-                                uiJsonDatas.AddOrUpdate(uiName, jsonData);
-                                uiNames.AddOrUpdate(uiName, newPath);
+                                uiJsonDatas.AddOrUpdate(uiName, newJsonData);
                                 SaveJson();
 
-                                // 生成UIType：先清理历史重复项，已存在则不再写入
-                                var uiTypeStr = File.ReadAllText(UIType);
-                                var seen = new HashSet<string>();
-                                var newLines = new List<string>();
-                                foreach (var line in uiTypeStr.Split('\n'))
+                                if (!isLuaUI)
                                 {
-                                    var trimmed = line.Trim();
-                                    if (trimmed.EndsWith(",") && !seen.Add(trimmed)) continue;
-                                    newLines.Add(line);
+                                    // 生成UIType：先清理历史重复项，已存在则不再写入（纯 Lua UI 不进枚举，才能只发 Lua 包热更新增）
+                                    var uiTypeStr = File.ReadAllText(UIType);
+                                    var seen = new HashSet<string>();
+                                    var newLines = new List<string>();
+                                    foreach (var line in uiTypeStr.Split('\n'))
+                                    {
+                                        var trimmed = line.Trim();
+                                        if (trimmed.EndsWith(",") && !seen.Add(trimmed)) continue;
+                                        newLines.Add(line);
+                                    }
+                                    var dedupedStr = string.Join("\n", newLines);
+                                    var hasType = Array.Exists(dedupedStr.Split(','), s => s.Trim().Equals(uiName));
+                                    var finalStr = hasType ? dedupedStr : Regex.Replace(dedupedStr, "Max,", $"{uiName},\n\t\tMax,");
+                                    if (finalStr != uiTypeStr)
+                                    {
+                                        File.Delete(UIType);
+                                        File.WriteAllText(UIType, finalStr);
+                                    }
+                                    if (hasType)
+                                    {
+                                        Debug.Log($"UIType中已存在{uiName}，跳过写入");
+                                    }
                                 }
-                                var dedupedStr = string.Join("\n", newLines);
-                                var hasType = Array.Exists(dedupedStr.Split(','), s => s.Trim().Equals(uiName));
-                                var finalStr = hasType ? dedupedStr : Regex.Replace(dedupedStr, "Max,", $"{uiName},\n\t\tMax,");
-                                if (finalStr != uiTypeStr)
-                                {
-                                    File.Delete(UIType);
-                                    File.WriteAllText(UIType, finalStr);
-                                }
-                                if (hasType)
-                                {
-                                    Debug.Log($"UIType中已存在{uiName}，跳过写入");
-                                }
-
-                                Debug.Log("生成成功：" + newPath);
 
                                 var luaMsg = UILuaTemplateGenerator.GenerateForPrefab(uiPrefab, uiName, luaSavePath);
                                 if (luaMsg != null)
                                     Debug.Log("Lua模板已生成：" + luaMsg);
+                                if (isLuaUI)
+                                    Debug.Log($"纯 Lua 热更 UI 创建成功：{uiName}，业务逻辑写在 {luaSavePath}/UI/{uiName}.lua.txt（无需打 C# 包）");
 
                                 AssetDatabase.SaveAssets();
                                 AssetDatabase.Refresh();
@@ -222,9 +239,15 @@ public class UICreateWindow : EditorWindow
                         }
                         else
                         {
-                            var jsonData = GetUIJson(uiName);
-
-                            EditorGUILayout.ObjectField("已创建脚本", AssetDatabase.LoadAssetAtPath(uiScriptPath, typeof(TextAsset)), typeof(TextAsset), true);
+                            if (jsonData.isLuaUI)
+                            {
+                                EditorGUILayout.HelpBox("纯 Lua 热更 UI：无 C# 脚本、不在 UIType 枚举中，界面逻辑全在 Lua 模块", MessageType.Info);
+                                jsonData.luaModuleName = EditorGUILayout.TextField("Lua模块名(留空默认 UI/界面名)", jsonData.luaModuleName);
+                            }
+                            else
+                            {
+                                EditorGUILayout.ObjectField("已创建脚本", AssetDatabase.LoadAssetAtPath(uiScriptPath, typeof(TextAsset)), typeof(TextAsset), true);
+                            }
                             jsonData.isWindow = EditorGUILayout.Toggle("是否为窗口", jsonData.isWindow);
                             Enum.TryParse(jsonData.uiLayer, out UILayer layer);
                             jsonData.uiLayer = EditorGUILayout.EnumPopup("UILayer设置", layer).ToString();
@@ -257,24 +280,27 @@ public class UICreateWindow : EditorWindow
                             GUI.color = defaultColor;
 
                             GUI.color = Color.red;
-                            if (GUILayout.Button("删除UI脚本"))
+                            if (GUILayout.Button(jsonData.isLuaUI ? "删除UI(json记录，Lua脚本文件保留)" : "删除UI脚本"))
                             {
-                                if (EditorUtility.DisplayDialog("是否确认删除", $"请确认是否删除:\n{uiScriptPath}\n同时会清除Json，UIType中相关数据", "确定", "取消"))
+                                if (EditorUtility.DisplayDialog("是否确认删除", $"请确认是否删除:\n{uiScriptPath}\n同时会清除Json{(jsonData.isLuaUI ? "" : "，UIType中相关数据")}", "确定", "取消"))
                                 {
-                                    // 清除UIType中指定类型
-                                    var uiTypeStr = File.ReadAllText(UIType);
-                                    int index = uiTypeStr.IndexOf(uiName);
-                                    int leftIndex = uiTypeStr.Substring(0, index).LastIndexOf(',') + 1;
-                                    int rightIndex = uiTypeStr.Substring(index, uiTypeStr.Length - index).IndexOf(',') + index + 1;
-                                    var newStr = uiTypeStr.Substring(0, leftIndex) + uiTypeStr.Substring(rightIndex, uiTypeStr.Length - rightIndex);
-                                    File.Delete(UIType);
-                                    File.WriteAllText(UIType, newStr);
+                                    if (!jsonData.isLuaUI)
+                                    {
+                                        // 清除UIType中指定类型
+                                        var uiTypeStr = File.ReadAllText(UIType);
+                                        int index = uiTypeStr.IndexOf(uiName);
+                                        int leftIndex = uiTypeStr.Substring(0, index).LastIndexOf(',') + 1;
+                                        int rightIndex = uiTypeStr.Substring(index, uiTypeStr.Length - index).IndexOf(',') + index + 1;
+                                        var newStr = uiTypeStr.Substring(0, leftIndex) + uiTypeStr.Substring(rightIndex, uiTypeStr.Length - rightIndex);
+                                        File.Delete(UIType);
+                                        File.WriteAllText(UIType, newStr);
+                                        // 删除文件
+                                        File.Delete(uiScriptPath);
+                                    }
                                     // 清除UIConfig中的指定类型
                                     uiJsonDatas.Remove(uiName);
                                     uiNames.Remove(uiName);
                                     SaveJson();
-                                    // 删除文件
-                                    File.Delete(uiScriptPath);
 
                                     AssetDatabase.SaveAssets();
                                     AssetDatabase.Refresh();

@@ -17,9 +17,9 @@ namespace SkierFramework
 
     public struct UIJumpData
     {
-        public UIType curUIType;
+        public string curUIId;
         public object curUserData;
-        public UIType nextUIType;
+        public string nextUIId;
         public object nextUserData;
     }
 
@@ -46,10 +46,11 @@ namespace SkierFramework
         /// </summary>
         private RectTransform[] _blacks = new RectTransform[2];
 
-        private Dictionary<UIType, UIViewController> _viewControllers;
+        // 注册表 key 统一为字符串：C# UI = UIType 枚举名；纯 Lua 热更 UI = json 里任意不重复字符串
+        private Dictionary<string, UIViewController> _viewControllers;
         private Dictionary<UILayer, UILayerLogic> _layers;
-        private HashSet<UIType> _openViews;
-        private HashSet<UIType> _residentViews;
+        private HashSet<string> _openViews;
+        private HashSet<string> _residentViews;
         private List<UIJumpData> _uiJumpDatas;
         private bool _isConfigInit;
         /// <summary>
@@ -77,9 +78,9 @@ namespace SkierFramework
             if (_viewControllers != null) return;
 
             _layers = new Dictionary<UILayer, UILayerLogic>();
-            _viewControllers = new Dictionary<UIType, UIViewController>();
-            _openViews = new HashSet<UIType>();
-            _residentViews = new HashSet<UIType>();
+            _viewControllers = new Dictionary<string, UIViewController>();
+            _openViews = new HashSet<string>();
+            _residentViews = new HashSet<string>();
             _uiJumpDatas = new List<UIJumpData>();
             Event = new EventController<UIEvent>();
 
@@ -263,17 +264,18 @@ namespace SkierFramework
                 {
                     if (_viewControllers.ContainsKey(cfg.uiType))
                     {
-                        Debug.LogErrorFormat("存在相同的uiType:{0}， 请检查UIConfig是否重复！", cfg.uiType.ToString());
+                        Debug.LogErrorFormat("存在相同的uiType:{0}， 请检查UIConfig是否重复！", cfg.uiType);
                         continue;
                     }
 
                     _viewControllers.Add(cfg.uiType, new UIViewController
                     {
                         uiPath = cfg.path,
-                        uiType = cfg.uiType,
+                        uiId = cfg.uiType,
                         uiLayer = _layers[cfg.uiLayer],
                         uiViewType = cfg.viewType,
                         isWindow = cfg.isWindow,
+                        luaModuleName = cfg.luaModuleName,
                     });
                 }
                 onCompleted?.Invoke();
@@ -281,11 +283,28 @@ namespace SkierFramework
         }
 
         /// <summary>
+        /// C# 枚举 UI 转注册表字符串键；UIType.Max 是“无 UI”哨兵，转成 null
+        /// </summary>
+        public static string ToUIId(UIType type)
+        {
+            return type == UIType.Max ? null : type.ToString();
+        }
+
+        /// <summary>
         /// 注册常驻UI
+        /// </summary>
+        public void AddResidentUI(string uiId)
+        {
+            if (string.IsNullOrEmpty(uiId)) return;
+            _residentViews.Add(uiId);
+        }
+
+        /// <summary>
+        /// 注册常驻UI（C# UI 转发）
         /// </summary>
         public void AddResidentUI(UIType type)
         {
-            _residentViews.Add(type);
+            AddResidentUI(ToUIId(type));
         }
 
         /// <summary>
@@ -352,37 +371,55 @@ namespace SkierFramework
         }
 
         /// <summary>
-        /// 开启UI
+        /// 开启UI（uiId 字符串：C# UI 传 UIType 枚举名，纯 Lua 热更 UI 传 UIConfig.json 里配置的字符串）
         /// </summary>
-        public void Open(UIType type, object userData = null, Action callback = null)
+        public void Open(string uiId, object userData = null, Action callback = null)
         {
-            if (!TryEnsureInitialized(() => Open(type, userData, callback))) return;
+            if (string.IsNullOrEmpty(uiId)) return;
+            if (!TryEnsureInitialized(() => Open(uiId, userData, callback))) return;
 
-            if (!_viewControllers.ContainsKey(type))
+            if (!_viewControllers.ContainsKey(uiId))
             {
-                Debug.LogErrorFormat("未配置uiType:{0}， 请检查UIConfig.cs！", type.ToString());
+                Debug.LogErrorFormat("未配置uiType:{0}， 请检查UIConfig.cs！", uiId);
                 return;
             }
 
-            _openViews.Add(type);
-            _viewControllers[type].Open(userData, callback);
+            _openViews.Add(uiId);
+            _viewControllers[uiId].Open(userData, callback);
+        }
+
+        /// <summary>
+        /// 开启UI（C# UI 转发）
+        /// </summary>
+        public void Open(UIType type, object userData = null, Action callback = null)
+        {
+            Open(ToUIId(type), userData, callback);
         }
 
         /// <summary>
         /// 关闭UI
         /// </summary>
-        public void Close(UIType type, Action callback = null, bool isJump = false)
+        public void Close(string uiId, Action callback = null, bool isJump = false)
         {
-            if (!TryEnsureInitialized(() => Close(type, callback, isJump))) return;
+            if (string.IsNullOrEmpty(uiId)) return;
+            if (!TryEnsureInitialized(() => Close(uiId, callback, isJump))) return;
 
-            if (!_viewControllers.ContainsKey(type))
+            if (!_viewControllers.ContainsKey(uiId))
             {
-                Debug.LogErrorFormat("未配置uiType:{0}， 请检查UIConfig.cs！", type.ToString());
+                Debug.LogErrorFormat("未配置uiType:{0}， 请检查UIConfig.cs！", uiId);
                 return;
             }
 
-            _openViews.Remove(type);
-            _viewControllers[type].Close(callback, isJump);
+            _openViews.Remove(uiId);
+            _viewControllers[uiId].Close(callback, isJump);
+        }
+
+        /// <summary>
+        /// 关闭UI（C# UI 转发）
+        /// </summary>
+        public void Close(UIType type, Action callback = null, bool isJump = false)
+        {
+            Close(ToUIId(type), callback, isJump);
         }
 
         /// <summary>
@@ -393,62 +430,80 @@ namespace SkierFramework
         /// 
         /// 逻辑：从 curUI 跳转到 nextUI，如果nextUI被关闭则重新打开curUI
         /// </summary>
-        public void JumpUI(UIType curUIType, object curUserData, UIType nextUIType, object nextUserData)
+        public void JumpUI(string curUIId, object curUserData, string nextUIId, object nextUserData)
         {
-            if (!TryEnsureInitialized(() => JumpUI(curUIType, curUserData, nextUIType, nextUserData))) return;
+            if (string.IsNullOrEmpty(curUIId) || string.IsNullOrEmpty(nextUIId)) return;
+            if (!TryEnsureInitialized(() => JumpUI(curUIId, curUserData, nextUIId, nextUserData))) return;
 
-            if (IsOpen(curUIType))
+            if (IsOpen(curUIId))
             {
-                int order = _viewControllers[curUIType].order;
+                int order = _viewControllers[curUIId].order;
                 // 由于存在异步，所以必须等他先开启完毕后，再关闭
-                Open(nextUIType, nextUserData, () => {
-                    if (order == _viewControllers[curUIType].order)
+                Open(nextUIId, nextUserData, () => {
+                    if (order == _viewControllers[curUIId].order)
                     {
-                        Close(curUIType, null, true);
+                        Close(curUIId, null, true);
                     }
                 });
             }
             else
             {
-                Debug.LogError($"跳转UI从 {curUIType} 跳转到 {nextUIType}时，{curUIType}并没有被开启！");
+                Debug.LogError($"跳转UI从 {curUIId} 跳转到 {nextUIId}时，{curUIId}并没有被开启！");
             }
             _uiJumpDatas.Add(new UIJumpData
             {
-                curUIType = curUIType,
+                curUIId = curUIId,
                 curUserData = curUserData,
-                nextUIType = nextUIType,
+                nextUIId = nextUIId,
                 nextUserData = nextUserData
             });
         }
 
         /// <summary>
+        /// UI跳转（C# UI 转发）
+        /// </summary>
+        public void JumpUI(UIType curUIType, object curUserData, UIType nextUIType, object nextUserData)
+        {
+            JumpUI(ToUIId(curUIType), curUserData, ToUIId(nextUIType), nextUserData);
+        }
+
+        /// <summary>
         /// UI关闭时回调，把跳转之前的UI重新还原。
         /// </summary>
-        public void OnUIClose(UIType type)
+        public void OnUIClose(string uiId)
         {
             if (_uiJumpDatas.Count == 0) return;
 
             for (int i = _uiJumpDatas.Count - 1; i >= 0; i--)
             {
-                if (_uiJumpDatas[i].nextUIType == type)
+                if (_uiJumpDatas[i].nextUIId == uiId)
                 {
-                    Open(_uiJumpDatas[i].curUIType, _uiJumpDatas[i].curUserData);
+                    Open(_uiJumpDatas[i].curUIId, _uiJumpDatas[i].curUserData);
                     _uiJumpDatas.RemoveAt(i);
                     break;
                 }
             }
         }
 
-        public void Preload(UIType type)
+        public void Preload(string uiId)
         {
-            if (!TryEnsureInitialized(() => Preload(type))) return;
+            if (string.IsNullOrEmpty(uiId)) return;
+            if (!TryEnsureInitialized(() => Preload(uiId))) return;
 
-            if (!_viewControllers.TryGetValue(type, out var controller))
+            if (!_viewControllers.TryGetValue(uiId, out var controller))
             {
-                Debug.LogErrorFormat("未配置uiType:{0}， 请检查UIConfig.cs！", type.ToString());
+                Debug.LogErrorFormat("未配置uiType:{0}， 请检查UIConfig.cs！", uiId);
                 return;
             }
             controller.Load();
+        }
+
+        /// <summary>
+        /// 预加载（C# UI 转发）
+        /// </summary>
+        public void Preload(UIType type)
+        {
+            Preload(ToUIId(type));
         }
 
         public void PreloadAll()
@@ -461,20 +516,28 @@ namespace SkierFramework
             }
         }
 
-        public bool IsOpen(UIType type)
+        public bool IsOpen(string uiId)
         {
             if (!IsReady)
             {
                 Debug.LogError("[UIManager] 尚未初始化完成，无法查询！");
                 return false;
             }
-            return _openViews.Contains(type);
+            return !string.IsNullOrEmpty(uiId) && _openViews.Contains(uiId);
+        }
+
+        /// <summary>
+        /// 是否打开（C# UI 转发）
+        /// </summary>
+        public bool IsOpen(UIType type)
+        {
+            return IsOpen(ToUIId(type));
         }
 
         /// <summary>
         /// UI建议都用事件进行交互，最好不使用该接口
         /// </summary>
-        public T GetView<T>(UIType type) where T : UIView
+        public T GetView<T>(string uiId) where T : UIView
         {
             if (!IsReady)
             {
@@ -482,19 +545,27 @@ namespace SkierFramework
                 return null;
             }
 
-            if (!_viewControllers.ContainsKey(type))
+            if (string.IsNullOrEmpty(uiId) || !_viewControllers.ContainsKey(uiId))
             {
-                Debug.LogErrorFormat("未配置uiType:{0}， 请检查UIConfig.cs！", type.ToString());
+                Debug.LogErrorFormat("未配置uiType:{0}， 请检查UIConfig.cs！", uiId);
                 return null;
             }
 
-            return _viewControllers[type].uiView as T;
+            return _viewControllers[uiId].uiView as T;
+        }
+
+        /// <summary>
+        /// UI建议都用事件进行交互，最好不使用该接口（C# UI 转发）
+        /// </summary>
+        public T GetView<T>(UIType type) where T : UIView
+        {
+            return GetView<T>(ToUIId(type));
         }
 
         /// <summary>
         /// 获得已经打开的UI，没开返回空
         /// </summary>
-        public UIView GetOpenedView(UIType type)
+        public UIView GetOpenedView(string uiId)
         {
             if (!IsReady)
             {
@@ -502,7 +573,7 @@ namespace SkierFramework
                 return null;
             }
 
-            if (_viewControllers.TryGetValue(type, out var viewController))
+            if (!string.IsNullOrEmpty(uiId) && _viewControllers.TryGetValue(uiId, out var viewController))
             {
                 if (viewController.uiView != null && viewController.isOpen)
                 {
@@ -512,28 +583,47 @@ namespace SkierFramework
             return null;
         }
 
-        public void CloseAll(UIType ignoreType = UIType.Max, bool closeResidentView = false)
+        /// <summary>
+        /// 获得已经打开的UI，没开返回空（C# UI 转发）
+        /// </summary>
+        public UIView GetOpenedView(UIType type)
         {
-            if (!TryEnsureInitialized(() => CloseAll(ignoreType, closeResidentView))) return;
+            return GetOpenedView(ToUIId(type));
+        }
+
+        /// <summary>
+        /// 关闭所有UI（常驻UI可选保留）。ignoreId 为 null/空 表示不忽略任何 UI
+        /// </summary>
+        public void CloseAll(string ignoreId = null, bool closeResidentView = false)
+        {
+            if (!TryEnsureInitialized(() => CloseAll(ignoreId, closeResidentView))) return;
 
             _uiJumpDatas.Clear();
-            var list = ListPool<UIType>.Get();
+            var list = ListPool<string>.Get();
 
-            foreach (var uiType in _openViews)
+            foreach (var uiId in _openViews)
             {
-                if (ignoreType == uiType) continue;
+                if (!string.IsNullOrEmpty(ignoreId) && ignoreId == uiId) continue;
 
-                if (closeResidentView || !_residentViews.Contains(uiType))
+                if (closeResidentView || !_residentViews.Contains(uiId))
                 {
-                    _viewControllers[uiType].Close();
-                    list.Add(uiType);
+                    _viewControllers[uiId].Close();
+                    list.Add(uiId);
                 }
             }
-            foreach (var uiType in list)
+            foreach (var uiId in list)
             {
-                _openViews.Remove(uiType);
+                _openViews.Remove(uiId);
             }
-            ListPool<UIType>.Release(list);
+            ListPool<string>.Release(list);
+        }
+
+        /// <summary>
+        /// 关闭所有UI（C# UI 转发，忽略指定枚举类型）
+        /// </summary>
+        public void CloseAll(UIType ignoreType, bool closeResidentView = false)
+        {
+            CloseAll(ToUIId(ignoreType), closeResidentView);
         }
 
         public void ReleaseAll()
@@ -543,9 +633,9 @@ namespace SkierFramework
             _uiJumpDatas.Clear();
             foreach (var controller in _viewControllers.Values)
             {
-                if (!_residentViews.Contains(controller.uiType))
+                if (!_residentViews.Contains(controller.uiId))
                 {
-                    _openViews.Remove(controller.uiType);
+                    _openViews.Remove(controller.uiId);
                     controller.FullRelease();
                 }
             }

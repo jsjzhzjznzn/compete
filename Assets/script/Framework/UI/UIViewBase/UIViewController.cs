@@ -7,11 +7,18 @@ namespace SkierFramework
     public class UIViewController
     {
         // 配置
-        public UIType uiType;
+        /// <summary>
+        /// UI 标识（字符串）：C# UI 为 UIType 枚举名，纯 Lua UI 为 json 里的任意字符串
+        /// </summary>
+        public string uiId;
         public string uiPath;
         public Type uiViewType;
         public UILayerLogic uiLayer;
         public bool isWindow;
+        /// <summary>
+        /// 纯 Lua UI（LuaOnlyView）的 Lua 模块 require 名，加载实例前注入
+        /// </summary>
+        public string luaModuleName;
 
         public UIView uiView;
         public UIViewAnim uiViewAnim;
@@ -56,6 +63,11 @@ namespace SkierFramework
                 isLoading = false;
                 uiView = (UIView)go.GetOrAddComponent(uiViewType);
                 uiViewAnim = go.GetComponent<UIViewAnim>();
+                if (uiView is LuaOnlyView luaOnlyView && !string.IsNullOrEmpty(luaModuleName))
+                {
+                    // 通用壳实例共享同一类型，模块名必须按配置注入后再走 OnInit（内部按模块名 require）
+                    luaOnlyView.luaModuleName = luaModuleName;
+                }
                 uiView.transform.SetParentEx(uiLayer.canvas.transform);
                 RectTransform rectTransform = uiView.transform as RectTransform;
 
@@ -128,7 +140,7 @@ namespace SkierFramework
             isOpen = false;
             if (!isJump)
             {
-                UIManager.Instance.OnUIClose(uiType);
+                UIManager.Instance.OnUIClose(uiId);
             }
             if (isLoading) return;
 

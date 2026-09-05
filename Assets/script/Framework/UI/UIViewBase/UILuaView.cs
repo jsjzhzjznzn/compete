@@ -98,7 +98,8 @@ namespace SkierFramework
         private LuaEnv _env;
         private static LuaEnv s_lastEnv;
         private static bool s_envWarned;
-        private static readonly Dictionary<Type, LuaTable> s_moduleCache = new Dictionary<Type, LuaTable>();
+        // 按模块名缓存：多个同类型实例（如 LuaOnlyView 通用壳）各自 require 不同模块，按 Type 缓存会互相顶掉
+        private static readonly Dictionary<string, LuaTable> s_moduleCache = new Dictionary<string, LuaTable>();
 #endif
 
         public override void OnInit(UIControlData uIControlData, UIViewController controller)
@@ -185,26 +186,26 @@ namespace SkierFramework
                 s_moduleCache.Clear();
             }
 
-            Type type = GetType();
-            if (!s_moduleCache.TryGetValue(type, out _module))
+            string moduleName = LuaModuleName;
+            if (!s_moduleCache.TryGetValue(moduleName, out _module))
             {
                 try
                 {
-                    object[] ret = _env.DoString("return require('" + LuaModuleName + "')", "UILuaView:" + LuaModuleName);
+                    object[] ret = _env.DoString("return require('" + moduleName + "')", "UILuaView:" + moduleName);
                     _module = (ret != null && ret.Length > 0) ? ret[0] as LuaTable : null;
                     if (_module == null)
                     {
-                        Debug.LogError("[UILuaView] Lua 模块加载失败，检查 .lua.txt 文件与 require 路径: " + LuaModuleName);
+                        Debug.LogError("[UILuaView] Lua 模块加载失败，检查 .lua.txt 文件与 require 路径: " + moduleName);
                     }
                     else
                     {
-                        s_moduleCache[type] = _module;
+                        s_moduleCache[moduleName] = _module;
                     }
                 }
                 catch (Exception e)
                 {
                     _module = null;
-                    Debug.LogError("[UILuaView] Lua 模块加载异常: " + LuaModuleName + "\n" + e);
+                    Debug.LogError("[UILuaView] Lua 模块加载异常: " + moduleName + "\n" + e);
                 }
             }
             return _module != null;
@@ -393,7 +394,7 @@ namespace SkierFramework
         [ContextMenu("重载Lua模块(调试)")]
         public void ReloadLuaModule()
         {
-            s_moduleCache.Remove(GetType());
+            s_moduleCache.Remove(LuaModuleName);
             _module = null;
             UnwireEvents();
             if (_ctrlData == null)

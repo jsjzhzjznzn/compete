@@ -81,7 +81,7 @@ namespace SkierFramework
                 if (openedUI.order != 0)
                 {
                     // 没出其他问题的情况下，说明这个UI之前并没有被关闭过
-                    Debug.LogError($"{openedUI.uiType} 已经是打开的了，又被再次打开了，异常情况！！");
+                    Debug.LogError($"{openedUI.uiId} 已经是打开的了，又被再次打开了，异常情况！！");
                     PushOrder(openedUI);
                 }
                 openedUI.order = PopOrder(openedUI);
