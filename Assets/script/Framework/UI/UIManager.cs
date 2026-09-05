@@ -598,6 +598,8 @@ namespace SkierFramework
 
         public Canvas GetLayerCanvas(UILayer layer)
         {
+            // 初始化（YooAsset 异步）完成前 _layers 为 null，调用方需容忍返回 null 后惰性重试
+            if (_layers == null) return null;
             if (_layers.TryGetValue(layer, out var layerLogic))
                 return layerLogic.canvas;
             return null;
