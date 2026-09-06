@@ -79,6 +79,68 @@ public class LuaLauncher : MonoBehaviour
         return ResourceManager.Instance.ReadTextBytes(assetPath);
     }
 
+    /// <summary>
+    /// 异步加载 Lua 模块（通过 YooAsset 异步加载 TextAsset，再 DoString 执行）。
+    /// 走标准 require 缓存：模块已在 package.loaded 中则直接复用，不会重复执行文件；
+    /// 热更/重载后需要强制重新执行请用 ReloadAsync。
+    /// 加载完成后回调返回 LuaTable，失败返回 null。
+    /// </summary>
+    public static void RequireAsync(string moduleName, Action<LuaTable> onComplete)
+    {
+        if (LuaEnv == null)
+        {
+            onComplete?.Invoke(null);
+            return;
+        }
+
+        string assetPath = LuaRoot + "/" + moduleName.Replace('.', '/') + ".lua.txt";
+
+        ResourceManager.Instance.LoadAssetAsync<TextAsset>(assetPath, (textAsset) =>
+        {
+            if (textAsset == null)
+            {
+                Debug.LogError("[LuaLauncher] 异步加载Lua文件失败: " + assetPath);
+                onComplete?.Invoke(null);
+                return;
+            }
+
+            try
+            {
+                object[] ret = LuaEnv.DoString("return require('" + moduleName + "')", "AsyncRequire:" + moduleName);
+                LuaTable module = (ret != null && ret.Length > 0) ? ret[0] as LuaTable : null;
+                onComplete?.Invoke(module);
+            }
+            catch (Exception e)
+            {
+                Debug.LogError("[LuaLauncher] 异步require失败: " + moduleName + "\n" + e);
+                onComplete?.Invoke(null);
+            }
+        });
+    }
+
+    /// <summary>
+    /// 热更/重载后强制重新执行模块文件：先清 package.loaded 缓存再异步 require。
+    /// 普通加载请用 RequireAsync，避免模块文件被重复执行导致状态重置；
+    /// UILuaView 的 UI 模块热更请走 UILuaView.ReloadLuaModule（同时清理 C# 侧缓存并重绑控件）。
+    /// </summary>
+    public static void ReloadAsync(string moduleName, Action<LuaTable> onComplete)
+    {
+        if (LuaEnv == null)
+        {
+            onComplete?.Invoke(null);
+            return;
+        }
+        try
+        {
+            LuaEnv.DoString("package.loaded['" + moduleName.Replace("'", "\\'") + "'] = nil", "ReloadModule:ClearCache");
+        }
+        catch (Exception e)
+        {
+            Debug.LogError("[LuaLauncher] 清除模块缓存失败: " + moduleName + "\n" + e);
+        }
+        RequireAsync(moduleName, onComplete);
+    }
+
     private void Update()
     {
         // xlua 增量 GC：每帧驱动一次，避免卡顿

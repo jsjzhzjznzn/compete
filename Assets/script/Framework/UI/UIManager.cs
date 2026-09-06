@@ -343,6 +343,10 @@ namespace SkierFramework
             if (!YooAssetService.Instance.IsInitialized)
             {
                 Debug.LogError("[UIManager] YooAsset 初始化失败，UI 系统初始化中止！");
+                if (_pendingActions.Count > 0)
+                {
+                    Debug.LogErrorFormat("[UIManager] 初始化失败导致 {0} 个排队中的UI操作被丢弃，其调用方回调将不会触发！", _pendingActions.Count);
+                }
                 _isInitializing = false;
                 _pendingActions.Clear();
                 yield break;
@@ -485,6 +489,14 @@ namespace SkierFramework
             }
         }
 
+        /// <summary>
+        /// UI打开失败时回调（如资源加载失败），清理打开标记保证 IsOpen() 与真实状态一致
+        /// </summary>
+        public void OnUIOpenFailed(string uiId)
+        {
+            _openViews.Remove(uiId);
+        }
+
         public void Preload(string uiId)
         {
             if (string.IsNullOrEmpty(uiId)) return;
@@ -607,13 +619,16 @@ namespace SkierFramework
 
                 if (closeResidentView || !_residentViews.Contains(uiId))
                 {
-                    _viewControllers[uiId].Close();
                     list.Add(uiId);
                 }
             }
             foreach (var uiId in list)
             {
-                _openViews.Remove(uiId);
+                if (_viewControllers.TryGetValue(uiId, out var controller))
+                {
+                    _openViews.Remove(uiId);
+                    controller.Close();
+                }
             }
             ListPool<string>.Release(list);
         }
@@ -638,6 +653,55 @@ namespace SkierFramework
                     _openViews.Remove(controller.uiId);
                     controller.FullRelease();
                 }
+            }
+        }
+
+        /// <summary>
+        /// 关闭指定层级的所有UI（仅隐藏，实例保留复用；常驻UI可选保留）
+        /// </summary>
+        public void CloseAllInLayer(UILayer layer, bool closeResidentView = false)
+        {
+            if (!TryEnsureInitialized(() => CloseAllInLayer(layer, closeResidentView))) return;
+
+            _uiJumpDatas.Clear();
+            var list = ListPool<string>.Get();
+
+            foreach (var uiId in _openViews)
+            {
+                var controller = _viewControllers[uiId];
+                if (controller.uiLayer == null || controller.uiLayer.layer != layer) continue;
+
+                if (closeResidentView || !_residentViews.Contains(uiId))
+                {
+                    list.Add(uiId);
+                }
+            }
+            foreach (var uiId in list)
+            {
+                if (_viewControllers.TryGetValue(uiId, out var controller))
+                {
+                    _openViews.Remove(uiId);
+                    controller.Close();
+                }
+            }
+            ListPool<string>.Release(list);
+        }
+
+        /// <summary>
+        /// 彻底清除指定层级的所有UI（回收实例并卸载预制体资源，常驻UI除外）
+        /// </summary>
+        public void ReleaseAllInLayer(UILayer layer)
+        {
+            if (!TryEnsureInitialized(() => ReleaseAllInLayer(layer))) return;
+
+            _uiJumpDatas.Clear();
+            foreach (var controller in _viewControllers.Values)
+            {
+                if (controller.uiLayer == null || controller.uiLayer.layer != layer) continue;
+                if (_residentViews.Contains(controller.uiId)) continue;
+
+                _openViews.Remove(controller.uiId);
+                controller.FullRelease();
             }
         }
 

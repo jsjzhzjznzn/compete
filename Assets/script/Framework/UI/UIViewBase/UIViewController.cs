@@ -46,6 +46,8 @@ namespace SkierFramework
                     // 资源加载失败，避免后续空引用
                     isLoading = false;
                     Release();
+                    // 清理 UIManager 的打开标记，避免 IsOpen() 误报
+                    UIManager.Instance.OnUIOpenFailed(uiId);
                     callback?.Invoke();
                     return;
                 }

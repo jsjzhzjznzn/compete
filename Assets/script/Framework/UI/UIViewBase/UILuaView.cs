@@ -107,11 +107,11 @@ namespace SkierFramework
             base.OnInit(uIControlData, controller);
 #if XLUA
             _ctrlData = uIControlData;
-            if (EnsureModule())
+            EnsureModuleAsync(() =>
             {
                 InjectControls();
                 InvokeLua("OnInit");
-            }
+            });
 #endif
         }
 
@@ -209,6 +209,58 @@ namespace SkierFramework
                 }
             }
             return _module != null;
+        }
+
+        /// <summary>
+        /// 异步获取 Lua 模块（优先走 YooAsset 异步加载，缓存命中则同步返回）
+        /// </summary>
+        private void EnsureModuleAsync(Action onComplete)
+        {
+            if (_module != null)
+            {
+                onComplete?.Invoke();
+                return;
+            }
+
+            _env = LuaLauncher.LuaEnv;
+            if (_env == null)
+            {
+                if (!s_envWarned)
+                {
+                    s_envWarned = true;
+                    Debug.LogWarning("[UILuaView] LuaEnv 未启动，Lua UI 以纯 C# 模式运行（请确认已调用 LuaLauncher.StartLuaVM()）");
+                }
+                onComplete?.Invoke();
+                return;
+            }
+
+            if (s_lastEnv != _env)
+            {
+                s_lastEnv = _env;
+                s_moduleCache.Clear();
+            }
+
+            string moduleName = LuaModuleName;
+            if (s_moduleCache.TryGetValue(moduleName, out _module))
+            {
+                onComplete?.Invoke();
+                return;
+            }
+
+            // 异步加载 Lua 模块
+            LuaLauncher.RequireAsync(moduleName, (module) =>
+            {
+                _module = module;
+                if (_module != null)
+                {
+                    s_moduleCache[moduleName] = _module;
+                }
+                else
+                {
+                    Debug.LogError("[UILuaView] Lua 模块加载失败: " + moduleName);
+                }
+                onComplete?.Invoke();
+            });
         }
 
         /// <summary>

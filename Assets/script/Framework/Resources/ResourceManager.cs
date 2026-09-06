@@ -373,8 +373,13 @@ namespace SkierFramework
             string location = NormalizeToLocation(path);
             if (_loadedAssetInstanceCountDic.TryGetValue(location, out int count))
             {
-                _loadedAssetInstanceCountDic[location] = --count;
                 if (count <= 0)
+                {
+                    Debug.LogErrorFormat("[ReleaseRef] 引用计数已为 0，疑似重复释放：{0}！", path);
+                    return;
+                }
+                _loadedAssetInstanceCountDic[location] = --count;
+                if (count == 0)
                 {
                     UnLoadAsset(location);
                 }
@@ -504,6 +509,11 @@ namespace SkierFramework
         #endregion
 
         #region 场景加载
+        /// <summary>
+        /// 已加载场景句柄（key 为归一化 location，卸载场景时统一归还引用计数）
+        /// </summary>
+        private Dictionary<string, YooAsset.SceneHandle> _sceneHandles = new Dictionary<string, YooAsset.SceneHandle>();
+
         public void LoadSceneAsync(string name, LoadSceneMode loadMode = LoadSceneMode.Single, Action<AsyncOperation> callback = null)
         {
             if (!YooAssetService.Instance.IsInitialized)
@@ -513,32 +523,96 @@ namespace SkierFramework
             }
 
             string location = NormalizeToLocation(name);
+            if (loadMode == LoadSceneMode.Single)
+            {
+                // 单场景模式：旧场景即将被 Unity 替换卸载，一并归还已跟踪句柄
+                ReleaseAllSceneHandles();
+            }
             var handle = YooAssetService.Instance.LoadSceneAsync(location, loadMode);
             // SceneHandle 不是 UnityEngine.AsyncOperation，回调仅作完成通知
-            handle.Completed += (h) => callback?.Invoke(null);
+            handle.Completed += (h) =>
+            {
+                if (h.IsValid && h.Status == EOperationStatus.Succeeded)
+                {
+                    if (_sceneHandles.TryGetValue(location, out YooAsset.SceneHandle oldHandle) && oldHandle != h)
+                    {
+                        oldHandle.Release();
+                    }
+                    _sceneHandles[location] = h;
+                }
+                else
+                {
+                    Debug.LogErrorFormat("[LoadSceneAsync] 场景加载失败：{0}！{1}", location, h.Error);
+                    if (h.IsValid) h.Release();
+                }
+                callback?.Invoke(null);
+            };
+        }
+
+        /// <summary>
+        /// 释放指定场景的句柄（场景不再需要时主动归还 YooAsset 引用计数）
+        /// </summary>
+        public void ReleaseSceneHandle(Scene scene)
+        {
+            ReleaseSceneHandleByName(scene.name);
         }
 
         public void UnloadSceneAsync(Scene scene, Action callback)
         {
+            string sceneName = scene.name;
             AsyncOperation op = SceneManager.UnloadSceneAsync(scene);
             if (op != null)
             {
-                op.completed += (asyncOp) => callback?.Invoke();
+                op.completed += (asyncOp) =>
+                {
+                    ReleaseSceneHandleByName(sceneName);
+                    callback?.Invoke();
+                };
             }
             else
             {
+                ReleaseSceneHandleByName(sceneName);
                 callback?.Invoke();
             }
         }
 
         public IEnumerator CoUnloadSceneAsync(Scene scene, Action callback)
         {
+            string sceneName = scene.name;
             AsyncOperation op = SceneManager.UnloadSceneAsync(scene);
             if (op != null)
             {
                 yield return op;
             }
+            ReleaseSceneHandleByName(sceneName);
             callback?.Invoke();
+        }
+
+        private void ReleaseAllSceneHandles()
+        {
+            if (_sceneHandles.Count == 0) return;
+            foreach (var handle in _sceneHandles.Values)
+            {
+                if (handle != null && handle.IsValid)
+                {
+                    handle.Release();
+                }
+            }
+            _sceneHandles.Clear();
+        }
+
+        private void ReleaseSceneHandleByName(string sceneName)
+        {
+            if (string.IsNullOrEmpty(sceneName)) return;
+            foreach (var pair in _sceneHandles)
+            {
+                if (pair.Value != null && pair.Value.IsValid && pair.Value.SceneName == sceneName)
+                {
+                    pair.Value.Release();
+                    _sceneHandles.Remove(pair.Key);
+                    return;
+                }
+            }
         }
         #endregion
 
