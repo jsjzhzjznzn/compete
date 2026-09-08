@@ -14,47 +14,42 @@ namespace SkierFramework
         #region 控件绑定变量声明，自动生成请勿手改
 		#pragma warning disable 0649
 		[ControlBinding]
-		public RawImage role;
+		private RawImage role;
 		[ControlBinding]
-		public TextMeshProUGUI password;
+		private Button secect;
 		[ControlBinding]
-		public Button secect;
+		private Button select;
 		[ControlBinding]
-		public Button select;
+		private Button exit;
 		[ControlBinding]
-		public Button exit;
-		[ControlBinding]
-		public Button ready;
-
+		private Button ready;
 		#pragma warning restore 0649
 #endregion
 
-
+        private TextMeshProUGUI ipText;
 
         public override void OnInit(UIControlData uIControlData, UIViewController controller)
         {
             base.OnInit(uIControlData, controller);
+            ipText = transform.Find("password").GetComponent<TextMeshProUGUI>();
         }
 
         public override void OnOpen(object userData)
         {
             base.OnOpen(userData);
-            if (password.font == null)
+
+            if (ipText.font == null)
             {
-                password.font = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF - Fallback");
+                ipText.font = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF - Fallback");
             }
-            password.text = GetLocalIPv4();
-            
-            // 调试信息
-            Debug.Log("[room] password.text = " + password.text);
-            Debug.Log("[room] password.fontSize = " + password.fontSize);
-            Debug.Log("[room] password.color = " + password.color);
-            Debug.Log("[room] password.rectTransform.rect = " + password.rectTransform.rect);
-            Debug.Log("[room] password.gameObject.activeSelf = " + password.gameObject.activeSelf);
-            Debug.Log("[room] password.enabled = " + password.enabled);
+            ipText.text = GetLocalIPv4();
+            Debug.Log("[room] 本机IP = " + ipText.text);
+
+            secect.onClick.AddListener(OnClickSecect);
+            select.onClick.AddListener(OnClickSelect);
+            exit.onClick.AddListener(OnClickExit);
         }
 
-        /// <summary>取本机局域网 IPv4：优先按默认路由探测，失败再遍历网卡（优先内网段）</summary>
         private static string GetLocalIPv4()
         {
             try
@@ -106,28 +101,25 @@ namespace SkierFramework
         public override void OnAddListener()
         {
             base.OnAddListener();
-            secect.onClick.AddListener(OnClickSecect);
-            select.onClick.AddListener(OnClickSelect);
-            exit.onClick.AddListener(OnClickExit);
         }
 
         public override void OnRemoveListener()
         {
             base.OnRemoveListener();
-            secect.onClick.RemoveListener(OnClickSecect);
-            select.onClick.RemoveListener(OnClickSelect);
-            exit.onClick.RemoveListener(OnClickExit);
         }
 
         public override void OnClose()
         {
+            secect.onClick.RemoveListener(OnClickSecect);
+            select.onClick.RemoveListener(OnClickSelect);
+            exit.onClick.RemoveListener(OnClickExit);
             base.OnClose();
         }
 
         private void OnClickSecect()
         {
             UIModelManager.Instance.LoadModelToRawImage(
-                "Assets/Resource/人物/Real/le_Size02_Ellen_Ani_Idle (1).prefab", 
+                "Assets/Resource/人物/Real/le_Size02_Ellen_Ani_Idle (1).prefab",
                 role,
                 canDrag: true,
                 offset: new Vector3(0, -1f, 0),
@@ -141,7 +133,7 @@ namespace SkierFramework
         private void OnClickSelect()
         {
             UIModelManager.Instance.LoadModelToRawImage(
-                "Assets/Resource/人物/Real/安比test.prefab", 
+                "Assets/Resource/人物/Real/安比test.prefab",
                 role,
                 canDrag: true,
                 offset: new Vector3(0, -1f, 0),
