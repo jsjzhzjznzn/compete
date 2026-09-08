@@ -6,8 +6,20 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/multigame.unity
+    path: Assets/Scenes/zhuye.unity
+    guid: c429ba751e8f1fc4bbfface09de08177
+  - enabled: 1
+    path: Assets/Scenes/multiplecompete.unity
     guid: 99c9720ab356a0642a771bea13969a05
+  - enabled: 1
+    path: Assets/Scenes/login.unity
+    guid: a73012a068331ee4ab96a63608f522ca
+  - enabled: 1
+    path: Assets/Scenes/room.unity
+    guid: 98601d4dcd50c87449d40f6464e4e72b
+  - enabled: 1
+    path: Assets/Scenes/tiaozhan.unity
+    guid: 1fbed2a201272c843a76e04922c3441b
   m_configObjects:
     com.unity.input.settings: {fileID: 11400000, guid: e35788394873b48408b8bfdb3643967b, type: 2}
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 6f29bc1edb8bbdf4288bbe256fa50363, type: 3}

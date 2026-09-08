@@ -1,3 +1,22 @@
 {
-    "items": []
+    "items": [
+        {
+            "uiType": "Dating",
+            "path": "Assets/HOTS/UI/Prefabs/Dating.prefab",
+            "isWindow": false,
+            "uiLayer": "NormalLayer",
+            "isAutoNavigation": false,
+            "isLuaUI": false,
+            "luaModuleName": ""
+        },
+        {
+            "uiType": "Xuanze",
+            "path": "Assets/HOTS/UI/Prefabs/Xuanze.prefab",
+            "isWindow": true,
+            "uiLayer": "NormalLayer",
+            "isAutoNavigation": false,
+            "isLuaUI": false,
+            "luaModuleName": ""
+        }
+    ]
 }
