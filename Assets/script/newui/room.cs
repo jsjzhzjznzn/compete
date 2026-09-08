@@ -11,7 +11,7 @@ namespace SkierFramework
 {
     public class room : UIView
     {
-       #region 控件绑定变量声明，自动生成请勿手改
+        #region 控件绑定变量声明，自动生成请勿手改
 		#pragma warning disable 0649
 		[ControlBinding]
 		public RawImage role;
@@ -31,7 +31,6 @@ namespace SkierFramework
 
 
 
-
         public override void OnInit(UIControlData uIControlData, UIViewController controller)
         {
             base.OnInit(uIControlData, controller);
@@ -40,8 +39,19 @@ namespace SkierFramework
         public override void OnOpen(object userData)
         {
             base.OnOpen(userData);
+            if (password.font == null)
+            {
+                password.font = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF - Fallback");
+            }
             password.text = GetLocalIPv4();
-            Debug.Log("[room] 本机IP = " + password.text);
+            
+            // 调试信息
+            Debug.Log("[room] password.text = " + password.text);
+            Debug.Log("[room] password.fontSize = " + password.fontSize);
+            Debug.Log("[room] password.color = " + password.color);
+            Debug.Log("[room] password.rectTransform.rect = " + password.rectTransform.rect);
+            Debug.Log("[room] password.gameObject.activeSelf = " + password.gameObject.activeSelf);
+            Debug.Log("[room] password.enabled = " + password.enabled);
         }
 
         /// <summary>取本机局域网 IPv4：优先按默认路由探测，失败再遍历网卡（优先内网段）</summary>
@@ -51,7 +61,6 @@ namespace SkierFramework
             {
                 using (var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp))
                 {
-                    // UDP Connect 不会发包，只是让系统选一条默认路由对应的网卡
                     socket.Connect("8.8.8.8", 80);
                     var endPoint = socket.LocalEndPoint as IPEndPoint;
                     if (endPoint != null && endPoint.Address != null)
