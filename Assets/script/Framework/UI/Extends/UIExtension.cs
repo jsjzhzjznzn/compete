@@ -250,7 +250,8 @@ namespace SkierFramework
             CanvasScaler canvasScaler = canvasGo.AddComponent<CanvasScaler>();
             canvasScaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             canvasScaler.referenceResolution = new Vector2(width, height);
-            canvasScaler.screenMatchMode = CanvasScaler.ScreenMatchMode.Expand;
+            canvasScaler.screenMatchMode = CanvasScaler.ScreenMatchMode.Shrink;
+            canvasScaler.matchWidthOrHeight = 0.5f;
 
             canvasGo.AddComponent<GraphicRaycaster>();
 

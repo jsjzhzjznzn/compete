@@ -4,6 +4,7 @@ namespace SkierFramework
     {
 		Dating,
 		Xuanze,
+		room,
 		Max,
     }
 }

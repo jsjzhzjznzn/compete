@@ -30,7 +30,7 @@ namespace SkierFramework
         /// </summary>
         public int width = 1920;
         public int height = 1080;
-        public UIBlackType uiBlackType = UIBlackType.None;
+        public UIBlackType uiBlackType = UIBlackType.AutoBlack;
 
         private Transform _root;
         private Camera _worldCamera;

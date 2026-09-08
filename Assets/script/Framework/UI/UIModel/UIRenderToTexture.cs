@@ -39,13 +39,13 @@ namespace SkierFramework
         }
 
 
-        public void Init(Vector3 vec, bool isOrth, float orth, int index)
+        public void Init(Vector3 vec, bool isOrth, float orth, int index, float cameraDistance = 20f)
         {
             InitCamera(isOrth, orth);
             m_Index = index;
             if (m_Camera)
             {
-                m_Camera.transform.localPosition = vec + new Vector3(0, 0, 20);
+                m_Camera.transform.localPosition = vec + new Vector3(0, 0, cameraDistance);
                 m_Camera.transform.localEulerAngles = new Vector3(0, 180, 0);
             }
 

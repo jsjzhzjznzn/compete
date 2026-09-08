@@ -31,11 +31,17 @@ namespace SkierFramework
         {
             base.OnOpen(userData);
             exit.onClick.AddListener(OnExitClicked);
+            createrroom.onClick.AddListener(OnCreateRoomClicked);
         }
 
         private void OnExitClicked()
         {
             UIManager.Instance.Close("Xuanze");
+        }
+
+        private void OnCreateRoomClicked()
+        {
+            UIManager.Instance.Open(UIType.room);
         }
 
         public override void OnAddListener()
@@ -51,6 +57,7 @@ namespace SkierFramework
         public override void OnClose()
         {
             exit.onClick.RemoveListener(OnExitClicked);
+            createrroom.onClick.RemoveListener(OnCreateRoomClicked);
             base.OnClose();
         }
     }

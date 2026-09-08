@@ -17,6 +17,15 @@
             "isAutoNavigation": false,
             "isLuaUI": false,
             "luaModuleName": ""
+        },
+        {
+            "uiType": "room",
+            "path": "Assets/HOTS/UI/Prefabs/room.prefab",
+            "isWindow": true,
+            "uiLayer": "NormalLayer",
+            "isAutoNavigation": false,
+            "isLuaUI": false,
+            "luaModuleName": ""
         }
     ]
 }

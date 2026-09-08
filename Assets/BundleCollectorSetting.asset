@@ -54,3 +54,11 @@ MonoBehaviour:
         FilterRuleName: CollectAll
         AssetTags: 
         UserData: 
+      - CollectPath: "Assets/Resource/\u4EBA\u7269/Real"
+        CollectorGUID: 863f5bd3b2f87ee4c9555917fd43eb4f
+        CollectorType: 0
+        AddressRuleName: AddressByFileName
+        PackRuleName: PackDirectory
+        FilterRuleName: CollectAll
+        AssetTags: 
+        UserData: 
