@@ -22,6 +22,9 @@ namespace SkierFramework
 
 
 
+        /// <summary>点击“创建房间”生成的联机物体（room 界面 exit 时销毁）</summary>
+        public static GameObject OnlineRoomObj;
+
         public override void OnInit(UIControlData uIControlData, UIViewController controller)
         {
             base.OnInit(uIControlData, controller);
@@ -41,6 +44,21 @@ namespace SkierFramework
 
         private void OnCreateRoomClicked()
         {
+            // 用 Unity 自带 Resources 加载生成联机物体（不走 UI 框架）
+            if (OnlineRoomObj == null)
+            {
+                var prefab = Resources.Load<GameObject>("联机");
+                if (prefab != null)
+                {
+                    OnlineRoomObj = UnityEngine.Object.Instantiate(prefab);
+                    UnityEngine.Object.DontDestroyOnLoad(OnlineRoomObj);
+                    var networkManager = OnlineRoomObj.GetComponent<Unity.Netcode.NetworkManager>();
+                    if (networkManager != null)
+                    {
+                        networkManager.StartHost();
+                    }
+                }
+            }
             UIManager.Instance.Open(UIType.room);
         }
 

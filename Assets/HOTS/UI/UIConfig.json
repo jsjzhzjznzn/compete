@@ -12,7 +12,7 @@
         {
             "uiType": "Xuanze",
             "path": "Assets/HOTS/UI/Prefabs/Xuanze.prefab",
-            "isWindow": true,
+            "isWindow": false,
             "uiLayer": "NormalLayer",
             "isAutoNavigation": false,
             "isLuaUI": false,
@@ -21,7 +21,7 @@
         {
             "uiType": "room",
             "path": "Assets/HOTS/UI/Prefabs/room.prefab",
-            "isWindow": true,
+            "isWindow": false,
             "uiLayer": "NormalLayer",
             "isAutoNavigation": false,
             "isLuaUI": false,
