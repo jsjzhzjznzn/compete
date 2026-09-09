@@ -14,42 +14,47 @@ namespace SkierFramework
     /// <summary>
     /// 房间（大厅）界面：选英雄 -> 准备 -> 双方就绪后服务端自动切战斗场景。
     ///
-    /// 本机只操作自己的选择/准备：房主直接调 RoomState 的服务端接口，
-    /// 纯客户端把状态用命名消息发给服务端；服务端不把任何人的状态广播给其他人，
-    /// 所以双方互相看不到对方的英雄和准备状态（"盲选 + 盲准备"）。
+    /// rolezhu   = 本机所选英雄的 3D 预览（点选瞬间本地加载）
+    /// roleenemy = 对手所选英雄的 3D 预览（实时同步：对手换人，这里跟着换）
     ///
     /// 数据链路：
-    ///   room.cs(本机选择) -> RoomState(服务端记录 座位/CharId/Ready)
-    ///   -> 两人都 Ready -> RoomState.LoadScene(战斗场景)
-    ///   -> BattleSpawnManager 按座位生成双方英雄
+    ///   本机点选英雄 -> rolezhu 本地预览 + 上报服务端(SelectChar/房主直调)
+    ///   -> 服务端记录并转发对手(PeerSelectChar) / 房主本机走事件
+    ///   -> 双方 roleenemy 实时刷新对手英雄
+    ///   准备流程不变：Ready 上报 -> 两人都 Ready -> 服务端 LoadScene -> BattleSpawnManager 生成
     /// </summary>
     public class room : UIView
     {
         #region 控件绑定变量声明，自动生成请勿手改
 		#pragma warning disable 0649
 		[ControlBinding]
-		private RawImage role;
+		public RawImage rolezhu;
 		[ControlBinding]
-		private Button secect;
+		public RawImage roleenemy;
 		[ControlBinding]
-		private Button select;
+		public Button shayu;
 		[ControlBinding]
-		private Button exit;
+		public Button anbi;
 		[ControlBinding]
-		private Button ready;
+		public Button exit;
+		[ControlBinding]
+		public Button ready;
+
 		#pragma warning restore 0649
 #endregion
 
         // 绑定字段用途（自动生成区勿手改，说明写在这里）：
-        //   role   = 展示所选英雄 3D 模型的 RawImage（由 UIModelManager 驱动）
-        //   secect = 选艾莲的按钮； select = 选安比的按钮
+        //   rolezhu   = 我方所选英雄预览； roleenemy = 对手所选英雄预览（实时同步）
+        //   shayu  = 选艾莲的按钮； anbi = 选安比的按钮
         //   ready  = 准备 / 取消准备按钮； exit = 退出房间按钮
 
-        // ================= 房间对战逻辑（本机自管，服务端不广播他人状态） =================
+        // ================= 英雄编号 & 模型路径（两处必须对应同一英雄） =================
         // CharId 必须与战斗场景 BattleSpawnManager.HeroPrefabList 的下标一致：
-        // 安比 = 0，艾莲 = 1。若你英雄列表顺序不同，改这两行即可。
-        private const int CharIdAnbi = 0;   // select 按钮对应的英雄编号
-        private const int CharIdEllen = 1;  // secect 按钮对应的英雄编号
+        // 安比 = 0，艾莲 = 1。若你英雄列表顺序不同，改这几行即可。
+        private const int CharIdAnbi = 0;   // anbi 按钮对应的英雄编号
+        private const int CharIdEllen = 1;  // shayu 按钮对应的英雄编号
+        private const string ModelPathAnbi = "Assets/Resource/人物/Real/安比test.prefab";
+        private const string ModelPathEllen = "Assets/Resource/人物/Real/le_Size02_Ellen_Ani_Idle (1).prefab";
 
         private TextMeshProUGUI ipText;     // "password"那行文字：显示房主本机 IP，方便加入方输入连接
         private TextMeshProUGUI readyLabel; // ready 按钮上的文字：本机在"准备/取消准备"间切换（服务端不同步，自己反馈用）
@@ -64,7 +69,7 @@ namespace SkierFramework
             readyLabel = FindButtonLabel(ready);
         }
 
-        /// <summary>每次打开房间界面：显示本机 IP、给四个按钮挂监听、刷新准备按钮初始状态</summary>
+        /// <summary>每次打开房间界面：显示本机 IP、挂监听、拉一次对手当前选择、刷新准备按钮</summary>
         public override void OnOpen(object userData)
         {
             base.OnOpen(userData);
@@ -78,10 +83,25 @@ namespace SkierFramework
             ipText.text = GetLocalIPv4();
             Debug.Log("[room] 本机IP = " + ipText.text);
 
-            secect.onClick.AddListener(OnClickSecect);   // 选艾莲
-            select.onClick.AddListener(OnClickSelect);   // 选安比
+            shayu.onClick.AddListener(OnClickShayu);   // 选艾莲
+            anbi.onClick.AddListener(OnClickAnbi);     // 选安比
             exit.onClick.AddListener(OnClickExit);
             ready.onClick.AddListener(OnClickReady);
+
+            // 订阅"对手选择变化"事件（房主：服务端记录时触发；客户端：收到转发消息时触发）
+            if (RoomState.Instance != null)
+                RoomState.Instance.OnPeerCharIdChanged += OnPeerCharIdChanged;
+            else
+                Debug.LogError("[room] 联机预制体上没挂 RoomState 组件，对手英雄无法同步");
+
+            // 监听掉线：房主退出/掉线时，客户端要自动关闭房间界面
+            var nmOpen = NetworkManager.Singleton;
+            if (nmOpen != null)
+                nmOpen.OnClientDisconnectCallback += OnClientDisconnected;
+
+            // 打开界面时拉一次对手当前选择（防止"对方先选、我后开界面"漏消息）
+            RequestPeerChar();
+
             RefreshReadyUI();
         }
 
@@ -147,27 +167,86 @@ namespace SkierFramework
             base.OnRemoveListener();
         }
 
-        /// <summary>界面关闭时摘掉所有监听，避免下次打开重复 Add 造成"点一次触发多次"</summary>
+        /// <summary>
+        /// 界面关闭时摘掉所有监听，并统一处理联机物体的销毁：
+        /// 只要退出 room 界面就销毁联机预制体（断开网络），唯一例外 = 正在跳转战斗场景（保留连接）。
+        /// </summary>
         public override void OnClose()
         {
-            secect.onClick.RemoveListener(OnClickSecect);
-            select.onClick.RemoveListener(OnClickSelect);
+            shayu.onClick.RemoveListener(OnClickShayu);
+            anbi.onClick.RemoveListener(OnClickAnbi);
             exit.onClick.RemoveListener(OnClickExit);
             ready.onClick.RemoveListener(OnClickReady);
+            if (RoomState.Instance != null)
+                RoomState.Instance.OnPeerCharIdChanged -= OnPeerCharIdChanged;
+            var nmClose = NetworkManager.Singleton;
+            if (nmClose != null)
+                nmClose.OnClientDisconnectCallback -= OnClientDisconnected;
+
+            // ===== 关界面即销毁联机预制体（跳转战斗场景除外） =====
+            bool battleTransition = RoomState.Instance != null && RoomState.Instance.IsLoadingBattleScene;
+            if (!battleTransition && Xuanze.OnlineRoomObj != null)
+            {
+                Destroy(Xuanze.OnlineRoomObj);
+                Xuanze.OnlineRoomObj = null;
+            }
+
             base.OnClose();
         }
 
-        // ================= 选英雄（预览 + 记录 CharId） =================
+        /// <summary>
+        /// 掉线回调（仅客户端关心）：房主退出/掉线 = 服务端断开 -> 自动关闭房间界面，
+        /// 并清掉本机的联机物体（NetworkManager 会随断线自动关停，物体留着会污染下一局）。
+        /// </summary>
+        private void OnClientDisconnected(ulong clientId)
+        {
+            var nm = NetworkManager.Singleton;
+            if (nm == null || nm.IsServer) return;                       // 房主自己退出走 OnClickExit，不在这处理
+            if (clientId != NetworkManager.ServerClientId) return;       // 只关心"服务端(房主)断开"
 
-        /// <summary>选艾莲：记录 CharId=1 并重置本地准备状态，再加载 3D 预览</summary>
-        private void OnClickSecect()
+            Debug.Log("[room] 房主已退出，自动关闭房间界面");
+            if (Xuanze.OnlineRoomObj != null)
+            {
+                Destroy(Xuanze.OnlineRoomObj);
+                Xuanze.OnlineRoomObj = null;
+            }
+            UIManager.Instance.Close(UIType.room);
+        }
+
+        // ================= 选英雄（预览 + 记录 CharId + 实时上报对手） =================
+
+        /// <summary>选艾莲：rolezhu 本地预览 + 记录 CharId + 上报服务端（服务端转发给对手）</summary>
+        private void OnClickShayu()
         {
             _selectedCharId = CharIdEllen;
             _isReady = false;   // 换人后之前的准备作废，需重新点准备
             RefreshReadyUI();
+            LoadHeroPreview(rolezhu, _selectedCharId);
+            SubmitSelectChar(_selectedCharId);
+        }
+
+        /// <summary>选安比：rolezhu 本地预览 + 记录 CharId + 上报服务端（服务端转发给对手）</summary>
+        private void OnClickAnbi()
+        {
+            _selectedCharId = CharIdAnbi;
+            _isReady = false;
+            RefreshReadyUI();
+            LoadHeroPreview(rolezhu, _selectedCharId);
+            SubmitSelectChar(_selectedCharId);
+        }
+
+        /// <summary>charId -> 模型路径（选人预览和对手预览共用）</summary>
+        private static string GetModelPath(int charId)
+        {
+            return charId == CharIdAnbi ? ModelPathAnbi : ModelPathEllen;
+        }
+
+        /// <summary>把英雄模型加载到指定 RawImage 上做 3D 预览（LoadModelToRawImage 会自动卸掉该图上的旧模型）</summary>
+        private void LoadHeroPreview(RawImage target, int charId)
+        {
             UIModelManager.Instance.LoadModelToRawImage(
-                "Assets/Resource/人物/Real/le_Size02_Ellen_Ani_Idle (1).prefab",
-                role,
+                GetModelPath(charId),
+                target,
                 canDrag: true,
                 offset: new Vector3(0, -1f, 0),
                 rot: Quaternion.identity,
@@ -177,22 +256,71 @@ namespace SkierFramework
             );
         }
 
-        /// <summary>选安比：记录 CharId=0 并重置本地准备状态，再加载 3D 预览</summary>
-        private void OnClickSelect()
+        /// <summary>上报英雄选择：房主直调服务端 / 客户端发命名消息（点选瞬间就发，不等准备）</summary>
+        private void SubmitSelectChar(int charId)
         {
-            _selectedCharId = CharIdAnbi;
-            _isReady = false;
-            RefreshReadyUI();
-            UIModelManager.Instance.LoadModelToRawImage(
-                "Assets/Resource/人物/Real/安比test.prefab",
-                role,
-                canDrag: true,
-                offset: new Vector3(0, -1f, 0),
-                rot: Quaternion.identity,
-                scale: Vector3.one,
-                isOrth: true,
-                orthSizeOrFOV: 1f
-            );
+            var nm = NetworkManager.Singleton;
+            if (nm == null || !nm.IsConnectedClient)
+            {
+                Debug.LogWarning("[room] 还没连上网络，选择暂不同步");
+                return;
+            }
+
+            if (nm.IsServer)
+            {
+                if (RoomState.Instance != null)
+                    RoomState.Instance.ServerSetCharId(nm.LocalClientId, charId);
+            }
+            else
+            {
+                using var writer = new FastBufferWriter(4, Allocator.Temp);
+                writer.WriteValueSafe(charId);
+                nm.CustomMessagingManager.SendNamedMessage(RoomState.MsgSelectChar, NetworkManager.ServerClientId, writer);
+            }
+        }
+
+        // ================= 对手英雄实时同步（roleenemy） =================
+
+        /// <summary>
+        /// 对手英雄变化回调（RoomState 事件）：
+        /// clientId 是自己 -> 忽略（rolezhu 已在点击时本地处理）；
+        /// 否则刷新 roleenemy（charId=-1 表示对手未选/清空）。
+        /// </summary>
+        private void OnPeerCharIdChanged(ulong clientId, int charId)
+        {
+            var nm = NetworkManager.Singleton;
+            if (nm != null && clientId == nm.LocalClientId) return;
+            UpdateEnemyPreview(charId);
+        }
+
+        /// <summary>roleenemy 显示对手英雄；-1 时清空</summary>
+        private void UpdateEnemyPreview(int charId)
+        {
+            if (roleenemy == null) return;
+            if (charId < 0)
+            {
+                UIModelManager.Instance.UnLoadModelByRawImage(roleenemy);
+                return;
+            }
+            LoadHeroPreview(roleenemy, charId);
+        }
+
+        /// <summary>拉取对手当前选择：房主直接查服务端状态；客户端发 QueryPeerChar 消息让服务端回推</summary>
+        private void RequestPeerChar()
+        {
+            var nm = NetworkManager.Singleton;
+            if (nm == null || !nm.IsConnectedClient) return;
+
+            if (nm.IsServer)
+            {
+                if (RoomState.Instance != null)
+                    UpdateEnemyPreview(RoomState.Instance.GetPeerCharId(nm.LocalClientId));
+            }
+            else
+            {
+                using var writer = new FastBufferWriter(0, Allocator.Temp);
+                nm.CustomMessagingManager.SendNamedMessage(RoomState.MsgQueryPeerChar, NetworkManager.ServerClientId, writer);
+            }
         }
 
         // ================= 准备 / 取消准备 =================
@@ -224,7 +352,7 @@ namespace SkierFramework
 
             if (nm.IsServer)
             {
-                // 房主就是服务端：直接写本机状态，避免命名消息"发给自己"的回环问题
+                // 房主就是服务端：直接写本机状态，避免消息回环
                 if (RoomState.Instance == null)
                 {
                     Debug.LogError("[room] 联机预制体上没挂 RoomState 组件");
@@ -265,7 +393,7 @@ namespace SkierFramework
 
         /// <summary>
         /// 客户端上报"准备 + 所选英雄"。payload 只带一个 int(CharId)，
-        /// 命名消息只发给 ServerClientId（服务端），别的客户端收不到 -> 天然满足"互不可见"。
+        /// 命名消息只发给 ServerClientId（服务端），别的客户端收不到。
         /// </summary>
         private static void SendSetReadyToServer(int charId)
         {
@@ -304,14 +432,9 @@ namespace SkierFramework
             return button.GetComponentInChildren<TextMeshProUGUI>();
         }
 
-        /// <summary>退出房间：销毁联机物体（断开网络/清掉 DDOL 的 NetworkManager），再关界面</summary>
+        /// <summary>退出房间：只关界面；联机预制体的销毁统一由 OnClose 处理（跳转战斗场景除外）</summary>
         private void OnClickExit()
         {
-            if (Xuanze.OnlineRoomObj != null)
-            {
-                Destroy(Xuanze.OnlineRoomObj);
-                Xuanze.OnlineRoomObj = null;
-            }
             UIManager.Instance.Close(UIType.room);
         }
     }

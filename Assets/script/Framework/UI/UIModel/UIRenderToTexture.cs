@@ -31,8 +31,48 @@ namespace SkierFramework
         /// </summary>
         public event Action<GameObject> OnTargetClick;
 
+        /// <summary>
+        /// 界面被隐藏（关闭窗口/切场景时 UI 只是 SetActive(false) 缓存）时立即停止后台渲染：
+        /// 卸载模型 + 回收 RTT 相机 + 释放 RenderTexture。
+        /// 不清理的话，隐藏的 RawImage 背后 CameraRTT 仍每帧渲染模型，切场景后还在空转。
+        /// 下次打开界面重新点选英雄时会重新加载，功能不受影响。
+        /// </summary>
+        private void OnDisable()
+        {
+            if (m_Targets == null || m_Targets.Count == 0) return;
+            try
+            {
+                UIModelManager.Instance.UnLoadModelByRawImage(m_RawImage);
+            }
+            catch (Exception)
+            {
+                // 应用退出等回收器不可用的场景下忽略（OnDestroy 兜底会再清一次）
+            }
+        }
+
         void OnDestroy()
         {
+            // 补：组件销毁时把挂在自己身上的预览模型一并回收。
+            // 否则模型会残留在 DontDestroyOnLoad 的 UIModelRoot 下（关界面/切场景即泄漏）。
+            if (m_Targets != null && m_Targets.Count > 0)
+            {
+                foreach (var target in m_Targets.Values)
+                {
+                    if (target.gameObject != null)
+                    {
+                        try
+                        {
+                            ResourceManager.Instance.Recycle(target.gameObject);
+                        }
+                        catch (Exception)
+                        {
+                            // 退出游戏等回收器不可用的场景下直接销毁兜底
+                            Destroy(target.gameObject);
+                        }
+                    }
+                }
+                m_Targets.Clear();
+            }
             if (m_Camera != null)
                 UIModelManager.Instance.RecyleCamera(m_Camera);
             ReleaseRenderTexture();

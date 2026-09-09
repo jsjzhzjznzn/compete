@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Netcode;
@@ -28,9 +29,28 @@ public class RoomState : MonoBehaviour
     public const string MsgSetReady = "RoomState.SetReady";
     /// <summary>客户端"取消准备"命名消息名；无 payload</summary>
     public const string MsgCancelReady = "RoomState.CancelReady";
+    /// <summary>客户端上报"我选了英雄"命名消息名；payload = int charId（点选瞬间就发，不等准备）</summary>
+    public const string MsgSelectChar = "RoomState.SelectChar";
+    /// <summary>服务端转发"对手选了英雄"命名消息名；payload = int charId（-1 = 清空）</summary>
+    public const string MsgPeerSelectChar = "RoomState.PeerSelectChar";
+    /// <summary>客户端打开房间界面时拉取对手当前选择；无 payload</summary>
+    public const string MsgQueryPeerChar = "RoomState.QueryPeerChar";
 
     /// <summary>唯一实例：由 Awake 在挂载的物体上赋值；没挂载时为 null（调用处需判空）</summary>
     public static RoomState Instance { get; private set; }
+
+    /// <summary>
+    /// 是否正在跳转战斗场景（LoadScene 已发起）。
+    /// room.cs 关界面时据此决定要不要销毁联机预制体：跳转战斗时保留，其余关闭一律销毁。
+    /// </summary>
+    public bool IsLoadingBattleScene => _sceneLoading;
+
+    /// <summary>
+    /// 某玩家的英雄选择变化（clientId=选择归属者，charId=-1 表示未选/清空）。
+    /// 房主端：服务端记录选择时直接触发；纯客户端：收到 PeerSelectChar 消息时触发。
+    /// room.cs 用它刷新 roleenemy（clientId 等于本机时忽略，rolezhu 由点击本地处理）。
+    /// </summary>
+    public event Action<ulong, int> OnPeerCharIdChanged;
 
     [Header("服务端配置")]
     [Tooltip("对战人数（双方=2），全部准备才开局")]
@@ -63,6 +83,8 @@ public class RoomState : MonoBehaviour
     private bool _sceneLoading;
     /// <summary>命名消息是否已注册（RegisterNamedMessageHandler 会覆盖同名旧handler，所以只注册一次即可）</summary>
     private bool _handlersRegistered;
+    /// <summary>纯客户端是否已注册"对手选择"接收（连接成功后注册一次）</summary>
+    private bool _clientHandlersRegistered;
     /// <summary>缓存本物体上的 NetworkManager 引用，避免到处 Singleton 查找</summary>
     private NetworkManager _nm;
 
@@ -100,6 +122,10 @@ public class RoomState : MonoBehaviour
         {
             RegisterMessageHandlers();
             RegisterExistingPlayers();   // 自愈：把已在房间里的玩家(含房主自己)补登记，防止漏登记导致只生成一人
+        }
+        else if (_nm != null && _nm.IsClient && _nm.IsConnectedClient)
+        {
+            RegisterClientHandlers();    // 客户端兜底：已连上才走到 Start 的情况
         }
     }
 
@@ -139,11 +165,16 @@ public class RoomState : MonoBehaviour
             TryRegisterPlayer(clientId);
     }
 
-    /// <summary>玩家进入房间（连接成功）：服务端登记 + 发座位；只服务端执行</summary>
+    /// <summary>玩家进入房间（连接成功）：服务端登记 + 发座位；客户端则注册"对手选择"接收</summary>
     private void OnClientConnected(ulong clientId)
     {
-        if (!IsServerNow()) return; // 纯客户端上的回调不处理
-        TryRegisterPlayer(clientId);
+        if (IsServerNow())
+        {
+            TryRegisterPlayer(clientId);
+            return;
+        }
+        // 纯客户端：自己连上后注册 PeerSelectChar 接收（服务端随时可能转发对手的选择）
+        RegisterClientHandlers();
     }
 
     private void TryRegisterPlayer(ulong clientId)
@@ -160,15 +191,37 @@ public class RoomState : MonoBehaviour
         _players[clientId] = new PlayerState { IsReady = false, CharId = -1 }; // 初始未准备、未选
         _seats[clientId] = GetNextFreeSeat();
         Debug.Log($"[RoomState] 玩家 {clientId} 进入房间，座位 {_seats[clientId]}");
+
+        // 新人进房时，把对手已选的英雄推给它（对手可能早已选好，否则新人 roleenemy 会漏显示）
+        foreach (var kv in _players)
+        {
+            if (kv.Key == clientId || kv.Value.CharId < 0) continue;
+            if (kv.Key == NetworkManager.ServerClientId) continue; // 对手是房主自己：房主不在"另一个客户端"上，无需推
+            using var writer = new FastBufferWriter(4, Allocator.Temp);
+            writer.WriteValueSafe(kv.Value.CharId);
+            _nm.CustomMessagingManager.SendNamedMessage(MsgPeerSelectChar, clientId, writer);
+            break; // 双人局只有一个对手
+        }
     }
 
-    /// <summary>注册客户端上报用的命名消息处理；CustomMessagingManager 只在会话开始后才可用</summary>
+    /// <summary>注册服务端要处理的消息；CustomMessagingManager 只在会话开始后才可用</summary>
     private void RegisterMessageHandlers()
     {
         if (_handlersRegistered || _nm == null || _nm.CustomMessagingManager == null) return;
         _handlersRegistered = true;
         _nm.CustomMessagingManager.RegisterNamedMessageHandler(MsgSetReady, OnMsgSetReady);
         _nm.CustomMessagingManager.RegisterNamedMessageHandler(MsgCancelReady, OnMsgCancelReady);
+        _nm.CustomMessagingManager.RegisterNamedMessageHandler(MsgSelectChar, OnMsgSelectChar);
+        _nm.CustomMessagingManager.RegisterNamedMessageHandler(MsgQueryPeerChar, OnMsgQueryPeerChar);
+        _nm.CustomMessagingManager.RegisterNamedMessageHandler(MsgPeerSelectChar, OnMsgPeerSelectChar); // host 收不到自己发的，注册无害
+    }
+
+    /// <summary>纯客户端注册"对手选择"接收（连接成功后调用一次）</summary>
+    private void RegisterClientHandlers()
+    {
+        if (_clientHandlersRegistered || _nm == null || _nm.CustomMessagingManager == null) return;
+        _clientHandlersRegistered = true;
+        _nm.CustomMessagingManager.RegisterNamedMessageHandler(MsgPeerSelectChar, OnMsgPeerSelectChar);
     }
 
     /// <summary>玩家离开：清掉它的记录，座位释放给后来的人</summary>
@@ -217,7 +270,101 @@ public class RoomState : MonoBehaviour
         ServerCancelReady(senderClientId);
     }
 
+    /// <summary>收到"我选了英雄"（点选瞬间上报）：交给 ServerSetCharId 记录并转发给对手</summary>
+    private void OnMsgSelectChar(ulong senderClientId, FastBufferReader reader)
+    {
+        if (!IsServerNow()) return;
+        if (!TryReadCharId(senderClientId, reader, out int charId)) return;
+        ServerSetCharId(senderClientId, charId);
+    }
+
+    /// <summary>收到"拉取对手当前选择"（打开房间界面时）：把对手的 charId 单发给请求者</summary>
+    private void OnMsgQueryPeerChar(ulong senderClientId, FastBufferReader reader)
+    {
+        if (!IsServerNow()) return;
+        int peerChar = GetPeerCharId(senderClientId);
+        using var writer = new FastBufferWriter(4, Allocator.Temp);
+        writer.WriteValueSafe(peerChar);
+        _nm.CustomMessagingManager.SendNamedMessage(MsgPeerSelectChar, senderClientId, writer);
+    }
+
+    /// <summary>收到服务端转发的"对手选择"（仅纯客户端会收到）：触发本地事件给 UI 刷新 roleenemy</summary>
+    private void OnMsgPeerSelectChar(ulong senderClientId, FastBufferReader reader)
+    {
+        if (IsServerNow()) return; // host 收不到自己发的消息，这里防御一下
+        if (!TryReadCharId(senderClientId, reader, out int charId)) return;
+        // 客户端不知道对手的 clientId，用 ulong.MaxValue 占位（room.cs 只用来排除"是自己"）
+        OnPeerCharIdChanged?.Invoke(ulong.MaxValue, charId);
+    }
+
+    /// <summary>统一读 int payload，格式错误只警告不抛异常（客户端输入不可信）</summary>
+    private bool TryReadCharId(ulong senderClientId, FastBufferReader reader, out int charId)
+    {
+        charId = -1;
+        try
+        {
+            reader.ReadValueSafe(out charId);
+            return true;
+        }
+        catch (Exception)
+        {
+            Debug.LogWarning($"[RoomState] {senderClientId} 的消息格式不对，忽略");
+            return false;
+        }
+    }
+
     // ---------------- 服务端状态修改（客户端消息 & 房主 UI 都走这里） ----------------
+
+    /// <summary>
+    /// 服务端记录某玩家的英雄选择（点选瞬间，不等准备），并实时转发给对手：
+    /// 1) 校验成员 + CharId 范围；
+    /// 2) 转发给房间里另一个"纯客户端"；
+    /// 3) 触发 OnPeerCharIdChanged（房主本机 UI 靠它更新 roleenemy）。
+    /// </summary>
+    public void ServerSetCharId(ulong clientId, int charId)
+    {
+        if (!IsServerNow()) return;
+        if (!_players.ContainsKey(clientId))
+        {
+            Debug.LogWarning($"[RoomState] {clientId} 不在房间状态里（可能是旁观者），忽略选英雄");
+            return;
+        }
+        if (charId < 0 || charId >= HeroCount)
+        {
+            Debug.LogWarning($"[RoomState] {clientId} 上报非法英雄 CharId={charId}");
+            return;
+        }
+
+        var state = _players[clientId];
+        if (state.CharId == charId) return; // 没变化不重复广播
+
+        _players[clientId] = new PlayerState { IsReady = state.IsReady, CharId = charId };
+        Debug.Log($"[RoomState] 玩家 {clientId} 选择英雄 {charId}");
+
+        // 转发给另一个纯客户端（房主在本进程，走下面的事件拿）
+        foreach (var kv in _players)
+        {
+            if (kv.Key == clientId) continue;
+            if (kv.Key == NetworkManager.ServerClientId) continue; // 对手是房主自己：不走网络
+            using var writer = new FastBufferWriter(4, Allocator.Temp);
+            writer.WriteValueSafe(charId);
+            _nm.CustomMessagingManager.SendNamedMessage(MsgPeerSelectChar, kv.Key, writer);
+        }
+
+        // 本机（房主）UI 事件：room.cs 收到后如果 clientId 不是自己就刷 roleenemy
+        OnPeerCharIdChanged?.Invoke(clientId, charId);
+    }
+
+    /// <summary>取某玩家对手当前选的英雄（-1 = 对手没选/没有对手）；仅服务端</summary>
+    public int GetPeerCharId(ulong clientId)
+    {
+        if (!IsServerNow()) return -1;
+        foreach (var kv in _players)
+        {
+            if (kv.Key != clientId) return kv.Value.CharId;
+        }
+        return -1;
+    }
 
     /// <summary>
     /// 服务端把某玩家标记为"已准备 + 选了英雄 CharId"。

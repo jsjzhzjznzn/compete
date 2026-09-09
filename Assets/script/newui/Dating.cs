@@ -8,12 +8,10 @@ namespace SkierFramework
 {
     public class Dating : UIView
     {
-        #region 控件绑定变量声明，自动生成请勿手改
+       #region 控件绑定变量声明，自动生成请勿手改
 		#pragma warning disable 0649
 		[ControlBinding]
 		public Button compete;
-		[ControlBinding]
-		public TextMeshProUGUI Textp;
 		[ControlBinding]
 		public Button activity;
 		[ControlBinding]
@@ -27,6 +25,7 @@ namespace SkierFramework
 
 		#pragma warning restore 0649
 #endregion
+
 
 
 
