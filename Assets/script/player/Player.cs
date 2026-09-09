@@ -98,6 +98,13 @@ public class Player : CharacterMoveControllerBase
     private readonly NetworkVariable<bool> netForwardATK =
         new(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
+    /// <summary>
+    /// 本角色座位号（服务端生成时写入：0=第一人，1=第二人）。
+    /// 客户端据此选场景里对应的那套相机（Camera/thirdcamera 或 Camera (1)/thirdcamera (1)）。
+    /// </summary>
+    public readonly NetworkVariable<int> NetSeatId =
+        new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
     /// <summary>是否作为远程镜像端（联网且非拥有者）；单机永远为 false</summary>
     public bool IsRemote => IsSpawned && !IsOwner;
 
@@ -113,9 +120,6 @@ public class Player : CharacterMoveControllerBase
         netComboState.OnValueChanged += OnComboStateChanged;
         netComboIndex.OnValueChanged += OnComboIndexChanged;
         netForwardATK.OnValueChanged += OnForwardATKChanged;
-
-        // 本地玩家(拥有者)生成后：先生成自己的主相机(Camera.prefab)再生成跟随vcam(thirdcamera.prefab)并绑定；远程端不生成
-        if (IsOwner) EnsureLocalCameras();
     }
 
     public override void OnNetworkDespawn()
@@ -155,9 +159,6 @@ public class Player : CharacterMoveControllerBase
             comboStateMachine.SwitchState(comboStateMachine.NullState);   // 连击初始进入空状态
         }
 
-        // 单机场景（非网络生成）直接放置的玩家也生成自己的主相机+vcam；联机场景已在 OnNetworkSpawn 生成过，这里幂等跳过
-        if (!IsSpawned) EnsureLocalCameras();
-
         // 游戏运行时锁定并隐藏鼠标光标（用鼠标视角）；非拥有者端不抢光标
         if (!IsSpawned || IsOwner)
         {
@@ -186,6 +187,7 @@ public class Player : CharacterMoveControllerBase
         if (IsSpawned && !IsOwner) return;
 
         LogInputProbeOncePerSecond();         // 联机排障：客户端跑不到这里 = IsOwner=false
+        TryBindSceneCamera();                 // 场景 vcam 就绪前每帧重试绑定（时序兜底）
 
         base.Update();                        // 地面检测 + 重力 + 竖直速度
         stateMachine?.Update();               // 状态机Tick
@@ -195,93 +197,63 @@ public class Player : CharacterMoveControllerBase
     }
 
     // ================================================================
-    // 相机（角色生成时：先实例化自己的主相机 Camera.prefab，再实例化跟随 vcam thirdcamera.prefab）
+    // 相机绑定（场景预置两套相机：第一人 Camera/thirdcamera，第二人 Camera (1)/thirdcamera (1)）
     // ================================================================
 
-    private const string MainCameraPrefabPath = "Camera";       // 渲染主相机（带 CinemachineBrain）
-    private const string ThirdCameraPrefabPath = "thirdcamera"; // 跟随本角色的 vcam
-    private Camera _localViewCamera;                            // 本角色生成的主相机实例
-    private CinemachineVirtualCamera _localVCam;                // 本角色生成的 vcam 实例
+    private const string SeatCameraBaseName = "Camera";      // 主相机基名（渲染，带 CinemachineBrain）
+    private const string SeatVCamBaseName = "thirdcamera";   // vcam 基名（跟随）
+
+    private bool _cameraAssigned; // 本机相机关联完成（成功后停止每帧重试）
+    private bool _warnedNoCamera; // 找不到相机警告只打一次
 
     /// <summary>
-    /// 角色生成后为本机(拥有者)依次创建两个相机，只在本机执行、不走网络同步：
-    /// 1) 先实例化 Resources/Camera.prefab → Player.viewCamera(主相机) 绑它；
-    /// 2) 再实例化 Resources/thirdcamera.prefab → Follow/LookAt 绑本角色，
-    ///    playerCameraUtility.virtualCamera(虚拟相机) 绑它。
-    /// 已生成过则直接复用；只有 IsOwner 才会调用（远程镜像不生成相机）。
+    /// 按本角色座位号选场景里预置的那套相机（不生成相机）：
+    ///   座位 0 → Camera / thirdcamera
+    ///   座位 1 → Camera (1) / thirdcamera (1)
+    /// 把 vcam 的 Follow/LookAt 绑到本角色，主相机赋给 viewCamera，
+    /// 并停用本机其它 Camera/vcam，避免一屏叠多个画面。
+    /// 场景相机可能比角色晚就绪，找不到就每帧重试，绑上即停。
     /// </summary>
-    private void EnsureLocalCameras()
+    private void TryBindSceneCamera()
     {
-        // ---------- 1) 主相机（渲染用，带 CinemachineBrain） ----------
-        if (_localViewCamera == null)
+        if (_cameraAssigned) return;
+
+        int seat = NetSeatId.Value;
+        string vcamName = seat == 0 ? SeatVCamBaseName : $"{SeatVCamBaseName} ({seat})";
+        string camName = seat == 0 ? SeatCameraBaseName : $"{SeatCameraBaseName} ({seat})";
+
+        var vcamGo = GameObject.Find(vcamName);
+        var camGo = GameObject.Find(camName);
+        var vcam = vcamGo != null ? vcamGo.GetComponent<CinemachineVirtualCamera>() : null;
+        var mainCam = camGo != null ? camGo.GetComponent<Camera>() : null;
+        if (vcam == null || mainCam == null)
         {
-            var mainPrefab = Resources.Load<GameObject>(MainCameraPrefabPath);
-            if (mainPrefab != null)
+            if (!_warnedNoCamera)
             {
-                var camGo = Instantiate(mainPrefab);
-                camGo.name = "LocalCamera_" + name;
-                _localViewCamera = camGo.GetComponent<Camera>();
-                if (_localViewCamera == null)
-                {
-                    Debug.LogError($"[{name}] {MainCameraPrefabPath}.prefab 上没有 Camera 组件", this);
-                    Destroy(camGo);
-                }
-                else
-                {
-                    viewCamera = _localViewCamera;   // Player.viewCamera(主相机) = 本角色生成的主相机
-                    if (_localViewCamera.tag == "Untagged") // 标成 MainCamera，方便 Camera.main 全局访问
-                        _localViewCamera.tag = "MainCamera";
-                }
+                _warnedNoCamera = true;
+                Debug.LogWarning($"[{name}] 没找到座位{seat}的相机({camName}/{vcamName})，将每帧重试；请在战斗场景确认这两个相机存在且命名一致", this);
             }
-            else
-            {
-                // 没有 Camera.prefab 时兜底用场景里现有相机
-                Debug.LogWarning($"[{name}] 找不到 Resources/{MainCameraPrefabPath}.prefab，回退用场景相机", this);
-                if (Camera.main != null) viewCamera = Camera.main;
-                else { var anyCam = FindAnyObjectByType<Camera>(); if (anyCam != null) viewCamera = anyCam; }
-            }
+            return; // 下帧再试
         }
 
-        // ---------- 2) 跟随本角色的 vcam（thirdcamera） ----------
-        if (_localVCam == null)
-        {
-            var prefab = Resources.Load<GameObject>(ThirdCameraPrefabPath);
-            if (prefab == null)
-            {
-                Debug.LogError($"[{name}] 找不到 Resources/{ThirdCameraPrefabPath}.prefab", this);
-                return;
-            }
-            var go = Instantiate(prefab);
-            go.name = "ThirdCamera_" + name;
-            _localVCam = go.GetComponent<CinemachineVirtualCamera>();
-            if (_localVCam == null)
-            {
-                Debug.LogError($"[{name}] {ThirdCameraPrefabPath}.prefab 上没有 CinemachineVirtualCamera", this);
-                Destroy(go);
-                return;
-            }
-            _localVCam.Follow = transform;   // vcam 跟随本角色
-            _localVCam.LookAt = transform;   // vcam 看向本角色
-            playerCameraUtility?.SetVirtualCamera(_localVCam); // Player 的 virtual 相机 = 这个 vcam
-            string mainCamName = _localViewCamera != null ? _localViewCamera.name : "null";
-            Debug.Log($"[{name}] 已生成 主相机({mainCamName}) + vcam({_localVCam.name}) 并绑定", this);
-        }
-    }
+        // 确保本座位那套相机是启用状态（防止场景里初始是关的）
+        vcamGo.SetActive(true);
+        camGo.SetActive(true);
 
-    private void OnDestroy()
-    {
-        // 角色销毁时顺带销毁为自己生成的主相机和 vcam。
-        // 场景卸载会连场景物体一起清掉，这里覆盖"角色单独被销毁/断线清理"的路径
-        if (_localVCam != null)
-        {
-            Destroy(_localVCam.gameObject);
-            _localVCam = null;
-        }
-        if (_localViewCamera != null)
-        {
-            Destroy(_localViewCamera.gameObject);
-            _localViewCamera = null;
-        }
+        vcam.Follow = transform;   // vcam 跟随本角色
+        vcam.LookAt = transform;   // vcam 看向本角色
+        viewCamera = mainCam;      // Player.viewCamera(主相机) = 本座位的 Camera
+
+        // 一屏只留自己那套相机：停用本机其它主相机和 vcam
+        var allVCams = FindObjectsByType<CinemachineVirtualCamera>();
+        foreach (var v in allVCams)
+            if (v != vcam) v.gameObject.SetActive(false);
+        var allCams = FindObjectsByType<Camera>();
+        foreach (var c in allCams)
+            if (c != mainCam) c.gameObject.SetActive(false);
+
+        _cameraAssigned = true;
+        Debug.Log($"[{name}] 座位{seat}: 主相机={camName} vcam={vcamName} 已关联本角色", this);
     }
 
     // ================================================================

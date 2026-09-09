@@ -106,6 +106,11 @@ public class BattleSpawnManager : NetworkBehaviour
             return;
         }
 
+        // 把座位号写进角色（随生成同步给所有端），客户端据此选对应相机(Camera/thirdcamera 或 Camera (1)/thirdcamera (1))
+        var playerCtrl = hero.GetComponent<Player>();
+        if (playerCtrl != null)
+            playerCtrl.NetSeatId.Value = info.Seat;
+
         // ===== 关键修复（2026-09）：不要用 destroyWithScene=true！ =====
         // 之前用 netObj.SpawnWithOwnership(clientId, true) 时，英雄是在"战斗场景加载事件还在进行中"
         // 生成的，NGO 场景事件收尾时会把这类对象一并反序列化销毁 → 表现为"刚进对战就有人物消失"。

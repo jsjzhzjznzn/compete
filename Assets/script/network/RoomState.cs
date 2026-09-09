@@ -96,7 +96,11 @@ public class RoomState : MonoBehaviour
     {
         // 兜底：万一房间是在"服务端已启动"之后才创建的，也能立刻注册消息处理
         if (_nm == null) _nm = NetworkManager.Singleton;
-        if (_nm != null && _nm.IsServer) RegisterMessageHandlers();
+        if (_nm != null && _nm.IsServer)
+        {
+            RegisterMessageHandlers();
+            RegisterExistingPlayers();   // 自愈：把已在房间里的玩家(含房主自己)补登记，防止漏登记导致只生成一人
+        }
     }
 
     private void OnDestroy()
@@ -123,21 +127,27 @@ public class RoomState : MonoBehaviour
     private void OnServerStarted()
     {
         RegisterMessageHandlers();
+        RegisterExistingPlayers(); // 服务端刚起来时也补登记一次存量玩家
     }
 
-    /// <summary>注册客户端上报用的命名消息处理；CustomMessagingManager 只在会话开始后才可用</summary>
-    private void RegisterMessageHandlers()
+    /// <summary>把已在房间里的所有客户端补登记一遍（防连接回调比 Awake 订阅更早/漏触发）</summary>
+    private void RegisterExistingPlayers()
     {
-        if (_handlersRegistered || _nm == null || _nm.CustomMessagingManager == null) return;
-        _handlersRegistered = true;
-        _nm.CustomMessagingManager.RegisterNamedMessageHandler(MsgSetReady, OnMsgSetReady);
-        _nm.CustomMessagingManager.RegisterNamedMessageHandler(MsgCancelReady, OnMsgCancelReady);
+        if (!IsServerNow()) return;
+        var ids = new List<ulong>(_nm.ConnectedClients.Keys);
+        foreach (var clientId in ids)
+            TryRegisterPlayer(clientId);
     }
 
     /// <summary>玩家进入房间（连接成功）：服务端登记 + 发座位；只服务端执行</summary>
     private void OnClientConnected(ulong clientId)
     {
         if (!IsServerNow()) return; // 纯客户端上的回调不处理
+        TryRegisterPlayer(clientId);
+    }
+
+    private void TryRegisterPlayer(ulong clientId)
+    {
         if (_players.ContainsKey(clientId)) return; // 防止重复登记
 
         // 超过对战人数后进来的按旁观处理：不登记，它的准备消息会被 ServerSetReady 拒掉
@@ -150,6 +160,15 @@ public class RoomState : MonoBehaviour
         _players[clientId] = new PlayerState { IsReady = false, CharId = -1 }; // 初始未准备、未选
         _seats[clientId] = GetNextFreeSeat();
         Debug.Log($"[RoomState] 玩家 {clientId} 进入房间，座位 {_seats[clientId]}");
+    }
+
+    /// <summary>注册客户端上报用的命名消息处理；CustomMessagingManager 只在会话开始后才可用</summary>
+    private void RegisterMessageHandlers()
+    {
+        if (_handlersRegistered || _nm == null || _nm.CustomMessagingManager == null) return;
+        _handlersRegistered = true;
+        _nm.CustomMessagingManager.RegisterNamedMessageHandler(MsgSetReady, OnMsgSetReady);
+        _nm.CustomMessagingManager.RegisterNamedMessageHandler(MsgCancelReady, OnMsgCancelReady);
     }
 
     /// <summary>玩家离开：清掉它的记录，座位释放给后来的人</summary>
