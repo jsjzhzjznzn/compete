@@ -8,6 +8,7 @@ using UnityEngine;
 using TMPro;
 using Unity.Collections;
 using Unity.Netcode;
+using DG.Tweening;
 
 namespace SkierFramework
 {
@@ -61,18 +62,39 @@ namespace SkierFramework
         private int _selectedCharId = -1;    // 当前选中的英雄；-1 表示还没选（服务端也会拒绝 -1）
         private bool _isReady;               // 本机是否已准备（纯客户端本地记忆，不代表服务端一定接受了）
 
-        /// <summary>UI 初始化：缓存两个"绑定区没有声明"的文字引用，后续直接用，不用每次 Find</summary>
+        // ================= 飘字消息模板（Roommessage） =================
+        // Roommessage（TMP）只当样式模板用，常驻隐藏、不直接显示；
+        // 每次要提示时克隆一条挂到它的父节点下，向上飘 2 秒后直接销毁。
+        private const string MessageTemplateName = "Roommessage";
+        private RectTransform _messageTemplate; // 模板的 RectTransform（首次用时查找并缓存）
+
+        /// <summary>UI 初始化：缓存文字引用；隐藏飘字模板（它只当样式用）</summary>
         public override void OnInit(UIControlData uIControlData, UIViewController controller)
         {
             base.OnInit(uIControlData, controller);
             ipText = transform.Find("password").GetComponent<TextMeshProUGUI>();
             readyLabel = FindButtonLabel(ready);
+
+            // 找到 Roommessage 模板并隐藏（找不到不报死，等第一次 ShowMessage 时再提示）
+            var templateTf = FindChildByName(transform, MessageTemplateName);
+            if (templateTf != null)
+            {
+                _messageTemplate = templateTf.GetComponent<RectTransform>();
+                _messageTemplate.gameObject.SetActive(false); // 模板只当样式，不直接显示
+            }
         }
 
-        /// <summary>每次打开房间界面：显示本机 IP、挂监听、拉一次对手当前选择、刷新准备按钮</summary>
+        /// <summary>每次打开房间界面：复位本局状态、显示本机 IP、挂监听、拉一次对手当前选择、刷新准备按钮</summary>
         public override void OnOpen(object userData)
         {
             base.OnOpen(userData);
+
+            // ===== 复位本局状态（界面是缓存复用的，不复位会残留上一次的选择/准备） =====
+            // 退出 room 会销毁联机预制体（网络会话已重建），服务端状态本来就是新的，本地必须同步归零
+            _selectedCharId = -1;
+            _isReady = false;
+            if (rolezhu != null) UIModelManager.Instance.UnLoadModelByRawImage(rolezhu);     // 清掉上次的英雄预览
+            if (roleenemy != null) UIModelManager.Instance.UnLoadModelByRawImage(roleenemy); // 清掉上次的对手预览
 
             // 该 UI 有自己的字体加载兜底（老工程字体资源可能没进包，运行时手动补一次）
             if (ipText.font == null)
@@ -256,13 +278,81 @@ namespace SkierFramework
             );
         }
 
+        // ================= 飘字消息（克隆 Roommessage 模板 + DOTween） =================
+
+        /// <summary>
+        /// 弹一条飘字通知：克隆隐藏的 Roommessage 模板 -> 挂到模板父节点下 -> 向上飘 2 秒 -> 直接销毁。
+        /// 多条消息可同时存在，互不影响。
+        /// </summary>
+        private void ShowMessage(string text)
+        {
+            // 模板没找到就再找一次（初始化时可能还没实例化好）
+            if (_messageTemplate == null)
+            {
+                var templateTf = FindChildByName(transform, MessageTemplateName);
+                if (templateTf != null)
+                    _messageTemplate = templateTf.GetComponent<RectTransform>();
+            }
+            if (_messageTemplate == null)
+            {
+                Debug.LogError($"[room] 找不到飘字模板 {MessageTemplateName}，提示未显示: {text}");
+                return;
+            }
+
+            // 1. 克隆模板，挂到模板的父节点下（与模板同级，继承布局层级）
+            var toast = Instantiate(_messageTemplate, _messageTemplate.parent);
+            toast.name = "Roommessage_" + text;
+            toast.gameObject.SetActive(true); // 克隆自隐藏模板，需手动激活
+            toast.SetAsLastSibling();         // 置顶显示，避免被背景盖住
+
+            // 2. 填文案 + 字体兜底（工程有过 TMP 字体丢失问题，没字体会显示成"看不见的空白"）
+            //    TMP 可能挂在 Roommessage 自己身上，也可能在它子级，两级都找
+            var tmp = toast.GetComponent<TextMeshProUGUI>()
+                      ?? toast.GetComponentInChildren<TextMeshProUGUI>(true);
+            if (tmp == null)
+            {
+                Debug.LogError("[room] 飘字模板上没有 TextMeshProUGUI 组件，提示未显示: " + text);
+                Destroy(toast.gameObject);
+                return;
+            }
+            tmp.text = text;
+            if (tmp.font == null)
+                tmp.font = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF - Fallback");
+
+            // 3. 从模板的原始位置开始飘
+            Vector2 startPos = _messageTemplate.anchoredPosition;
+            toast.anchoredPosition = startPos;
+
+            // 4. DOTween：向上飘 2 秒后直接销毁（SetLink 保证界面中途销毁时 tween 一起停）
+            toast.DOAnchorPosY(startPos.y + 120f, 2f)
+                 .SetEase(Ease.OutQuad)
+                 .SetLink(toast.gameObject)
+                 .OnComplete(() => Destroy(toast.gameObject));
+
+            Debug.Log($"[room] 飘字: {text} pos={startPos} parent={toast.parent?.name} " +
+                      $"size={toast.rect.size} active={toast.gameObject.activeInHierarchy}");
+        }
+
+        /// <summary>在层级树里按名字递归查找子物体（直接子节点找不到就继续往下找）</summary>
+        private static Transform FindChildByName(Transform root, string name)
+        {
+            for (int i = 0; i < root.childCount; i++)
+            {
+                var child = root.GetChild(i);
+                if (child.name == name) return child;
+                var hit = FindChildByName(child, name);
+                if (hit != null) return hit;
+            }
+            return null;
+        }
+
         /// <summary>上报英雄选择：房主直调服务端 / 客户端发命名消息（点选瞬间就发，不等准备）</summary>
         private void SubmitSelectChar(int charId)
         {
             var nm = NetworkManager.Singleton;
             if (nm == null || !nm.IsConnectedClient)
             {
-                Debug.LogWarning("[room] 还没连上网络，选择暂不同步");
+                ShowMessage("网络未连接");   // 选择没同步出去时飘字提示
                 return;
             }
 
@@ -339,14 +429,14 @@ namespace SkierFramework
 
             if (_selectedCharId < 0)
             {
-                Debug.LogWarning("[room] 请先选英雄再准备");
+                ShowMessage("请先选择角色");   // 未选英雄不能准备，飘字提示
                 return;
             }
 
             var nm = NetworkManager.Singleton;
             if (nm == null || !nm.IsConnectedClient)
             {
-                Debug.LogWarning("[room] 还没连上网络，无法准备");
+                ShowMessage("网络未连接，无法准备");
                 return;
             }
 
@@ -411,13 +501,12 @@ namespace SkierFramework
             nm.CustomMessagingManager.SendNamedMessage(RoomState.MsgCancelReady, NetworkManager.ServerClientId, writer);
         }
 
-        /// <summary>根据本机状态刷新准备按钮：文字在"准备/取消准备"间切换；没选英雄时置灰不可点</summary>
+        /// <summary>根据本机状态刷新准备按钮：文字在"准备/取消准备"间切换。
+        /// 按钮保持始终可点：未选人时点了会飘字提示原因（如果禁用按钮，点击事件不触发，飘字就永远出不来了）</summary>
         private void RefreshReadyUI()
         {
             if (readyLabel != null)
                 readyLabel.text = _isReady ? "取消准备" : "准备";
-            if (ready != null)
-                ready.interactable = _selectedCharId >= 0; // 没选英雄不能点准备
         }
 
         /// <summary>从按钮下找那行文字：优先取直接子节点 "Text (TMP)"，找不到再全子树找第一个 TMP 文本</summary>
