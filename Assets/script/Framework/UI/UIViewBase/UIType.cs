@@ -5,6 +5,7 @@ namespace SkierFramework
 		Dating,
 		Xuanze,
 		room,
+		jiaru,
 		Max,
     }
 }

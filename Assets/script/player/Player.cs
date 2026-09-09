@@ -28,6 +28,9 @@ public class Player : CharacterMoveControllerBase
     {
         get
         {
+            // 本对象可能已被销毁（切场景/退出战斗后的残留状态机回调会访问到这里）：
+            // Unity 的 == 能判"已销毁"，先挡掉，避免走进 GetComponent 抛 MissingReferenceException
+            if (this == null) return null;
             if (actorAudio == null)
             {
                 actorAudio = GetComponent<ActorAudioComponent>();
@@ -101,13 +104,18 @@ public class Player : CharacterMoveControllerBase
     public override void OnNetworkSpawn()
     {
         base.OnNetworkSpawn();
+
+        // ===== 联机排障日志：确认每个角色归属到谁（定位"客户端无法操作角色"，定位后可删） =====
+        ulong localId = NetworkManager.Singleton != null ? NetworkManager.Singleton.LocalClientId : 0;
+        Debug.Log($"[Player] name={name} Owner={OwnerClientId} Local={localId} IsOwner={IsOwner} IsSpawned={IsSpawned}");
+
         netMoveState.OnValueChanged += OnMoveStateChanged;
         netComboState.OnValueChanged += OnComboStateChanged;
         netComboIndex.OnValueChanged += OnComboIndexChanged;
         netForwardATK.OnValueChanged += OnForwardATKChanged;
 
-        // 本地玩家生成后立即绑定场景虚拟相机（远程端共享同一相机，只绑拥有者）
-        if (IsOwner) BindCamera();
+        // 本地玩家(拥有者)生成后：先生成自己的主相机(Camera.prefab)再生成跟随vcam(thirdcamera.prefab)并绑定；远程端不生成
+        if (IsOwner) EnsureLocalCameras();
     }
 
     public override void OnNetworkDespawn()
@@ -117,6 +125,9 @@ public class Player : CharacterMoveControllerBase
         netComboState.OnValueChanged -= OnComboStateChanged;
         netComboIndex.OnValueChanged -= OnComboIndexChanged;
         netForwardATK.OnValueChanged -= OnForwardATKChanged;
+
+        // 角色离场（战斗结束/断线清理等）时取消状态机挂起的计时器，防止到点回调访问已销毁组件
+        stateMachine?.CancelPendingTimers();
     }
 
     protected override void Awake()
@@ -144,8 +155,8 @@ public class Player : CharacterMoveControllerBase
             comboStateMachine.SwitchState(comboStateMachine.NullState);   // 连击初始进入空状态
         }
 
-        // 单机场景（非网络生成）直接放置的玩家也绑定相机；联机场景已在 OnNetworkSpawn 绑过，这里幂等跳过
-        if (!IsSpawned) BindCamera();
+        // 单机场景（非网络生成）直接放置的玩家也生成自己的主相机+vcam；联机场景已在 OnNetworkSpawn 生成过，这里幂等跳过
+        if (!IsSpawned) EnsureLocalCameras();
 
         // 游戏运行时锁定并隐藏鼠标光标（用鼠标视角）；非拥有者端不抢光标
         if (!IsSpawned || IsOwner)
@@ -155,10 +166,26 @@ public class Player : CharacterMoveControllerBase
         }
     }
 
+    // ============ 联机排障日志：拥有者端每秒采样一次输入（定位"客户端无法操作角色"，定位后可删） ============
+    private float _inputProbeNextLogTime;
+
+    /// <summary>
+    /// 只有 IsOwner 的 Update 会跑到这里：每秒打一次输入采样。
+    /// 判断方法：客户端若收不到这行 = 客户端不是 Owner(Update 提前 return)；收到了但输入恒为 0 = 输入系统没生效。
+    /// </summary>
+    private void LogInputProbeOncePerSecond()
+    {
+        if (Time.unscaledTime < _inputProbeNextLogTime) return;
+        _inputProbeNextLogTime = Time.unscaledTime + 1f;
+
+    }
+
     protected override void Update()
     {
         // 非拥有者端不做本地模拟：状态机/输入只驱动自己的角色
         if (IsSpawned && !IsOwner) return;
+
+        LogInputProbeOncePerSecond();         // 联机排障：客户端跑不到这里 = IsOwner=false
 
         base.Update();                        // 地面检测 + 重力 + 竖直速度
         stateMachine?.Update();               // 状态机Tick
@@ -168,25 +195,93 @@ public class Player : CharacterMoveControllerBase
     }
 
     // ================================================================
-    // 相机绑定（本地玩家生成后自动绑定场景虚拟相机）
+    // 相机（角色生成时：先实例化自己的主相机 Camera.prefab，再实例化跟随 vcam thirdcamera.prefab）
     // ================================================================
 
+    private const string MainCameraPrefabPath = "Camera";       // 渲染主相机（带 CinemachineBrain）
+    private const string ThirdCameraPrefabPath = "thirdcamera"; // 跟随本角色的 vcam
+    private Camera _localViewCamera;                            // 本角色生成的主相机实例
+    private CinemachineVirtualCamera _localVCam;                // 本角色生成的 vcam 实例
+
     /// <summary>
-    /// 把场景中的 CinemachineVirtualCamera 的 Follow/LookAt 绑到本玩家。
-    /// 联机：OnNetworkSpawn 中仅拥有者端调用；单机：Start 中兜底调用。
-    /// 优先复用 playerCameraUtility 缓存的虚拟相机，未配置时自行查找。
+    /// 角色生成后为本机(拥有者)依次创建两个相机，只在本机执行、不走网络同步：
+    /// 1) 先实例化 Resources/Camera.prefab → Player.viewCamera(主相机) 绑它；
+    /// 2) 再实例化 Resources/thirdcamera.prefab → Follow/LookAt 绑本角色，
+    ///    playerCameraUtility.virtualCamera(虚拟相机) 绑它。
+    /// 已生成过则直接复用；只有 IsOwner 才会调用（远程镜像不生成相机）。
     /// </summary>
-    private void BindCamera()
+    private void EnsureLocalCameras()
     {
-        var vcam = playerCameraUtility?.virtualCamera
-            ?? FindAnyObjectByType<CinemachineVirtualCamera>();
-        if (vcam == null)
+        // ---------- 1) 主相机（渲染用，带 CinemachineBrain） ----------
+        if (_localViewCamera == null)
         {
-            Debug.LogWarning($"[{name}] 场景中没有 CinemachineVirtualCamera，相机不会跟随", this);
-            return;
+            var mainPrefab = Resources.Load<GameObject>(MainCameraPrefabPath);
+            if (mainPrefab != null)
+            {
+                var camGo = Instantiate(mainPrefab);
+                camGo.name = "LocalCamera_" + name;
+                _localViewCamera = camGo.GetComponent<Camera>();
+                if (_localViewCamera == null)
+                {
+                    Debug.LogError($"[{name}] {MainCameraPrefabPath}.prefab 上没有 Camera 组件", this);
+                    Destroy(camGo);
+                }
+                else
+                {
+                    viewCamera = _localViewCamera;   // Player.viewCamera(主相机) = 本角色生成的主相机
+                    if (_localViewCamera.tag == "Untagged") // 标成 MainCamera，方便 Camera.main 全局访问
+                        _localViewCamera.tag = "MainCamera";
+                }
+            }
+            else
+            {
+                // 没有 Camera.prefab 时兜底用场景里现有相机
+                Debug.LogWarning($"[{name}] 找不到 Resources/{MainCameraPrefabPath}.prefab，回退用场景相机", this);
+                if (Camera.main != null) viewCamera = Camera.main;
+                else { var anyCam = FindAnyObjectByType<Camera>(); if (anyCam != null) viewCamera = anyCam; }
+            }
         }
-        vcam.Follow = transform;
-        vcam.LookAt = transform;
+
+        // ---------- 2) 跟随本角色的 vcam（thirdcamera） ----------
+        if (_localVCam == null)
+        {
+            var prefab = Resources.Load<GameObject>(ThirdCameraPrefabPath);
+            if (prefab == null)
+            {
+                Debug.LogError($"[{name}] 找不到 Resources/{ThirdCameraPrefabPath}.prefab", this);
+                return;
+            }
+            var go = Instantiate(prefab);
+            go.name = "ThirdCamera_" + name;
+            _localVCam = go.GetComponent<CinemachineVirtualCamera>();
+            if (_localVCam == null)
+            {
+                Debug.LogError($"[{name}] {ThirdCameraPrefabPath}.prefab 上没有 CinemachineVirtualCamera", this);
+                Destroy(go);
+                return;
+            }
+            _localVCam.Follow = transform;   // vcam 跟随本角色
+            _localVCam.LookAt = transform;   // vcam 看向本角色
+            playerCameraUtility?.SetVirtualCamera(_localVCam); // Player 的 virtual 相机 = 这个 vcam
+            string mainCamName = _localViewCamera != null ? _localViewCamera.name : "null";
+            Debug.Log($"[{name}] 已生成 主相机({mainCamName}) + vcam({_localVCam.name}) 并绑定", this);
+        }
+    }
+
+    private void OnDestroy()
+    {
+        // 角色销毁时顺带销毁为自己生成的主相机和 vcam。
+        // 场景卸载会连场景物体一起清掉，这里覆盖"角色单独被销毁/断线清理"的路径
+        if (_localVCam != null)
+        {
+            Destroy(_localVCam.gameObject);
+            _localVCam = null;
+        }
+        if (_localViewCamera != null)
+        {
+            Destroy(_localViewCamera.gameObject);
+            _localViewCamera = null;
+        }
     }
 
     // ================================================================
@@ -204,6 +299,10 @@ public class Player : CharacterMoveControllerBase
     private void OnDisable()
     {
         EventCenter.MainInstance.UnregisterTarget(this);
+
+        // 角色被禁用/销毁（切场景、退出战斗、反序列化等）时状态机不会走正常 Exit，
+        // 主动取消挂起的计时器（与 OnNetworkDespawn 互为兜底，幂等可重复调用）
+        stateMachine?.CancelPendingTimers();
     }
 
     private void OnDamageTaken(DamageData data)
@@ -424,11 +523,14 @@ public class Player : CharacterMoveControllerBase
 
     public void PlayAnimation(AnimationClip clip)
     {
+        // 角色已销毁（切场景/退出战斗/反序列化）时 Animancer 组件已释放，Unity 的 == 判空能捕获，直接跳过
+        if (characterAnimancer == null) return;
         ApplyRemotePhaseOffset(characterAnimancer.Play(clip));
     }
 
     public void PlayAnimation(AnimationClip clip, float fadeDuration)
     {
+        if (characterAnimancer == null) return;
         ApplyRemotePhaseOffset(characterAnimancer.Play(clip, fadeDuration));
     }
 

@@ -44,6 +44,18 @@ public class PlayerCameraUtility
     }
 
     /// <summary>
+    /// 外部注入本玩家的虚拟相机（角色生成 thirdcamera.prefab 后调用），并刷新 POV 缓存。
+    /// 这样"玩家专属相机"和"水平回正等逻辑"用的是同一个相机引用。
+    /// </summary>
+    public void SetVirtualCamera(CinemachineVirtualCamera vcam)
+    {
+        virtualCamera = vcam;
+        cinemachinePOV = virtualCamera != null
+            ? virtualCamera.GetCinemachineComponent<CinemachinePOV>()
+            : null;
+    }
+
+    /// <summary>
     /// 开启水平回正：角色朝后或静止时，能自动转回角色正前方。
     /// 在 PlayerMovementState 里玩家按 A/D/S 移动时调用。
     /// </summary>

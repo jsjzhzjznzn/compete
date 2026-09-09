@@ -10,8 +10,8 @@ GameObject:
   m_Component:
   - component: {fileID: 5311114620422607141}
   - component: {fileID: 1726412754773572280}
-  - component: {fileID: 636169570138484124}
   - component: {fileID: 4708370540430484007}
+  - component: {fileID: 7115801130263651195}
   m_Layer: 0
   m_Name: "\u8054\u673A"
   m_TagString: Untagged
@@ -76,20 +76,6 @@ MonoBehaviour:
     OldPrefabList: []
   RunInBackground: 1
   LogLevel: 1
---- !u!114 &636169570138484124
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3843437426510232931}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 78965cb9aa4734f44b8d7c80e7097877, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::NetworkPlayerSpawner
-  anbiPrefab: {fileID: 1449095386312702362, guid: 7759b912a7557b041abd26e83a0ccf1a, type: 3}
-  ellenPrefab: {fileID: 3273140266527059649, guid: 27216f8669771424d8a4d34309e3c458, type: 3}
 --- !u!114 &4708370540430484007
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -104,3 +90,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: Unity.UOS.NetCodeTransport.Kcp2k::Netcode.Transports.KCP.Kcp2KTransport
   host: 127.0.0.1
   port: 7777
+--- !u!114 &7115801130263651195
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3843437426510232931}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7abc22c298211d74ca59db144f4fe831, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RoomState
+  RequiredPlayerCount: 2
+  HeroCount: 2
+  BattleSceneName: multiplecompete

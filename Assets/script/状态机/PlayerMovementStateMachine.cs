@@ -41,6 +41,16 @@ public class PlayerMovementStateMachine : StateMachine
         playerMovementNullState = new PlayerMovementNullState(this);
     }
 
+    /// <summary>
+    /// 角色被销毁/反序列化时调用：状态机不会走正常 Exit(RemoveInputActionCallBacks)，
+    /// 主动取消各状态挂的计时器，防止计时器到点回调访问已销毁的组件。
+    /// 目前只有 Idle 轻点判定用计时器；以后新状态加计时器，记得在这里补取消。
+    /// </summary>
+    public void CancelPendingTimers()
+    {
+        idlingState.CancelPendingTimer();
+    }
+
     protected override void OnStateSwitched()
     {
         base.OnStateSwitched();

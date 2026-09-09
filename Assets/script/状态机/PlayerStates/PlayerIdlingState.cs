@@ -38,16 +38,26 @@ public class PlayerIdlingState : PlayerMovementState
         CharacterInputSystem.MainInstance.inputActions.player.move.started -= BufferToMove;
 
         // 离开 Idle 时若计时器还在跑，必须取消，避免在错误时机回调
-        if (gameTimer != null)
-        {
-            TimerManager.MainInstance.UnregisterTimer(gameTimer);
-            gameTimer = null;
-        }
+        CancelPendingTimer();
+    }
+
+    /// <summary>
+    /// 取消轻点判定计时器。状态退出/角色被销毁都会调用，幂等可重复调用。
+    /// 角色销毁（切场景/退出战斗/断线清理）不会走状态机正常 Exit，必须在这里补取消，
+    /// 否则计时器到点会回调到已销毁的组件（如 AnimancerComponent）抛 MissingReferenceException。
+    /// </summary>
+    public void CancelPendingTimer()
+    {
+        if (gameTimer == null) return;
+        TimerManager.MainInstance.UnregisterTimer(gameTimer);
+        gameTimer = null;
     }
 
     /// <summary>移动输入按下瞬间（started 事件）</summary>
     private void BufferToMove(InputAction.CallbackContext context)
     {
+        // 角色可能已被销毁但事件队列里还有残留回调（销毁时序），此时不再新建计时器
+        if (player == null) return;
         gameTimer = TimerManager.MainInstance.GetOneTimer(TapThreshold, CheckMoveInput);
     }
 
@@ -55,6 +65,10 @@ public class PlayerIdlingState : PlayerMovementState
     private void CheckMoveInput()
     {
         gameTimer = null;
+
+        // 角色已销毁（切场景/退出战斗等）后仍可能有残留计时器到点（销毁时的取消偶发没兜住），
+        // 直接放弃后续状态切换，避免访问已销毁组件抛 MissingReferenceException
+        if (player == null) return;
 
         if (player.IsMoving)
         {

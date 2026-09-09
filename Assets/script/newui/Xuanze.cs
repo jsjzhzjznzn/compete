@@ -11,14 +11,17 @@ namespace SkierFramework
         #region 控件绑定变量声明，自动生成请勿手改
 		#pragma warning disable 0649
 		[ControlBinding]
-		private Button createrroom;
+		public Button createrroom;
 		[ControlBinding]
-		private Button exit;
+
+		public Button exit;
 		[ControlBinding]
-		private Button jionroom;
+		public Button jionroom;
 
 		#pragma warning restore 0649
 #endregion
+
+
 
 
 
@@ -35,11 +38,18 @@ namespace SkierFramework
             base.OnOpen(userData);
             exit.onClick.AddListener(OnExitClicked);
             createrroom.onClick.AddListener(OnCreateRoomClicked);
+            jionroom.onClick.AddListener(OnJoinRoomClicked);
         }
 
         private void OnExitClicked()
         {
             UIManager.Instance.Close("Xuanze");
+        }
+
+        private void OnJoinRoomClicked()
+        {
+            // 加入流程：先打开 jiaru 输入主机 IP，回车后再实例化联机物体并 StartClient
+            UIManager.Instance.Open(UIType.jiaru);
         }
 
         private void OnCreateRoomClicked()
@@ -76,6 +86,7 @@ namespace SkierFramework
         {
             exit.onClick.RemoveListener(OnExitClicked);
             createrroom.onClick.RemoveListener(OnCreateRoomClicked);
+            jionroom.onClick.RemoveListener(OnJoinRoomClicked);
             base.OnClose();
         }
     }

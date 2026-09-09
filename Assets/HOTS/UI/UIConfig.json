@@ -26,6 +26,15 @@
             "isAutoNavigation": false,
             "isLuaUI": false,
             "luaModuleName": ""
+        },
+        {
+            "uiType": "jiaru",
+            "path": "Assets/HOTS/UI/Prefabs/jiaru.prefab",
+            "isWindow": true,
+            "uiLayer": "NormalLayer",
+            "isAutoNavigation": false,
+            "isLuaUI": false,
+            "luaModuleName": ""
         }
     ]
 }

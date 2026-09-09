@@ -11,20 +11,24 @@ namespace SkierFramework
         #region 控件绑定变量声明，自动生成请勿手改
 		#pragma warning disable 0649
 		[ControlBinding]
-		private Button compete;
+		public Button compete;
 		[ControlBinding]
-		private Button activity;
+		public TextMeshProUGUI Textp;
 		[ControlBinding]
-		private Button friend;
+		public Button activity;
 		[ControlBinding]
-		private Button setting;
+		public Button friend;
 		[ControlBinding]
-		private Button role;
+		public Button setting;
 		[ControlBinding]
-		private Button chalenge;
+		public Button role;
+		[ControlBinding]
+		public Button chalenge;
 
 		#pragma warning restore 0649
 #endregion
+
+
 
 
 
