@@ -111,6 +111,8 @@ namespace SkierFramework
             _enemyReady = false;
             if (rolezhu != null) UIModelManager.Instance.UnLoadModelByRawImage(rolezhu);     // 清掉上次的英雄预览
             if (roleenemy != null) UIModelManager.Instance.UnLoadModelByRawImage(roleenemy); // 清掉上次的对手预览
+            if (rolezhu != null) rolezhu.gameObject.SetActive(false);    // 默认不显示，选中角色后才显示
+            if (roleenemy != null) roleenemy.gameObject.SetActive(false); // 对手没选人前也不显示
             UpdateMyPrepareText();     // 未选人 -> 隐藏自己的准备文字
             UpdateEnemyPrepareText();  // 对手未选 -> 隐藏对手的准备文字
 
@@ -317,6 +319,7 @@ namespace SkierFramework
         /// <summary>把英雄模型加载到指定 RawImage 上做 3D 预览（LoadModelToRawImage 会自动卸掉该图上的旧模型）</summary>
         private void LoadHeroPreview(RawImage target, int charId)
         {
+            target.gameObject.SetActive(true); // 加载预览时才显示
             UIModelManager.Instance.LoadModelToRawImage(
                 GetModelPath(charId),
                 target,
@@ -442,6 +445,7 @@ namespace SkierFramework
             if (charId < 0)
             {
                 UIModelManager.Instance.UnLoadModelByRawImage(roleenemy);
+                roleenemy.gameObject.SetActive(false); // 对手清空选择 -> 连框一起隐藏
                 UpdateEnemyPrepareText();
                 return;
             }
