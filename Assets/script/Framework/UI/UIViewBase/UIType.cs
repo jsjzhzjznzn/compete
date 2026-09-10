@@ -6,6 +6,7 @@ namespace SkierFramework
 		Xuanze,
 		room,
 		jiaru,
+		bloodpanel,
 		Max,
     }
 }

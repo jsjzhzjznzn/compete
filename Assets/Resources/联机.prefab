@@ -102,6 +102,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7abc22c298211d74ca59db144f4fe831, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RoomState
+  ShowTopMostFoldoutHeaderGroup: 1
   RequiredPlayerCount: 2
   HeroCount: 2
   BattleSceneName: multiplecompete

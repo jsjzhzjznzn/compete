@@ -35,6 +35,15 @@
             "isAutoNavigation": false,
             "isLuaUI": false,
             "luaModuleName": ""
+        },
+        {
+            "uiType": "bloodpanel",
+            "path": "Assets/HOTS/UI/Prefabs/bloodpanel.prefab",
+            "isWindow": true,
+            "uiLayer": "DamageLayer",
+            "isAutoNavigation": false,
+            "isLuaUI": false,
+            "luaModuleName": ""
         }
     ]
 }
