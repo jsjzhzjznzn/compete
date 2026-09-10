@@ -31,6 +31,8 @@ namespace SkierFramework
 		[ControlBinding]
 		public RawImage rolezhu;
 		[ControlBinding]
+		public TextMeshProUGUI preparezhu;
+		[ControlBinding]
 		public RawImage roleenemy;
 		[ControlBinding]
 		public Button shayu;
@@ -40,9 +42,13 @@ namespace SkierFramework
 		public Button exit;
 		[ControlBinding]
 		public Button ready;
+		[ControlBinding]
+		public TextMeshProUGUI prepareenemy;
 
 		#pragma warning restore 0649
 #endregion
+
+
 
         // 绑定字段用途（自动生成区勿手改，说明写在这里）：
         //   rolezhu   = 我方所选英雄预览； roleenemy = 对手所选英雄预览（实时同步）
@@ -61,6 +67,9 @@ namespace SkierFramework
         private TextMeshProUGUI readyLabel; // ready 按钮上的文字：本机在"准备/取消准备"间切换（服务端不同步，自己反馈用）
         private int _selectedCharId = -1;    // 当前选中的英雄；-1 表示还没选（服务端也会拒绝 -1）
         private bool _isReady;               // 本机是否已准备（纯客户端本地记忆，不代表服务端一定接受了）
+        private int _enemyCharId = -1;       // 对手当前选中的英雄；-1 表示对手还没选（决定 prepareenemy 是否显示）
+        private bool _enemyReady;            // 对手是否已准备（服务端广播同步，只用于 prepareenemy 文字）
+        private Coroutine _waitForConnectRoutine; // 客户端等连接建立后补拉对手状态的协程
 
         // ================= 飘字消息模板（Roommessage） =================
         // Roommessage（TMP）只当样式模板用，常驻隐藏、不直接显示；
@@ -82,6 +91,11 @@ namespace SkierFramework
                 _messageTemplate = templateTf.GetComponent<RectTransform>();
                 _messageTemplate.gameObject.SetActive(false); // 模板只当样式，不直接显示
             }
+
+            // 准备状态文字的字体兜底（工程字体资源可能没进包，缺字体会显示成空白）
+            var fallbackFont = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF - Fallback");
+            if (preparezhu != null && preparezhu.font == null) preparezhu.font = fallbackFont;
+            if (prepareenemy != null && prepareenemy.font == null) prepareenemy.font = fallbackFont;
         }
 
         /// <summary>每次打开房间界面：复位本局状态、显示本机 IP、挂监听、拉一次对手当前选择、刷新准备按钮</summary>
@@ -93,8 +107,12 @@ namespace SkierFramework
             // 退出 room 会销毁联机预制体（网络会话已重建），服务端状态本来就是新的，本地必须同步归零
             _selectedCharId = -1;
             _isReady = false;
+            _enemyCharId = -1;
+            _enemyReady = false;
             if (rolezhu != null) UIModelManager.Instance.UnLoadModelByRawImage(rolezhu);     // 清掉上次的英雄预览
             if (roleenemy != null) UIModelManager.Instance.UnLoadModelByRawImage(roleenemy); // 清掉上次的对手预览
+            UpdateMyPrepareText();     // 未选人 -> 隐藏自己的准备文字
+            UpdateEnemyPrepareText();  // 对手未选 -> 隐藏对手的准备文字
 
             // 该 UI 有自己的字体加载兜底（老工程字体资源可能没进包，运行时手动补一次）
             if (ipText.font == null)
@@ -112,7 +130,10 @@ namespace SkierFramework
 
             // 订阅"对手选择变化"事件（房主：服务端记录时触发；客户端：收到转发消息时触发）
             if (RoomState.Instance != null)
+            {
                 RoomState.Instance.OnPeerCharIdChanged += OnPeerCharIdChanged;
+                RoomState.Instance.OnPeerReadyChanged += OnPeerReadyChanged;
+            }
             else
                 Debug.LogError("[room] 联机预制体上没挂 RoomState 组件，对手英雄无法同步");
 
@@ -124,7 +145,29 @@ namespace SkierFramework
             // 打开界面时拉一次对手当前选择（防止"对方先选、我后开界面"漏消息）
             RequestPeerChar();
 
+            // 客户端是在 StartClient 后立刻打开本界面的，此时连接往往还没建立，
+            // 上面 RequestPeerChar 会因未连网而跳过；这里等连上后再补拉一次，否则永远看不到房主已选的英雄/准备状态
+            if (nmOpen != null && !nmOpen.IsConnectedClient)
+                _waitForConnectRoutine = StartCoroutine(WaitConnectedAndRequestPeer());
+
             RefreshReadyUI();
+        }
+
+        /// <summary>等连接建立后补拉一次对手状态（15 秒超时自动放弃，防连接失败时协程空转）</summary>
+        private System.Collections.IEnumerator WaitConnectedAndRequestPeer()
+        {
+            float timeout = 15f;
+            while (timeout > 0f)
+            {
+                var nm = NetworkManager.Singleton;
+                if (nm == null) yield break;                 // 联机物体被销毁，界面也在关闭流程里了
+                if (nm.IsConnectedClient) break;
+                timeout -= Time.unscaledDeltaTime;
+                yield return null;
+            }
+            _waitForConnectRoutine = null;
+            if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsConnectedClient)
+                RequestPeerChar();
         }
 
         /// <summary>探测本机局域网 IP：优先走"默认路由"（能出去的那张网卡），拿不到再遍历所有内网 IPv4</summary>
@@ -195,12 +238,20 @@ namespace SkierFramework
         /// </summary>
         public override void OnClose()
         {
+            if (_waitForConnectRoutine != null)
+            {
+                StopCoroutine(_waitForConnectRoutine);
+                _waitForConnectRoutine = null;
+            }
             shayu.onClick.RemoveListener(OnClickShayu);
             anbi.onClick.RemoveListener(OnClickAnbi);
             exit.onClick.RemoveListener(OnClickExit);
             ready.onClick.RemoveListener(OnClickReady);
             if (RoomState.Instance != null)
+            {
                 RoomState.Instance.OnPeerCharIdChanged -= OnPeerCharIdChanged;
+                RoomState.Instance.OnPeerReadyChanged -= OnPeerReadyChanged;
+            }
             var nmClose = NetworkManager.Singleton;
             if (nmClose != null)
                 nmClose.OnClientDisconnectCallback -= OnClientDisconnected;
@@ -270,11 +321,11 @@ namespace SkierFramework
                 GetModelPath(charId),
                 target,
                 canDrag: true,
-                offset: new Vector3(0, -1f, 0),
+                offset: new Vector3(0, -0.8f, 0),
                 rot: Quaternion.identity,
                 scale: Vector3.one,
                 isOrth: true,
-                orthSizeOrFOV: 1f
+                orthSizeOrFOV: 0.8f
             );
         }
 
@@ -383,16 +434,34 @@ namespace SkierFramework
             UpdateEnemyPreview(charId);
         }
 
-        /// <summary>roleenemy 显示对手英雄；-1 时清空</summary>
+        /// <summary>roleenemy 显示对手英雄；-1 时清空。同时驱动 prepareenemy 的显示/隐藏</summary>
         private void UpdateEnemyPreview(int charId)
         {
+            _enemyCharId = charId;
             if (roleenemy == null) return;
             if (charId < 0)
             {
                 UIModelManager.Instance.UnLoadModelByRawImage(roleenemy);
+                UpdateEnemyPrepareText();
                 return;
             }
             LoadHeroPreview(roleenemy, charId);
+            UpdateEnemyPrepareText();
+        }
+
+        /// <summary>对手准备状态变化回调（RoomState 事件）：clientId 是自己 -> 忽略，否则刷新 prepareenemy</summary>
+        private void OnPeerReadyChanged(ulong clientId, bool isReady)
+        {
+            var nm = NetworkManager.Singleton;
+            if (nm != null && clientId == nm.LocalClientId) return;
+            SetEnemyReady(isReady);
+        }
+
+        /// <summary>记录对手准备状态并刷新 prepareenemy 文字</summary>
+        private void SetEnemyReady(bool isReady)
+        {
+            _enemyReady = isReady;
+            UpdateEnemyPrepareText();
         }
 
         /// <summary>拉取对手当前选择：房主直接查服务端状态；客户端发 QueryPeerChar 消息让服务端回推</summary>
@@ -404,7 +473,10 @@ namespace SkierFramework
             if (nm.IsServer)
             {
                 if (RoomState.Instance != null)
+                {
                     UpdateEnemyPreview(RoomState.Instance.GetPeerCharId(nm.LocalClientId));
+                    SetEnemyReady(RoomState.Instance.GetPeerReady(nm.LocalClientId));
+                }
             }
             else
             {
@@ -501,12 +573,33 @@ namespace SkierFramework
             nm.CustomMessagingManager.SendNamedMessage(RoomState.MsgCancelReady, NetworkManager.ServerClientId, writer);
         }
 
-        /// <summary>根据本机状态刷新准备按钮：文字在"准备/取消准备"间切换。
+        /// <summary>根据本机状态刷新准备按钮：文字在"准备/取消准备"间切换，并同步 preparezhu 的显示与文案。
         /// 按钮保持始终可点：未选人时点了会飘字提示原因（如果禁用按钮，点击事件不触发，飘字就永远出不来了）</summary>
         private void RefreshReadyUI()
         {
             if (readyLabel != null)
                 readyLabel.text = _isReady ? "取消准备" : "准备";
+            UpdateMyPrepareText();
+        }
+
+        /// <summary>preparezhu：只有选了角色（RawImage 上有模型）才显示；本机已准备显示"准备"，否则"未准备"</summary>
+        private void UpdateMyPrepareText()
+        {
+            if (preparezhu == null) return;
+            bool hasChar = _selectedCharId >= 0;
+            preparezhu.gameObject.SetActive(hasChar);
+            if (hasChar)
+                preparezhu.text = _isReady ? "准备" : "未准备";
+        }
+
+        /// <summary>prepareenemy：只有对手选了角色才显示；对手已准备显示"准备"，否则"未准备"（由服务端同步）</summary>
+        private void UpdateEnemyPrepareText()
+        {
+            if (prepareenemy == null) return;
+            bool hasChar = _enemyCharId >= 0;
+            prepareenemy.gameObject.SetActive(hasChar);
+            if (hasChar)
+                prepareenemy.text = _enemyReady ? "准备" : "未准备";
         }
 
         /// <summary>从按钮下找那行文字：优先取直接子节点 "Text (TMP)"，找不到再全子树找第一个 TMP 文本</summary>

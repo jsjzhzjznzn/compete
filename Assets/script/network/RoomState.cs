@@ -35,6 +35,8 @@ public class RoomState : MonoBehaviour
     public const string MsgPeerSelectChar = "RoomState.PeerSelectChar";
     /// <summary>客户端打开房间界面时拉取对手当前选择；无 payload</summary>
     public const string MsgQueryPeerChar = "RoomState.QueryPeerChar";
+    /// <summary>服务端推送"对手的准备状态"命名消息；payload = byte（1=已准备 0=未准备）</summary>
+    public const string MsgPeerReady = "RoomState.PeerReady";
 
     /// <summary>唯一实例：由 Awake 在挂载的物体上赋值；没挂载时为 null（调用处需判空）</summary>
     public static RoomState Instance { get; private set; }
@@ -51,6 +53,13 @@ public class RoomState : MonoBehaviour
     /// room.cs 用它刷新 roleenemy（clientId 等于本机时忽略，rolezhu 由点击本地处理）。
     /// </summary>
     public event Action<ulong, int> OnPeerCharIdChanged;
+
+    /// <summary>
+    /// 某玩家的准备状态变化（clientId=状态归属者，isReady=是否已准备）。
+    /// 触发时机与服务端广播 PeerReady 相同（准备/取消/换人清准备）。
+    /// room.cs 用它刷新 prepareenemy（clientId 等于本机时忽略，preparezhu 由本地点准备时本地处理）。
+    /// </summary>
+    public event Action<ulong, bool> OnPeerReadyChanged;
 
     [Header("服务端配置")]
     [Tooltip("对战人数（双方=2），全部准备才开局")]
@@ -192,14 +201,21 @@ public class RoomState : MonoBehaviour
         _seats[clientId] = GetNextFreeSeat();
         Debug.Log($"[RoomState] 玩家 {clientId} 进入房间，座位 {_seats[clientId]}");
 
-        // 新人进房时，把对手已选的英雄推给它（对手可能早已选好，否则新人 roleenemy 会漏显示）
+        // 新人进房时，把对手已选的英雄和准备状态推给它（对手可能早已选好，否则新人 roleenemy/prepareenemy 会漏显示）
         foreach (var kv in _players)
         {
             if (kv.Key == clientId || kv.Value.CharId < 0) continue;
             if (kv.Key == NetworkManager.ServerClientId) continue; // 对手是房主自己：房主不在"另一个客户端"上，无需推
-            using var writer = new FastBufferWriter(4, Allocator.Temp);
-            writer.WriteValueSafe(kv.Value.CharId);
-            _nm.CustomMessagingManager.SendNamedMessage(MsgPeerSelectChar, clientId, writer);
+            using (var writer = new FastBufferWriter(4, Allocator.Temp))
+            {
+                writer.WriteValueSafe(kv.Value.CharId);
+                _nm.CustomMessagingManager.SendNamedMessage(MsgPeerSelectChar, clientId, writer);
+            }
+            using (var readyWriter = new FastBufferWriter(1, Allocator.Temp))
+            {
+                readyWriter.WriteValueSafe(kv.Value.IsReady ? (byte)1 : (byte)0);
+                _nm.CustomMessagingManager.SendNamedMessage(MsgPeerReady, clientId, readyWriter);
+            }
             break; // 双人局只有一个对手
         }
     }
@@ -214,6 +230,7 @@ public class RoomState : MonoBehaviour
         _nm.CustomMessagingManager.RegisterNamedMessageHandler(MsgSelectChar, OnMsgSelectChar);
         _nm.CustomMessagingManager.RegisterNamedMessageHandler(MsgQueryPeerChar, OnMsgQueryPeerChar);
         _nm.CustomMessagingManager.RegisterNamedMessageHandler(MsgPeerSelectChar, OnMsgPeerSelectChar); // host 收不到自己发的，注册无害
+        _nm.CustomMessagingManager.RegisterNamedMessageHandler(MsgPeerReady, OnMsgPeerReady);           // 同上，注册无害
     }
 
     /// <summary>纯客户端注册"对手选择"接收（连接成功后调用一次）</summary>
@@ -222,6 +239,7 @@ public class RoomState : MonoBehaviour
         if (_clientHandlersRegistered || _nm == null || _nm.CustomMessagingManager == null) return;
         _clientHandlersRegistered = true;
         _nm.CustomMessagingManager.RegisterNamedMessageHandler(MsgPeerSelectChar, OnMsgPeerSelectChar);
+        _nm.CustomMessagingManager.RegisterNamedMessageHandler(MsgPeerReady, OnMsgPeerReady);
     }
 
     /// <summary>玩家离开：清掉它的记录，座位释放给后来的人</summary>
@@ -278,14 +296,21 @@ public class RoomState : MonoBehaviour
         ServerSetCharId(senderClientId, charId);
     }
 
-    /// <summary>收到"拉取对手当前选择"（打开房间界面时）：把对手的 charId 单发给请求者</summary>
+    /// <summary>收到"拉取对手当前选择"（打开房间界面时）：把对手的 charId 和准备状态单发给请求者</summary>
     private void OnMsgQueryPeerChar(ulong senderClientId, FastBufferReader reader)
     {
         if (!IsServerNow()) return;
         int peerChar = GetPeerCharId(senderClientId);
-        using var writer = new FastBufferWriter(4, Allocator.Temp);
-        writer.WriteValueSafe(peerChar);
-        _nm.CustomMessagingManager.SendNamedMessage(MsgPeerSelectChar, senderClientId, writer);
+        using (var writer = new FastBufferWriter(4, Allocator.Temp))
+        {
+            writer.WriteValueSafe(peerChar);
+            _nm.CustomMessagingManager.SendNamedMessage(MsgPeerSelectChar, senderClientId, writer);
+        }
+        using (var readyWriter = new FastBufferWriter(1, Allocator.Temp))
+        {
+            readyWriter.WriteValueSafe(GetPeerReady(senderClientId) ? (byte)1 : (byte)0);
+            _nm.CustomMessagingManager.SendNamedMessage(MsgPeerReady, senderClientId, readyWriter);
+        }
     }
 
     /// <summary>收到服务端转发的"对手选择"（仅纯客户端会收到）：触发本地事件给 UI 刷新 roleenemy</summary>
@@ -295,6 +320,23 @@ public class RoomState : MonoBehaviour
         if (!TryReadCharId(senderClientId, reader, out int charId)) return;
         // 客户端不知道对手的 clientId，用 ulong.MaxValue 占位（room.cs 只用来排除"是自己"）
         OnPeerCharIdChanged?.Invoke(ulong.MaxValue, charId);
+    }
+
+    /// <summary>收到服务端推送的"对手准备状态"（仅纯客户端会收到）：触发本地事件给 UI 刷新 prepareenemy</summary>
+    private void OnMsgPeerReady(ulong senderClientId, FastBufferReader reader)
+    {
+        if (IsServerNow()) return;
+        byte flag = 0;
+        try
+        {
+            reader.ReadValueSafe(out flag);
+        }
+        catch (Exception)
+        {
+            Debug.LogWarning($"[RoomState] {senderClientId} 的 PeerReady 消息格式不对，忽略");
+            return;
+        }
+        OnPeerReadyChanged?.Invoke(ulong.MaxValue, flag != 0);
     }
 
     /// <summary>统一读 int payload，格式错误只警告不抛异常（客户端输入不可信）</summary>
@@ -338,8 +380,15 @@ public class RoomState : MonoBehaviour
         var state = _players[clientId];
         if (state.CharId == charId) return; // 没变化不重复广播
 
-        _players[clientId] = new PlayerState { IsReady = state.IsReady, CharId = charId };
+        // 换人后之前的准备作废（与 room.cs 本地逻辑一致），服务端状态也同步复位
+        bool wasReady = state.IsReady;
+        _players[clientId] = new PlayerState { IsReady = false, CharId = charId };
         Debug.Log($"[RoomState] 玩家 {clientId} 选择英雄 {charId}");
+        if (wasReady)
+        {
+            Debug.Log($"[RoomState] 玩家 {clientId} 换人，准备状态已复位");
+            ServerBroadcastPeerReady(clientId, false);
+        }
 
         // 转发给另一个纯客户端（房主在本进程，走下面的事件拿）
         foreach (var kv in _players)
@@ -366,6 +415,34 @@ public class RoomState : MonoBehaviour
         return -1;
     }
 
+    /// <summary>取某玩家对手当前是否已准备（没对手/没选人时为 false）；仅服务端</summary>
+    public bool GetPeerReady(ulong clientId)
+    {
+        if (!IsServerNow()) return false;
+        foreach (var kv in _players)
+        {
+            if (kv.Key != clientId) return kv.Value.CharId >= 0 && kv.Value.IsReady;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 服务端广播某玩家的准备状态：转发给房间里另一个"纯客户端"（payload = byte），
+    /// 并触发 OnPeerReadyChanged 让房主本机 UI 刷新 prepareenemy。
+    /// </summary>
+    private void ServerBroadcastPeerReady(ulong clientId, bool isReady)
+    {
+        foreach (var kv in _players)
+        {
+            if (kv.Key == clientId) continue;
+            if (kv.Key == NetworkManager.ServerClientId) continue; // 对手是房主自己：走下面的事件
+            using var writer = new FastBufferWriter(1, Allocator.Temp);
+            writer.WriteValueSafe(isReady ? (byte)1 : (byte)0);
+            _nm.CustomMessagingManager.SendNamedMessage(MsgPeerReady, kv.Key, writer);
+        }
+        OnPeerReadyChanged?.Invoke(clientId, isReady);
+    }
+
     /// <summary>
     /// 服务端把某玩家标记为"已准备 + 选了英雄 CharId"。
     /// 校验两点：1) 是房间成员（旁观者/陌生人拒绝）；2) CharId 在合法范围内（防越界崩服务器）。
@@ -387,6 +464,7 @@ public class RoomState : MonoBehaviour
 
         _players[clientId] = new PlayerState { IsReady = true, CharId = charId };
         Debug.Log($"[RoomState] 玩家 {clientId} 已准备，英雄 {charId}");
+        ServerBroadcastPeerReady(clientId, true);
         CheckStartGame(); // 每次有人准备完都看一眼能不能开局
     }
 
@@ -399,6 +477,7 @@ public class RoomState : MonoBehaviour
 
         _players[clientId] = new PlayerState { IsReady = false, CharId = state.CharId };
         Debug.Log($"[RoomState] 玩家 {clientId} 取消准备");
+        ServerBroadcastPeerReady(clientId, false);
     }
 
     /// <summary>
