@@ -134,6 +134,9 @@ public class Player : CharacterMoveControllerBase
         netComboIndex.OnValueChanged += OnComboIndexChanged;
         netForwardATK.OnValueChanged += OnForwardATKChanged;
 
+        // 启动相机绑定（使用协程延迟重试，每 0.5 秒查找一次，找到即停）
+        StartCameraBinding();
+
         // 拥有者端等双方角色都实例化后再打开 HUD 血条面板（UIManager 未初始化时 Open 会自动排队）
         if (IsOwner)
         {
@@ -141,18 +144,27 @@ public class Player : CharacterMoveControllerBase
         }
     }
 
-    /// <summary>等待场上已生成的 Player 达到 2 个（我方+敌方都实例化）后打开 bloodpanel</summary>
+    /// <summary>等待场上已生成的 Player 达到 2 个（我方+敌方都实例化）后打开 bloodpanel
+    /// 优化：使用 WaitForSeconds 代替 WaitUntil，避免每帧执行 FindObjectsByType</summary>
     private System.Collections.IEnumerator OpenBloodPanelWhenReady()
     {
-        yield return new WaitUntil(() =>
+        // 等待一小段时间让角色生成
+        yield return new WaitForSeconds(0.5f);
+
+        // 每 0.5 秒检查一次，而不是每帧检查
+        int spawnedCount = 0;
+        while (spawnedCount < 2)
         {
-            int spawnedCount = 0;
+            spawnedCount = 0;
             foreach (var player in FindObjectsByType<Player>())
             {
                 if (player.IsSpawned) spawnedCount++;
             }
-            return spawnedCount >= 2;
-        });
+            if (spawnedCount < 2)
+            {
+                yield return new WaitForSeconds(0.5f);
+            }
+        }
         UIManager.Instance.Open(UIType.bloodpanel);
     }
 
@@ -227,7 +239,6 @@ public class Player : CharacterMoveControllerBase
         if (IsSpawned && !IsOwner) return;
 
         LogInputProbeOncePerSecond();         // 联机排障：客户端跑不到这里 = IsOwner=false
-        TryBindSceneCamera();                 // 场景 vcam 就绪前每帧重试绑定（时序兜底）
 
         base.Update();                        // 地面检测 + 重力 + 竖直速度
         stateMachine?.Update();               // 状态机Tick
@@ -242,9 +253,40 @@ public class Player : CharacterMoveControllerBase
 
     private const string SeatCameraBaseName = "Camera";      // 主相机基名（渲染，带 CinemachineBrain）
     private const string SeatVCamBaseName = "thirdcamera";   // vcam 基名（跟随）
+    private const float CameraRetryInterval = 0.5f;          // 相机查找重试间隔（秒）
 
-    private bool _cameraAssigned; // 本机相机关联完成（成功后停止每帧重试）
+    private bool _cameraAssigned; // 本机相机关联完成（成功后停止重试）
     private bool _warnedNoCamera; // 找不到相机警告只打一次
+    private Coroutine _cameraBindCoroutine; // 相机绑定协程引用
+
+    /// <summary>
+    /// 启动相机绑定（在 OnNetworkSpawn 中调用，替代 Update 中的每帧轮询）
+    /// 使用协程延迟重试，每 0.5 秒查找一次，找到即停
+    /// </summary>
+    private void StartCameraBinding()
+    {
+        if (_cameraAssigned) return;
+        if (_cameraBindCoroutine != null) return; // 已在重试中
+
+        _cameraBindCoroutine = StartCoroutine(CameraBindCoroutine());
+    }
+
+    /// <summary>
+    /// 相机绑定协程：每 0.5 秒重试一次，找到相机后停止
+    /// 相比每帧轮询，减少 90% 以上的 FindObjectsByType 调用
+    /// </summary>
+    private System.Collections.IEnumerator CameraBindCoroutine()
+    {
+        while (!_cameraAssigned)
+        {
+            TryBindSceneCamera();
+            if (!_cameraAssigned)
+            {
+                yield return new WaitForSeconds(CameraRetryInterval);
+            }
+        }
+        _cameraBindCoroutine = null;
+    }
 
     /// <summary>
     /// 按本角色座位号选场景里预置的那套相机（不生成相机）：
@@ -252,7 +294,7 @@ public class Player : CharacterMoveControllerBase
     ///   座位 1 → Camera (1) / thirdcamera (1)
     /// 把 vcam 的 Follow/LookAt 绑到本角色，主相机赋给 viewCamera，
     /// 并停用本机其它 Camera/vcam，避免一屏叠多个画面。
-    /// 场景相机可能比角色晚就绪，找不到就每帧重试，绑上即停。
+    /// 优化：合并 FindObjectsByType 调用，一次性查找所有需要的对象
     /// </summary>
     private void TryBindSceneCamera()
     {
@@ -262,32 +304,34 @@ public class Player : CharacterMoveControllerBase
         string vcamName = seat == 0 ? SeatVCamBaseName : $"{SeatVCamBaseName} ({seat})";
         string camName = seat == 0 ? SeatCameraBaseName : $"{SeatCameraBaseName} ({seat})";
 
-        // 绑定成功前每帧把 UICamera 挂进场景所有主相机的 Camera Stack（幂等），
+        // 绑定成功前把 UICamera 挂进场景所有主相机的 Camera Stack（幂等），
         // 保证无论哪台座位相机在渲染，UI 层都可见
         EnsureUICameraInStacks();
 
-        // GameObject.Find 找不到未激活物体，这里用 FindObjectsByType(Include) 按名字匹配，
-        // 场景相机初始是关的也能找到（找到后下面会 SetActive(true)）
-        var vcamGo = FindObjectsByType<CinemachineVirtualCamera>(FindObjectsInactive.Include)
-            .FirstOrDefault(v => v.gameObject.name == vcamName)?.gameObject;
-        var mainCam = FindObjectsByType<Camera>(FindObjectsInactive.Include)
-            .FirstOrDefault(c => c.gameObject.name == camName);
-        var vcam = vcamGo != null ? vcamGo.GetComponent<CinemachineVirtualCamera>() : null;
+        // 一次性查找所有需要的对象（合并 4 次 FindObjectsByType 为 1 次）
+        var allVCams = FindObjectsByType<CinemachineVirtualCamera>(FindObjectsInactive.Include);
+        var allCams = FindObjectsByType<Camera>(FindObjectsInactive.Include);
+
+        // 按名字匹配目标相机
+        var vcamGo = allVCams.FirstOrDefault(v => v.gameObject.name == vcamName)?.gameObject;
+        var mainCam = allCams.FirstOrDefault(c => c.gameObject.name == camName);
+        var vcam = vcamGo?.GetComponent<CinemachineVirtualCamera>();
+
         if (vcam == null || mainCam == null)
         {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
             if (!_warnedNoCamera)
             {
                 _warnedNoCamera = true;
-                // 排障：把运行时场景里实际存在的相机全列出来，一眼看出是场景不对还是名字对不上
-                string vcams = string.Join(", ", FindObjectsByType<CinemachineVirtualCamera>(FindObjectsInactive.Include)
-                    .Select(v => $"\"{v.gameObject.name}\"(active={v.gameObject.activeSelf})"));
-                string cams = string.Join(", ", FindObjectsByType<Camera>(FindObjectsInactive.Include)
-                    .Select(c => $"\"{c.gameObject.name}\"(active={c.gameObject.activeSelf})"));
-                Debug.LogWarning($"[{name}] 没找到座位{seat}的相机({camName}/{vcamName})，将每帧重试。\n" +
+                // 排障：复用已查找的结果，不再额外调用 FindObjectsByType
+                string vcams = string.Join(", ", allVCams.Select(v => $"\"{v.gameObject.name}\"(active={v.gameObject.activeSelf})"));
+                string cams = string.Join(", ", allCams.Select(c => $"\"{c.gameObject.name}\"(active={c.gameObject.activeSelf})"));
+                Debug.LogWarning($"[{name}] 没找到座位{seat}的相机({camName}/{vcamName})，将每 {CameraRetryInterval} 秒重试。\n" +
                                  $"运行时场景里的 vcam: [{vcams}]\n" +
                                  $"运行时场景里的 Camera: [{cams}]", this);
             }
-            return; // 下帧再试
+#endif
+            return; // 下次重试再试
         }
 
         // 确保本座位那套相机是启用状态（防止场景里初始是关的）
@@ -298,12 +342,10 @@ public class Player : CharacterMoveControllerBase
         vcam.LookAt = transform;   // vcam 看向本角色
         viewCamera = mainCam;      // Player.viewCamera(主相机) = 本座位的 Camera
 
-        // 一屏只留自己那套相机：停用本机其它主相机和 vcam
-        var allVCams = FindObjectsByType<CinemachineVirtualCamera>();
+        // 一屏只留自己那套相机：停用本机其它主相机和 vcam（复用已查找的 allVCams/allCams）
         foreach (var v in allVCams)
             if (v != vcam) v.gameObject.SetActive(false);
         var uiCamera = UIManager.Instance.UICamera;
-        var allCams = FindObjectsByType<Camera>();
         foreach (var c in allCams)
         {
             // UICamera 是 Overlay 相机（DDOL），不是场景渲染相机，绝不能被停用
@@ -353,6 +395,21 @@ public class Player : CharacterMoveControllerBase
     private void OnDisable()
     {
         EventCenter.MainInstance.UnregisterTarget(this);
+
+        // 停止相机绑定协程（避免销毁后残留协程访问已销毁组件）
+        if (_cameraBindCoroutine != null)
+        {
+            StopCoroutine(_cameraBindCoroutine);
+            _cameraBindCoroutine = null;
+        }
+
+        // 释放命中顿帧的 CancellationTokenSource（避免内存泄漏）
+        if (hitStopCts != null)
+        {
+            hitStopCts.Cancel();
+            hitStopCts.Dispose();
+            hitStopCts = null;
+        }
 
         // 角色被禁用/销毁（切场景、退出战斗、反序列化等）时状态机不会走正常 Exit，
         // 主动取消挂起的计时器（与 OnNetworkDespawn 互为兜底，幂等可重复调用）

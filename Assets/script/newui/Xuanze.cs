@@ -21,12 +21,17 @@ namespace SkierFramework
 		#pragma warning restore 0649
 #endregion
 
-
-
-
-
-        /// <summary>点击“创建房间”生成的联机物体（room 界面 exit 时销毁）</summary>
-        public static GameObject OnlineRoomObj;
+        /// <summary>点击"创建房间"生成的联机物体（room 界面 exit 时销毁）</summary>
+        /// <remarks>
+        /// 修复：改为 property，getter 自动过滤已 Destroy 的对象引用（Unity 重载 == null），
+        /// 防止 static 字段持有已销毁对象的悬空引用导致跨场景访问异常。
+        /// </remarks>
+        private static GameObject _onlineRoomObj;
+        public static GameObject OnlineRoomObj
+        {
+            get => _onlineRoomObj != null ? _onlineRoomObj : null;
+            set => _onlineRoomObj = value;
+        }
 
         public override void OnInit(UIControlData uIControlData, UIViewController controller)
         {

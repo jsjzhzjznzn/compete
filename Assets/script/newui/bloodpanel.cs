@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine.UI;
 using UnityEngine;
+using Unity.Netcode;
 
 namespace SkierFramework
 {
@@ -15,9 +16,6 @@ namespace SkierFramework
         /// <summary>头像资源（CharId：安比=0，艾莲=1；YooAsset 收集器 Assets/Resource/ui/场景）</summary>
         private const string PortraitAnBi = "Assets/Resource/ui/场景/Snipaste_2026-09-10_18-25-50.png";
         private const string PortraitShaYu = "Assets/Resource/ui/场景/Snipaste_2026-09-10_18-25-22.png";
-
-        /// <summary>对手可能晚于自己 spawn，绑定轮询间隔</summary>
-        private const float BindPollInterval = 0.2f;
 
         #region 控件绑定变量声明，自动生成请勿手改
 		#pragma warning disable 0649
@@ -59,36 +57,66 @@ namespace SkierFramework
         public override void OnClose()
         {
             base.OnClose();
+            // 取消注册网络事件回调，避免内存泄漏
+            if (NetworkManager.Singleton != null)
+            {
+                NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
+            }
             UnbindAll();
         }
 
         // ---------------- 绑定 ----------------
 
-        /// <summary>
-        /// 轮询找到我方（IsOwner）与敌方（非拥有者的已生成角色）后绑定血量与头像。
-        /// 双方都绑定成功后协程结束。
-        /// </summary>
-        private IEnumerator BindPlayers()
-        {
-            Player mine = null;
-            Player enemy = null;
-            while (mine == null || enemy == null)
-            {
-                foreach (var player in FindObjectsByType<Player>())
-                {
-                    if (player.IsOwner) mine = player;
-                    else if (player.IsSpawned) enemy = player;
-                }
-                if (mine == null || enemy == null)
-                {
-                    yield return new WaitForSeconds(BindPollInterval);
-                }
-            }
+    /// <summary>
+    /// 监听客户端连接事件，而不是轮询。当有新客户端连接时尝试绑定玩家。
+    /// 优化：避免每 0.2 秒执行一次 FindObjectsByType<Player>() 轮询
+    /// </summary>
+    private void TryBindPlayers()
+    {
+        Player mine = null;
+        Player enemy = null;
 
+        foreach (var player in FindObjectsByType<Player>())
+        {
+            if (player.IsOwner) mine = player;
+            else if (player.IsSpawned) enemy = player;
+        }
+
+        if (mine != null && enemy != null)
+        {
             BindSide(mine, ref _myHealth, _myFill, renwu1);
             BindSide(enemy, ref _enemyHealth, _enemyFill, renwu2);
-            _bindCoroutine = null;
         }
+    }
+
+    private IEnumerator BindPlayers()
+    {
+        // 先尝试绑定一次
+        TryBindPlayers();
+
+        // 如果还没绑定成功，注册客户端连接回调
+        if (_myHealth == null || _enemyHealth == null)
+        {
+            NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
+        }
+
+        yield break;
+    }
+
+    private void OnClientConnected(ulong clientId)
+    {
+        // 有新客户端连接时重新尝试绑定
+        if (_myHealth == null || _enemyHealth == null)
+        {
+            TryBindPlayers();
+        }
+
+        // 绑定成功后取消注册
+        if (_myHealth != null && _enemyHealth != null)
+        {
+            NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnected;
+        }
+    }
 
         private void BindSide(Player player, ref HealthModel bound, Image fill, Image portrait)
         {
