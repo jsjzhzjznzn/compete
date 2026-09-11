@@ -28,6 +28,7 @@ public class PlayerMovementData
     [field: SerializeField] public PlayerDashData dashData { get; private set; } //闪避
     [field: SerializeField] public PlayerDodgeData dodgeData { get; private set; } //闪避（右键，带无敌+冷却）
     [field: SerializeField] public PlayerHurtData hurtData { get; private set; } //受击
+    [field: SerializeField] public PlayerDeadData deadData { get; private set; } //死亡
     //[field: SerializeField] public PlayerReturnRunData returnRunData { get; private set; }
    // [field: SerializeField] public PlayerOnSwitchData onSwitchData { get; private set; }
 //    [field: SerializeField] public PlayerOnSwitchOutData onSwitchOutData { get; private set; }

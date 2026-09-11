@@ -44,7 +44,10 @@ public class PlayerNullState : PlayerComboState
         //    避免上一次攻击/技能的"播完"事件误触发本状态逻辑
         ClearAnimationEnd();
 
-        // 5. 回到待机 → 恢复移动（攻击流程结束才允许重新移动）
+        // 5. 死亡状态下不再恢复移动（Die() 会接着切 deadState，这里跳过避免中间态闪烁）
+        if (player.IsDead) return;
+
+        // 6. 回到待机 → 恢复移动（攻击流程结束才允许重新移动）
         player.MovementStateMachine.SwitchState(
             player.IsMoving ? player.MovementStateMachine.walkingState
                             : player.MovementStateMachine.idlingState);

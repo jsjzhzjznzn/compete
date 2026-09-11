@@ -79,3 +79,7 @@ public class PlayerMovementNullData : PlayerStateData { }
 /// <summary>受击数据（受击硬直动画）</summary>
 [System.Serializable]
 public class PlayerHurtData : PlayerStateData { }
+
+/// <summary>死亡数据（死亡动画）</summary>
+[System.Serializable]
+public class PlayerDeadData : PlayerStateData { }

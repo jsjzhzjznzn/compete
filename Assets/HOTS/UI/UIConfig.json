@@ -18,6 +18,7 @@
             "isLuaUI": false,
             "luaModuleName": ""
         },
+        
         {
             "uiType": "room",
             "path": "Assets/HOTS/UI/Prefabs/room.prefab",
@@ -39,8 +40,8 @@
         {
             "uiType": "bloodpanel",
             "path": "Assets/HOTS/UI/Prefabs/bloodpanel.prefab",
-            "isWindow": true,
-            "uiLayer": "DamageLayer",
+            "isWindow": false,
+            "uiLayer": "NormalLayer",
             "isAutoNavigation": false,
             "isLuaUI": false,
             "luaModuleName": ""

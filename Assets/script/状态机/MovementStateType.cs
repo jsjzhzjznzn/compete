@@ -11,5 +11,6 @@ public enum MovementStateType
     Dashing,
     Dodge,
     Hurt,
-    Null
+    Null,
+    Dead
 }

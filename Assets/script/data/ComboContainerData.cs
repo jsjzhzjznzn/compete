@@ -7,6 +7,10 @@ using UnityEngine;
 /// 统一管理一套角色完整普攻连招、前进攻击，提供对外统一读取接口
 /// comboDates 列表的下标即攻击段数：comboDates[0]=第一段攻击，comboDates[1]=第二段攻击，以此类推
 /// 每段攻击在容器里占一个 ComboData 元素，存放该段的动画、收尾、伤害、震动、暂停等数据
+/// 
+/// 注意：多人游戏中，多个角色可能共享同一份 ScriptableObject。
+/// SwitchForwardATK/ResetComboDates 会修改 comboDates 列表，直接调用会污染共享数据。
+/// 必须先调用 CreateRuntimeClone() 创建运行时副本，再对副本进行修改。
 /// </summary>
 
 public class ComboContainerData : ScriptableObject
@@ -21,6 +25,25 @@ public class ComboContainerData : ScriptableObject
     private ComboData firstComboData;
 
     /// <summary>
+    /// 创建运行时副本，用于多人游戏中每个角色独立操作
+    /// 副本的 comboDates 列表是独立的，修改不会影响原始 ScriptableObject
+    /// ComboData 本身是只读的（只修改列表引用，不修改 ComboData 内部），所以可以安全共享
+    /// </summary>
+    public ComboContainerData CreateRuntimeClone()
+    {
+        var clone = ScriptableObject.CreateInstance<ComboContainerData>();
+        
+        // 深拷贝列表（新列表，但 ComboData 引用共享——SwitchForwardATK 只修改列表引用，不修改 ComboData 内部）
+        clone.comboDates = new List<ComboData>(this.comboDates);
+        clone.ForwardATKData = this.ForwardATKData;
+        
+        // 初始化运行时数据
+        clone.Init();
+        
+        return clone;
+    }
+
+    /// <summary>
     /// 初始化缓存原始首段连招
     /// 游戏加载/角色初始化时调用，保存默认普攻第一段
     /// </summary>
@@ -32,7 +55,6 @@ public class ComboContainerData : ScriptableObject
         
         // 缓存列表第一个基础连招
         firstComboData = comboDates[0];
-        Debug.Log("连招容器初始化完成");
     }
 
     /// <summary>
@@ -241,6 +263,9 @@ public class ComboContainerData : ScriptableObject
     /// <summary>
     /// 切换当前第一段连招为前进攻击
     /// 行走中触发时调用，替换普攻第一段逻辑
+    /// 
+    /// 警告：此方法会修改 comboDates 列表！
+    /// 多人游戏中必须对运行时副本调用，不能对原始 ScriptableObject 调用！
     /// </summary>
     public void SwitchForwardATK()
     {
@@ -253,6 +278,9 @@ public class ComboContainerData : ScriptableObject
     /// <summary>
     /// 重置第一段连招为初始化缓存的原始普攻
     /// 前进攻击结束后恢复正常平A连招
+    /// 
+    /// 警告：此方法会修改 comboDates 列表！
+    /// 多人游戏中必须对运行时副本调用，不能对原始 ScriptableObject 调用！
     /// </summary>
     public void ResetComboDates()
     {
@@ -266,7 +294,6 @@ public class ComboContainerData : ScriptableObject
         if (comboDates[0] != firstComboData)
         {
             comboDates[0] = firstComboData;
-            Debug.Log($"连招已还原为默认：{comboDates[0].name}");
         }
     }
 }

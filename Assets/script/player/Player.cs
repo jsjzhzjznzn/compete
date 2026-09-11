@@ -1,9 +1,12 @@
 using Animancer;
 using Cinemachine;
 using Cysharp.Threading.Tasks;
+using SkierFramework;
+using System.Linq;
 using System.Threading;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 
 
 /// <summary>
@@ -67,6 +70,12 @@ public class Player : CharacterMoveControllerBase
     private PlayerMovementStateMachine stateMachine;
     private PlayerComboStateMachine comboStateMachine;
 
+    /// <summary>死亡标记：死亡后完全不接受任何反应</summary>
+    private bool _isDead;
+
+    /// <summary>是否已死亡（供外部查询）</summary>
+    public bool IsDead => _isDead;
+
     /// <summary>移动状态机（连击状态等需要联动移动状态时访问）</summary>
     public PlayerMovementStateMachine MovementStateMachine => stateMachine;
 
@@ -105,6 +114,10 @@ public class Player : CharacterMoveControllerBase
     public readonly NetworkVariable<int> NetSeatId =
         new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
+    /// <summary>本角色的英雄编号（服务端生成时写入：安比=0，艾莲=1），HUD 血条面板据此加载头像</summary>
+    public readonly NetworkVariable<int> NetCharId =
+        new(-1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
     /// <summary>是否作为远程镜像端（联网且非拥有者）；单机永远为 false</summary>
     public bool IsRemote => IsSpawned && !IsOwner;
 
@@ -120,6 +133,27 @@ public class Player : CharacterMoveControllerBase
         netComboState.OnValueChanged += OnComboStateChanged;
         netComboIndex.OnValueChanged += OnComboIndexChanged;
         netForwardATK.OnValueChanged += OnForwardATKChanged;
+
+        // 拥有者端等双方角色都实例化后再打开 HUD 血条面板（UIManager 未初始化时 Open 会自动排队）
+        if (IsOwner)
+        {
+            StartCoroutine(OpenBloodPanelWhenReady());
+        }
+    }
+
+    /// <summary>等待场上已生成的 Player 达到 2 个（我方+敌方都实例化）后打开 bloodpanel</summary>
+    private System.Collections.IEnumerator OpenBloodPanelWhenReady()
+    {
+        yield return new WaitUntil(() =>
+        {
+            int spawnedCount = 0;
+            foreach (var player in FindObjectsByType<Player>())
+            {
+                if (player.IsSpawned) spawnedCount++;
+            }
+            return spawnedCount >= 2;
+        });
+        UIManager.Instance.Open(UIType.bloodpanel);
     }
 
     public override void OnNetworkDespawn()
@@ -132,6 +166,12 @@ public class Player : CharacterMoveControllerBase
 
         // 角色离场（战斗结束/断线清理等）时取消状态机挂起的计时器，防止到点回调访问已销毁组件
         stateMachine?.CancelPendingTimers();
+
+        // 面板常驻 UIRoot(DDOL)，拥有者端角色离场时同步关闭，防止跨场景残留上一局的血条
+        if (IsOwner)
+        {
+            UIManager.Instance.Close(UIType.bloodpanel);
+        }
     }
 
     protected override void Awake()
@@ -222,23 +262,37 @@ public class Player : CharacterMoveControllerBase
         string vcamName = seat == 0 ? SeatVCamBaseName : $"{SeatVCamBaseName} ({seat})";
         string camName = seat == 0 ? SeatCameraBaseName : $"{SeatCameraBaseName} ({seat})";
 
-        var vcamGo = GameObject.Find(vcamName);
-        var camGo = GameObject.Find(camName);
+        // 绑定成功前每帧把 UICamera 挂进场景所有主相机的 Camera Stack（幂等），
+        // 保证无论哪台座位相机在渲染，UI 层都可见
+        EnsureUICameraInStacks();
+
+        // GameObject.Find 找不到未激活物体，这里用 FindObjectsByType(Include) 按名字匹配，
+        // 场景相机初始是关的也能找到（找到后下面会 SetActive(true)）
+        var vcamGo = FindObjectsByType<CinemachineVirtualCamera>(FindObjectsInactive.Include)
+            .FirstOrDefault(v => v.gameObject.name == vcamName)?.gameObject;
+        var mainCam = FindObjectsByType<Camera>(FindObjectsInactive.Include)
+            .FirstOrDefault(c => c.gameObject.name == camName);
         var vcam = vcamGo != null ? vcamGo.GetComponent<CinemachineVirtualCamera>() : null;
-        var mainCam = camGo != null ? camGo.GetComponent<Camera>() : null;
         if (vcam == null || mainCam == null)
         {
             if (!_warnedNoCamera)
             {
                 _warnedNoCamera = true;
-                Debug.LogWarning($"[{name}] 没找到座位{seat}的相机({camName}/{vcamName})，将每帧重试；请在战斗场景确认这两个相机存在且命名一致", this);
+                // 排障：把运行时场景里实际存在的相机全列出来，一眼看出是场景不对还是名字对不上
+                string vcams = string.Join(", ", FindObjectsByType<CinemachineVirtualCamera>(FindObjectsInactive.Include)
+                    .Select(v => $"\"{v.gameObject.name}\"(active={v.gameObject.activeSelf})"));
+                string cams = string.Join(", ", FindObjectsByType<Camera>(FindObjectsInactive.Include)
+                    .Select(c => $"\"{c.gameObject.name}\"(active={c.gameObject.activeSelf})"));
+                Debug.LogWarning($"[{name}] 没找到座位{seat}的相机({camName}/{vcamName})，将每帧重试。\n" +
+                                 $"运行时场景里的 vcam: [{vcams}]\n" +
+                                 $"运行时场景里的 Camera: [{cams}]", this);
             }
             return; // 下帧再试
         }
 
         // 确保本座位那套相机是启用状态（防止场景里初始是关的）
         vcamGo.SetActive(true);
-        camGo.SetActive(true);
+        mainCam.gameObject.SetActive(true);
 
         vcam.Follow = transform;   // vcam 跟随本角色
         vcam.LookAt = transform;   // vcam 看向本角色
@@ -248,12 +302,38 @@ public class Player : CharacterMoveControllerBase
         var allVCams = FindObjectsByType<CinemachineVirtualCamera>();
         foreach (var v in allVCams)
             if (v != vcam) v.gameObject.SetActive(false);
+        var uiCamera = UIManager.Instance.UICamera;
         var allCams = FindObjectsByType<Camera>();
         foreach (var c in allCams)
+        {
+            // UICamera 是 Overlay 相机（DDOL），不是场景渲染相机，绝不能被停用
+            if (c == uiCamera) continue;
             if (c != mainCam) c.gameObject.SetActive(false);
+        }
 
         _cameraAssigned = true;
         Debug.Log($"[{name}] 座位{seat}: 主相机={camName} vcam={vcamName} 已关联本角色", this);
+    }
+
+    /// <summary>
+    /// 把 UICamera(Overlay) 挂进场景里所有主相机的 Camera Stack（幂等，可重复调用）。
+    /// UIManager 初始化时只挂了当时那台主相机；战斗场景的座位相机不挂的话，整个 UI 层都不会被渲染。
+    /// </summary>
+    private void EnsureUICameraInStacks()
+    {
+        var uiCamera = UIManager.Instance.UICamera;
+        if (uiCamera == null) return;
+        // 兜底：UICamera 被误停用时重新激活（Overlay 相机停用 = 全部 UI 不渲染）
+        if (!uiCamera.gameObject.activeSelf) uiCamera.gameObject.SetActive(true);
+        foreach (var cam in FindObjectsByType<Camera>(FindObjectsInactive.Include))
+        {
+            if (cam == uiCamera) continue;
+            var camData = cam.GetComponent<UniversalAdditionalCameraData>();
+            if (camData != null && !camData.cameraStack.Contains(uiCamera))
+            {
+                camData.cameraStack.Add(uiCamera);
+            }
+        }
     }
 
     // ================================================================
@@ -266,6 +346,8 @@ public class Player : CharacterMoveControllerBase
         EventCenter.MainInstance.AddListener<DamageData>(E_EventType.E_OnDamage, this, OnDamageTaken);
         // 无敌窗口内被打中 → 触发闪避（HealthModel.TakeDamage 派发 E_DamageBlocked）
         EventCenter.MainInstance.AddListener<DamageData>(E_EventType.E_DamageBlocked, this, OnDamageBlocked);
+        // 死亡事件（HealthModel 派发 E_OnDeath）
+        EventCenter.MainInstance.AddListener<DeathData>(E_EventType.E_OnDeath, this, OnDeath);
     }
 
     private void OnDisable()
@@ -274,16 +356,52 @@ public class Player : CharacterMoveControllerBase
 
         // 角色被禁用/销毁（切场景、退出战斗、反序列化等）时状态机不会走正常 Exit，
         // 主动取消挂起的计时器（与 OnNetworkDespawn 互为兜底，幂等可重复调用）
-        stateMachine?.CancelPendingTimers();
+        // 但死亡状态下不取消（避免销毁过程中的空引用）
+        if (!_isDead)
+        {
+            stateMachine?.CancelPendingTimers();
+        }
     }
 
     private void OnDamageTaken(DamageData data)
     {
         if (IsSpawned && !IsOwner) return;   // 血量只在拥有者端结算，事件也只在拥有者端派发
+        if (_isDead) return;  // 死亡后不接受受击
         if (data.target == gameObject && !data.isDoT)   // DoT（灼烧类）不进受击硬直
         {
             TakeHit();
         }
+    }
+
+    // ================================================================
+    // 死亡处理
+    // ================================================================
+
+    /// <summary>死亡事件处理</summary>
+    private void OnDeath(DeathData data)
+    {
+        if (data.target != gameObject) return;  // 只处理自己的死亡
+        if (_isDead) return;                     // 防止重复死亡
+
+        Die();
+    }
+
+    /// <summary>
+    /// 死亡入口：任何状态下血量归零都能直接跳转到死亡状态
+    /// 顺序：先切连击→Null（复位），再切移动→Dead（播放死亡动画）
+    /// </summary>
+    public virtual void Die()
+    {
+        if (_isDead) return;  // 防止重复死亡
+        _isDead = true;
+
+        // 状态机为空时也标记死亡，防止后续逻辑继续执行
+        if (comboStateMachine == null || stateMachine == null) return;
+
+        // 强制打断当前状态，切换到死亡状态
+        // StateMachine.SwitchState 会先调用当前状态的 Exit()，再进入 deadState
+        comboStateMachine.SwitchState(comboStateMachine.NullState);
+        stateMachine.SwitchState(stateMachine.deadState);
     }
 
     // ================================================================
@@ -340,6 +458,7 @@ public class Player : CharacterMoveControllerBase
             case MovementStateType.Dodge: stateMachine.SwitchState(stateMachine.dodgeState); break;
             case MovementStateType.Hurt: stateMachine.SwitchState(stateMachine.hurtState); break;
             case MovementStateType.Null: stateMachine.SwitchState(stateMachine.playerMovementNullState); break;
+            case MovementStateType.Dead: stateMachine.SwitchState(stateMachine.deadState); break;
         }
         ClearPhaseOffsetPending();
     }
@@ -379,8 +498,8 @@ public class Player : CharacterMoveControllerBase
     {
         if (IsOwner) return;
 
-        // 把本端轻击容器首段切换/还原为前进攻击段（与拥有者同一份配置资源，各自本地修改）
-        var lightCombo = playerSO?.comboData?.comboData?.lightCombo;
+        // 使用运行时副本（避免修改共享的 ScriptableObject）
+        var lightCombo = comboStateMachine?.characterCombo?.LightCombo;
         if (lightCombo == null) return;
         if (current) lightCombo.SwitchForwardATK();
         else lightCombo.ResetComboDates();
@@ -425,6 +544,7 @@ public class Player : CharacterMoveControllerBase
     /// </summary>
     public virtual void TakeHit()
     {
+        if (_isDead) return;  // 死亡后不接受受击
         if (comboStateMachine == null || stateMachine == null) return;
 
         comboStateMachine.SwitchState(comboStateMachine.NullState);
@@ -450,6 +570,7 @@ public class Player : CharacterMoveControllerBase
     /// </summary>
     private void HandleDodgeInput()
     {
+        if (_isDead) return;  // 死亡后不接受闪避
         if (dodgeCooldownRemain > 0f)
             dodgeCooldownRemain -= Time.deltaTime;
 

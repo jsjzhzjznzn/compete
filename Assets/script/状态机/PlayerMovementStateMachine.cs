@@ -15,6 +15,7 @@ public class PlayerMovementStateMachine : StateMachine
     public PlayerDashingState dashingState { get; }
     public PlayerDodgeState dodgeState { get; }
     public PlayerHurtState hurtState { get; }
+    public PlayerDeadState deadState { get; }
   
     public PlayerMovementNullState playerMovementNullState { get; }
 
@@ -34,6 +35,7 @@ public class PlayerMovementStateMachine : StateMachine
         dashingState = new PlayerDashingState(this);
         dodgeState = new PlayerDodgeState(this);
         hurtState = new PlayerHurtState(this);
+        deadState = new PlayerDeadState(this);
        // sprintingState = new PlayerSprintingState(this);
        // returnRunState = new PlayerReturnRunState(this);
       //  onSwitchState = new PlayerOnSwitchState(this);

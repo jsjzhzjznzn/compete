@@ -17,6 +17,9 @@ public class CharacterCombo
     private readonly PlayerComboReusableData reusableData;
     private readonly PlayerComboSOData comboData;
 
+    /// <summary>运行时副本：避免修改共享的 ScriptableObject 导致多人数据污染</summary>
+    private ComboContainerData runtimeLightCombo;
+
     public CharacterCombo(Player player, PlayerComboReusableData reusableData, PlayerComboSOData comboData)
     {
         this.player = player;
@@ -31,7 +34,11 @@ public class CharacterCombo
     /// <summary>初始化所有连招容器（缓存首段用于闪避后还原），角色初始化时调用一次</summary>
     public void Init()
     {
-        comboData?.lightCombo?.Init();
+        // 创建运行时副本，避免修改共享的 ScriptableObject
+        if (comboData?.lightCombo != null)
+        {
+            runtimeLightCombo = comboData.lightCombo.CreateRuntimeClone();
+        }
         // comboData?.heavyCombo?.Init();      // heavyCombo 未配置（PlayerComboSOData 中注释保留）
         // comboData?.executeCombo?.Init();    // executeCombo 未配置（PlayerComboSOData 中注释保留）
     }
@@ -39,8 +46,8 @@ public class CharacterCombo
     /// <summary>技能招式数据（技能状态用）</summary>
     public ComboData SkillCombo => comboData?.skillCombo;
 
-    /// <summary>轻击连招容器（远程镜像端回退取当前连招用）</summary>
-    public ComboContainerData LightCombo => comboData?.lightCombo;
+    /// <summary>轻击连招容器（运行时副本，可安全修改）</summary>
+    public ComboContainerData LightCombo => runtimeLightCombo;
 
     // ==================== 输入门控 ====================
 
@@ -56,12 +63,12 @@ public class CharacterCombo
     /// <summary>轻攻击连招</summary>
     public virtual void LightComboInput()
     {
-        if (comboData?.lightCombo == null) return;
+        if (runtimeLightCombo == null) return;
 
         // 换到轻击容器时重置连击信息
-        if (reusableData.currentCombo != comboData.lightCombo || reusableData.currentCombo == null)
+        if (reusableData.currentCombo != runtimeLightCombo || reusableData.currentCombo == null)
         {
-            reusableData.currentCombo = comboData.lightCombo;
+            reusableData.currentCombo = runtimeLightCombo;
             ReSetComboInfo();
         }
 
@@ -88,11 +95,11 @@ public class CharacterCombo
     /// <summary>前进攻击：临时把首段替换为前进攻击段再执行</summary>
     public virtual void ForwardCombo()
     {
-        if (comboData?.lightCombo == null) return;
+        if (runtimeLightCombo == null) return;
 
-        if (reusableData.currentCombo != comboData.lightCombo || reusableData.currentCombo == null)
+        if (reusableData.currentCombo != runtimeLightCombo || reusableData.currentCombo == null)
         {
-            reusableData.currentCombo = comboData.lightCombo;
+            reusableData.currentCombo = runtimeLightCombo;
         }
 
         reusableData.currentCombo.SwitchForwardATK();
@@ -198,6 +205,10 @@ public class CharacterCombo
             var target = _detectBuffer[i].GetComponentInParent<HealthModel>();
             if (target == null) continue;                       // 没有受击组件（地形/装饰）跳过
 
+            // 检查目标是否已死亡
+            var targetPlayer = target.GetComponent<Player>();
+            if (targetPlayer != null && targetPlayer.IsDead) continue;  // 死亡目标不接受伤害
+
             if (!_hitTargets.Add(target.gameObject)) continue;  // 同一受击单位只结算一次
 
             // 走伤害计算管道：Base → 攻击方增伤 → 暴击 → 防御方减伤 → 保底（明细可查 result.stage* 字段调试）
@@ -248,6 +259,8 @@ public class CharacterCombo
     /// </summary>
     protected virtual int AttackDetection(ComboContainerData comboContainerData, ComboData data)
     {
+        if (player == null || player.IsDead) return 0;  // 死亡后不检测攻击
+
         var playerTransform = player.transform;
         Vector3 origin = playerTransform.position + playerTransform.forward * data.comboOffset;
 

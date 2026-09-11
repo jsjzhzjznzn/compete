@@ -62,3 +62,11 @@ MonoBehaviour:
         FilterRuleName: CollectAll
         AssetTags: 
         UserData: 
+      - CollectPath: "Assets/Resource/ui/\u573A\u666F"
+        CollectorGUID: d117fd1e25a48b9439e83e494819946a
+        CollectorType: 0
+        AddressRuleName: AddressByFileName
+        PackRuleName: PackDirectory
+        FilterRuleName: CollectAll
+        AssetTags: 
+        UserData: 
