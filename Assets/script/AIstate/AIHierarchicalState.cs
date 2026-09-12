@@ -6,9 +6,11 @@ using UnityEngine;
 /// </summary>
 public class AIHierarchicalState : AIState
 {
+    // 子状态表:按枚举索引,AddSubState 注册
     protected Dictionary<AIStateType, AIState> subStates = new Dictionary<AIStateType, AIState>();
-    protected AIState currentSubState;
-    protected AIStateType entrySubState;
+
+    protected AIState currentSubState;        // 当前激活的子状态
+    protected AIStateType entrySubState;      // 每次进入本容器时默认进入的子状态（SetEntry 可改）
 
     public AIHierarchicalState(AIStateMachine machine, GameObject owner, AIStateType type, AIStateType entrySubState)
         : base(machine, owner, type)
@@ -57,20 +59,39 @@ public class AIHierarchicalState : AIState
         Debug.Log($"[HSM] Exit: {StateName}");
     }
 
-    public void SwitchSubState(AIStateType type)
+    /// <summary>
+    /// 切换子状态
+    /// </summary>
+    /// <param name="type">目标子状态</param>
+    /// <param name="forceRestart">目标就是当前子状态时是否重入(Exit→Enter,重播动画);行为树重复触发同一招时传 true</param>
+    public void SwitchSubState(AIStateType type, bool forceRestart = false)
     {
         if (!subStates.TryGetValue(type, out AIState next))
         {
             Debug.LogError($"[HSM] 子状态不存在: {StateName}.{type}");
             return;
         }
-        if (next == currentSubState) return;   // 已在该状态则幂等返回,行为树每帧调用也安全
+
+        if (next == currentSubState)
+        {
+            // 已在该状态:默认幂等返回(行为树每帧调用安全);forceRestart 时重入重播
+            if (forceRestart)
+            {
+                currentSubState.OnExit();
+                currentSubState.OnEnter();
+                Debug.Log($"[HSM] {StateName} -> {type}(重入)");
+            }
+            return;
+        }
 
         currentSubState?.OnExit();
         currentSubState = next;
         currentSubState.OnEnter();
         Debug.Log($"[HSM] {StateName} -> {type}");
     }
+
+    /// <summary>当前子状态运行时对象(行为树读取 IsFinished 等用);无子状态返回 null</summary>
+    public AIState CurrentSubState => currentSubState;
 
     public string CurrentSubStateName => currentSubState?.StateName;
 

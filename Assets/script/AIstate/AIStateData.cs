@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -26,11 +27,30 @@ public class AIIdleData : AIStateData { }
 
 /// <summary>行走数据</summary>
 [System.Serializable]
-public class AIWalkData : AIStateData { }
+public class AIWalkData : AIStateData
+{
+    /// <summary>巡逻随机点半径（米）</summary>
+    [field: SerializeField] public float wanderRadius { get; private set; } = 5f;
+
+    /// <summary>到点/超时换下一个巡逻点（秒）</summary>
+    [field: SerializeField, Min(0.5f)] public float wanderRetargetTime { get; private set; } = 3f;
+}
 
 /// <summary>死亡数据</summary>
 [System.Serializable]
-public class AIDieData : AIStateData { }
+public class AIDieData : AIStateData
+{
+    /// <summary>死亡动画时长（秒，播完后停留/销毁）</summary>
+    [field: SerializeField, Min(0.1f)] public float dieAnimDuration { get; private set; } = 2f;
+}
+
+/// <summary>受击硬直数据</summary>
+[System.Serializable]
+public class AIHurtData : AIStateData
+{
+    /// <summary>硬直时长（秒，定身 + 可被再次受击刷新）</summary>
+    [field: SerializeField, Min(0.05f)] public float stunDuration { get; private set; } = 0.4f;
+}
 
 /// <summary>
 /// 攻击数据（Attack1/2/3 各一份）
@@ -62,6 +82,21 @@ public class AIAttackData : AIStateData
 }
 
 /// <summary>
+/// AI 连招配置（模仿 Player 的连击索引）
+/// 按序列循环出招：每次实际出招索引 ++，resetTime 内没出下一招就归零从头开始
+/// </summary>
+[System.Serializable]
+public class AIComboData
+{
+    /// <summary>连招序列（循环）：如 Attack1 → Attack2 → Attack1。只填 Attack1/2/3</summary>
+    [field: SerializeField] public List<AIStateType> comboSequence { get; private set; }
+        = new List<AIStateType> { AIStateType.Attack1, AIStateType.Attack2 };
+
+    /// <summary>多久没出下一次攻击就重置回序列开头（秒）</summary>
+    [field: SerializeField, Min(0.1f)] public float resetTime { get; private set; } = 2f;
+}
+
+/// <summary>
 /// AI 移动/行为参数集合（模仿 PlayerMovementData）
 /// 作为 AIPlayerSO 的子字段在 Inspector 中配置
 /// </summary>
@@ -78,9 +113,13 @@ public class AIMovementData
     /// <summary>脱离追击半径（米）</summary>
     [field: SerializeField] public float chaseRange { get; private set; } = 10f;
 
+    [Header("连招")]
+    [field: SerializeField] public AIComboData comboData { get; private set; }
+
     [Header("各状态数据")]
     [field: SerializeField] public AIIdleData idleData { get; private set; }
     [field: SerializeField] public AIWalkData walkData { get; private set; }
+    [field: SerializeField] public AIHurtData hurtData { get; private set; }
     [field: SerializeField] public AIDieData dieData { get; private set; }
     [field: SerializeField] public AIAttackData attack1Data { get; private set; }
     [field: SerializeField] public AIAttackData attack2Data { get; private set; }

@@ -7,7 +7,9 @@ using UnityEngine;
 public class DieState : AIState
 {
     private float timer;
-    private const float dieAnimDuration = 2f;
+
+    private AIDieData Data => stateMachine.GetStateData(AIStateType.Die) as AIDieData;
+    private float DieAnimDuration => Data?.dieAnimDuration ?? 2f;
 
     public DieState(AIStateMachine m, GameObject o) : base(m, o, AIStateType.Die) { }
 
@@ -21,7 +23,7 @@ public class DieState : AIState
     public override void OnUpdate()
     {
         timer += Time.deltaTime;
-        if (timer >= dieAnimDuration)
+        if (timer >= DieAnimDuration)
         {
             // Destroy(owner);
         }

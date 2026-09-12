@@ -3,7 +3,8 @@ using UnityEngine;
 /// <summary>
 /// AI 角色（模仿 Player 的"身体"，但不接输入）：
 /// - 继承 CharacterMoveControllerBase：复用重力/地面检测/斜坡修正
-/// - Animancer 播放动画（与 Player 一致，片段在 AIStateMachine Inspector 上配置）
+/// - 持有 AIPlayerSO 角色数据资产（模仿 Player 持有 PlayerSO），Awake 时传给状态机构建
+/// - Animancer 播放动画（与 Player 一致，片段在 AIPlayerSO 上配置）
 /// - HealthModel 血量，死亡事件 → 通知 AIStateMachine 切 Die
 /// - 决策完全由同物体上的 AIStateMachine（分层状态机）驱动，不碰 CharacterInputSystem
 /// 挂载：复制 Player 预制体，移除 Player 脚本，挂 AIPlayer（AIStateMachine 会自动要求）
@@ -11,11 +12,37 @@ using UnityEngine;
 [RequireComponent(typeof(AIStateMachine))]
 public class AIPlayer : CharacterMoveControllerBase
 {
-    [Header("目标查找（状态机搜索该 Tag 作为攻击目标）")]
-    [SerializeField] private string targetTag = "Enemy";
+    [Header("角色数据资产（动画/连招/伤害配置，Inspector 拖入）")]
+    [SerializeField] private AIPlayerSO aiSO;
 
-    private AIStateMachine aiStateMachine;
-    private HealthModel health;
+    /// <summary>角色数据资产（模仿 PlayerSO 属性暴露方式）</summary>
+    public AIPlayerSO AIPlayerSO => aiSO;
+
+    // 角色音效组件缓存（懒获取：首次访问时 GetComponent 并缓存，避免状态机频繁调用重复查找）
+    private ActorAudioComponent actorAudio;
+
+    /// <summary>角色音效组件（播放 3D 空间音效用；未挂载返回 null）</summary>
+    public ActorAudioComponent ActorAudio
+    {
+        get
+        {
+            // 本对象可能已被销毁（切场景/退出战斗后的残留状态机回调会访问到这里）：
+            // Unity 的 == 能判"已销毁"，先挡掉，避免走进 GetComponent 抛 MissingReferenceException
+            if (this == null) return null;
+            if (actorAudio == null)
+            {
+                actorAudio = GetComponent<ActorAudioComponent>();
+            }
+            return actorAudio;
+        }
+    }
+
+    [Header("目标查找（状态机搜索该 Tag 作为攻击目标）")]
+    [SerializeField] private string targetTag = "player";
+
+    // ============ 组件引用 ============
+    private AIStateMachine aiStateMachine;   // AI 决策状态机（同物体上,Awake 里构建）
+    private HealthModel health;              // 血量组件（E_OnDeath 派发源,预制体上挂好）
 
     /// <summary>AI 决策状态机</summary>
     public AIStateMachine AIStateMachine => aiStateMachine;
@@ -23,10 +50,18 @@ public class AIPlayer : CharacterMoveControllerBase
     /// <summary>是否已死亡</summary>
     public bool IsDead => aiStateMachine != null && aiStateMachine.isDead;
 
+    // ================================================================
+    // 生命周期
+    // ================================================================
+
     protected override void Awake()
     {
         base.Awake();
         aiStateMachine = GetComponent<AIStateMachine>();
+
+        // 先传 SO 构建状态机（模仿 Player.Awake 里 new PlayerMovementStateMachine(this, playerSO)）
+        aiStateMachine.Build(aiSO);
+        aiStateMachine.targetTag = targetTag;
 
         // 血量组件：预制体上应已挂好（联网组件不能运行时 AddComponent），漏挂只警告
         health = GetComponent<HealthModel>();
@@ -38,17 +73,12 @@ public class AIPlayer : CharacterMoveControllerBase
             gameObject.AddComponent<BuffComponent>();
     }
 
-    protected override void Start()
-    {
-        base.Start();
-        if (aiStateMachine != null)
-            aiStateMachine.targetTag = targetTag;
-    }
-
     private void OnEnable()
     {
         // 死亡事件（HealthModel 派发 E_OnDeath）
         EventCenter.MainInstance.AddListener<DeathData>(E_EventType.E_OnDeath, this, OnDeath);
+        // 受击事件（HealthModel.TakeDamage 派发 E_OnDamage）→ 反射进硬直
+        EventCenter.MainInstance.AddListener<DamageData>(E_EventType.E_OnDamage, this, OnDamageTaken);
     }
 
     private void OnDisable()
@@ -63,7 +93,12 @@ public class AIPlayer : CharacterMoveControllerBase
         aiStateMachine?.TriggerDeath();
     }
 
-    // AI 的水平位移由 AIStateMachine 通过 CharacterController 驱动，
-    // 不应用动画根运动水平位移（避免双重位移）；竖直方向仍走基类重力
-    protected override void OnAnimatorMove() { }
+    /// <summary>受击入口:只发受击请求(置标记+计数),不直接切状态(切状态是行为树硬直分支的事)。
+    /// DoT(灼烧类持续伤害)不触发,与 Player 一致</summary>
+    private void OnDamageTaken(DamageData data)
+    {
+        if (IsDead) return;   // 死亡后不接受受击
+        if (data.target == gameObject && !data.isDoT)
+            aiStateMachine.RequestHurt();
+    }
 }
