@@ -1,7 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// AI 状态统一枚举：Root 层 + Attack 容器内的子状态
+/// AI 状态统一枚举：Root 层 + Attack 叶子
 /// 行为树自定义任务切状态时也传这个枚举
 /// </summary>
 public enum AIStateType
@@ -10,11 +10,8 @@ public enum AIStateType
     Idle,      // 待机
     Walk,      // 移动
     Hurt,      // 受击硬直
-    Attack,    // 攻击容器
+    Attack,    // 攻击（单状态，连招段由 AIComboData.attacks 索引决定）
     Die,       // 死亡
-    Attack1,   // 轻攻击
-    Attack2,   // 连击
-    Attack3,   // AOE 大招
 }
 
 /// <summary>

@@ -8,4 +8,10 @@ using UnityEngine;
 public class AIPlayerSO : ScriptableObject
 {
     [field: SerializeField] public AIMovementData movementData { get; private set; }
+
+    [field: SerializeField, Header("普通连招（一阶段）")]
+    public AIComboData normalCombo { get; private set; }
+
+    [field: SerializeField, Header("暴怒连招（二阶段：进入暴怒后自动启用）")]
+    public AIComboData rageCombo { get; private set; }
 }

@@ -7,7 +7,7 @@ using UnityEngine.AI;
 
 /// <summary>
 /// AI 分层状态机（挂 AI 物体上，由 AIPlayer 构建驱动）
-/// 结构：Root 容器下挂 Idle/Walk/Die/Attack 四个状态,Attack 容器内再挂 Attack1/2/3
+/// 结构：Root 容器下挂 Idle/Walk/Hurt/Die/Attack 五个状态（Attack 为单状态，连招段由索引决定）
 /// 职责：状态构建与切换（行为树调用入口）、目标查找、连招索引、动画播放（Animancer）、位移
 /// 不接输入、不做网络同步——决策在外部（行为树）,执行在本类与各状态内部
 /// </summary>
@@ -17,6 +17,25 @@ public class AIStateMachine : MonoBehaviour
     public AIPlayerSO AiSO { get; private set; }
 
     private AIMovementData movementData => AiSO != null ? AiSO.movementData : null;
+
+    /// <summary>是否处于暴怒（Boss 二阶段）：false 用普通连招，true 用暴怒连招</summary>
+    public bool IsEnraged { get; private set; }
+
+    /// <summary>当前生效的连招容器（普通 / 暴怒，由 IsEnraged 决定）</summary>
+    private AIComboData comboData =>
+        AiSO == null ? null : (IsEnraged ? AiSO.rageCombo : AiSO.normalCombo);
+
+    /// <summary>
+    /// 进入暴怒（Boss 二阶段）：切到暴怒连招，连招索引归零从头打。
+    /// 由二阶段触发逻辑调用（如血量降到阈值 / 行为树条件节点）
+    /// </summary>
+    public void EnterRageMode()
+    {
+        if (IsEnraged) return;
+        IsEnraged = true;
+        comboIndex = 0;          // 切套从头开始，避免沿用普通连招的进度
+        Debug.Log("[AI] 进入暴怒（二阶段）→ 启用暴怒连招");
+    }
 
     /// <summary>目标查找的物理层过滤（LayerMask,默认指向 "player" 层,Build 时兜底注入）</summary>
     public LayerMask targetLayer;
@@ -36,20 +55,41 @@ public class AIStateMachine : MonoBehaviour
         AIStateType.Walk => movementData?.walkData,
         AIStateType.Hurt => movementData?.hurtData,
         AIStateType.Die => movementData?.dieData,
-        AIStateType.Attack1 => movementData?.attack1Data,
-        AIStateType.Attack2 => movementData?.attack2Data,
-        AIStateType.Attack3 => movementData?.attack3Data,
         _ => null,
     };
 
-    /// <summary>按攻击状态类型取攻击数据（时长/伤害/范围）</summary>
-    public AIAttackData GetAttackData(AIStateType type) => type switch
+    // ============ 攻击段数据（连招列表按索引取，行为树每段触发时用） ============
+
+    /// <summary>当前要打的攻击段索引（ChooseAttack 推进，EnterAttack 写入）</summary>
+    private int currentSegmentIndex;
+
+    /// <summary>当前攻击段数据（AIAttackState 读取；未配置/越界返回 null）</summary>
+    public AIAttackData CurrentAttackSegment => GetAttackSegment(currentSegmentIndex);
+
+    /// <summary>按索引取攻击段数据（越界返回 null）</summary>
+    public AIAttackData GetAttackSegment(int index)
     {
-        AIStateType.Attack1 => movementData?.attack1Data,
-        AIStateType.Attack2 => movementData?.attack2Data,
-        AIStateType.Attack3 => movementData?.attack3Data,
-        _ => null,
-    };
+        var combo = comboData;
+        if (combo?.attacks == null || index < 0 || index >= combo.attacks.Count) return null;
+        return combo.attacks[index];
+    }
+
+    /// <summary>连招里最大的攻击范围（行为树 AIInAttackRange 判定用：任一段够得着即算在范围内）</summary>
+    public float MaxAttackRange
+    {
+        get
+        {
+            var combo = comboData;
+            if (combo?.attacks == null || combo.attacks.Count == 0) return 2f;
+            float max = 0f;
+            for (int i = 0; i < combo.attacks.Count; i++)
+            {
+                var a = combo.attacks[i];
+                if (a != null && a.range > max) max = a.range;
+            }
+            return max;
+        }
+    }
 
     // ============ 状态表与连招 ============
     private AIState currentState;
@@ -125,13 +165,14 @@ public class AIStateMachine : MonoBehaviour
     /// 播放状态动画（Animancer，与 Player 一致），片段来自 AIPlayerSO
     /// 返回播放状态（可用其 Length 作为"动画播完"的时长依据），异常时返回 null
     /// </summary>
-    public AnimancerState PlayAnim(AIStateType type)
-    {
-        AIStateData data = GetStateData(type);
+    public AnimancerState PlayAnim(AIStateType type) => PlayAnim(GetStateData(type));
 
+    /// <summary>播放指定数据对应的动画（攻击段数据也走这里）</summary>
+    public AnimancerState PlayAnim(AIStateData data)
+    {
         if (animancer == null || data?.animationClip == null)
         {
-            Debug.LogWarning($"[AI] 状态 {type} 没有可播放的动画（未挂 Animancer 或 AIPlayerSO 未配 animationClip）", this);
+            Debug.LogWarning("[AI] 没有可播放的动画（未挂 Animancer 或 AIPlayerSO 未配 animationClip）", this);
             return null;
         }
 
@@ -186,12 +227,8 @@ public class AIStateMachine : MonoBehaviour
         root.AddSubState(new HurtState(this, gameObject));
         root.AddSubState(new DieState(this, gameObject));
 
-        // ---------- Attack 分层容器(默认进 Attack1) ----------
-        var attack = new AIHierarchicalState(this, gameObject, AIStateType.Attack, AIStateType.Attack1);
-        attack.AddSubState(new AttackState1(this, gameObject));
-        attack.AddSubState(new AttackState2(this, gameObject));
-        attack.AddSubState(new AttackState3(this, gameObject));
-        root.AddSubState(attack);
+        // ---------- Attack 单状态（连招段由 comboData.attacks 索引决定，行为树每段触发） ----------
+        root.AddSubState(new AIAttackState(this, gameObject));
 
         currentState = root;
         currentState.OnEnter();
@@ -214,8 +251,8 @@ public class AIStateMachine : MonoBehaviour
     /// 攻击进行中不判超时（计时从收招那一刻起算，长招不会被中途误归零）</summary>
     private void ResetComboIfExpired()
     {
-        var combo = movementData?.comboData;
-        if (combo == null || combo.comboSequence == null || combo.comboSequence.Count == 0) return;
+        var combo = comboData;
+        if (combo?.attacks == null || combo.attacks.Count == 0) return;
         if (comboIndex == 0) return;
         if (IsAttacking) return;
 
@@ -247,26 +284,16 @@ public class AIStateMachine : MonoBehaviour
         }
     }
 
-    // 切换到 Attack 并指定进入哪个攻击子状态(行为树 Action:Attack 调用入口)
-    public void EnterAttack(AIStateType attackType)
+    // 起手攻击(行为树 Action:Attack 调用入口)：写入本段索引并切到 Attack
+    /// <summary>
+    /// 进入攻击状态并播放指定连招段
+    /// </summary>
+    /// <param name="segmentIndex">本段在 comboData.attacks 中的索引（ChooseAttack 给出）</param>
+    public void EnterAttack(int segmentIndex)
     {
-        if (currentState is not AIHierarchicalState root) return;
-        var attack = root.GetSubState(AIStateType.Attack) as AIHierarchicalState;
-        if (attack == null) return;
-
-        if (root.CurrentSubStateType == AIStateType.Attack)
-        {
-            // 已在 Attack 容器内:直接重入指定招式
-            // (Root 层切换是幂等的,SetEntry 不会生效,必须直接切子状态;
-            //  forceRestart 保证重复触发同一招时动画会重播)
-            attack.SwitchSubState(attackType, forceRestart: true);
-        }
-        else
-        {
-            // 从 Idle/Walk 等状态进入:设入口再切容器
-            attack.SetEntry(attackType);
-            root.SwitchSubState(AIStateType.Attack);
-        }
+        currentSegmentIndex = segmentIndex;
+        // forceRestart:已在 Attack 时也重入(OnExit→OnEnter),保证换段重播动画
+        SwitchState(AIStateType.Attack, forceRestart: true);
     }
 
     /// <summary>
@@ -279,8 +306,7 @@ public class AIStateMachine : MonoBehaviour
         get
         {
             if (CurrentRootState != AIStateType.Attack) return false;
-            var attack = (currentState as AIHierarchicalState)?.GetSubState(AIStateType.Attack) as AIHierarchicalState;
-            return attack?.CurrentSubState?.IsFinished ?? false;
+            return (currentState as AIHierarchicalState)?.CurrentSubState?.IsFinished ?? false;
         }
     }
 
@@ -290,12 +316,6 @@ public class AIStateMachine : MonoBehaviour
     /// <summary>当前 Root 层状态(行为树 Conditional 读取用)</summary>
     public AIStateType? CurrentRootState =>
         (currentState as AIHierarchicalState)?.CurrentSubStateType;
-
-    /// <summary>当前 Attack 子状态(不在 Attack 中则返回 null)</summary>
-    public AIStateType? CurrentAttackState =>
-        CurrentRootState == AIStateType.Attack
-            ? ((currentState as AIHierarchicalState)?.GetSubState(AIStateType.Attack) as AIHierarchicalState)?.CurrentSubStateType
-            : null;
 
     public string CurrentStateName => currentState?.StateName;
 
@@ -325,37 +345,22 @@ public class AIStateMachine : MonoBehaviour
         return nearest;
     }
 
-    // 决策用哪个攻击(行为树可直接调,也可自己定)
-    // 配了连招:按序列索引依次出招,出招即 ++;没配连招:按距离/血量随机选(旧行为)
-    public AIStateType ChooseAttack()
+    // 决策打哪一段(行为树 AIAttack 每段调用)：按 comboData.attacks 顺序循环推进索引
+    /// <summary>推进并返回本段攻击在 comboData.attacks 中的索引（列表为空返回 0）</summary>
+    public int ChooseAttack()
     {
-        var combo = movementData?.comboData;
-        if (combo != null && combo.comboSequence != null && combo.comboSequence.Count > 0)
+        var combo = comboData;
+        if (combo?.attacks == null || combo.attacks.Count == 0)
         {
-            AIStateType next = combo.comboSequence[comboIndex % combo.comboSequence.Count];
-            comboIndex++;
-            lastAttackTime = Time.time;
-            Debug.Log($"[AI] 连招第{comboIndex}招 → {next}");
-            return next;
+            Debug.LogWarning("[AI] comboData.attacks 未配置,攻击段索引固定为 0");
+            return 0;
         }
 
-        if (target == null) return AIStateType.Attack1;
-
-        float dist = Vector3.Distance(transform.position, target.position);
-        float targetHp = GetTargetHpNormalized();
-
-        if (dist <= (GetAttackData(AIStateType.Attack3)?.range ?? 3f) && targetHp < 0.3f)
-            return AIStateType.Attack3;
-        if (dist <= (GetAttackData(AIStateType.Attack2)?.range ?? 2.5f) && targetHp < 0.6f)
-            return AIStateType.Attack2;
-
-        return UnityEngine.Random.value < 0.5f ? AIStateType.Attack1 : AIStateType.Attack2;
-    }
-
-    private float GetTargetHpNormalized()
-    {
-        // TODO: 替换成实际敌人血量(如 HealthModel / DamageCalculator)
-        return UnityEngine.Random.value;
+        int index = comboIndex % combo.attacks.Count;
+        comboIndex++;
+        lastAttackTime = Time.time;
+        Debug.Log($"[AI] 连招第{comboIndex}段 → index {index}");
+        return index;
     }
 
     // 辅助:判断目标是否在攻击范围内
@@ -370,25 +375,28 @@ public class AIStateMachine : MonoBehaviour
     // ================================================================
 
     /// <summary>
-    /// 播放攻击动画并注册 Animancer 事件(与 PlayerComboState 的连击事件同款机制):
-    /// - 每个命中帧时刻触发一次 onHit(伤害判定跟动画走,不靠秒表)
+    /// 播放攻击段动画并注册 Animancer 事件(与 PlayerComboState 的连击事件同款机制):
+    /// - data.hitTimes 里每个命中帧时刻触发一次 onHit(伤害判定跟动画走,不靠秒表)
     /// - 动画播完触发一次 onEnd(收招时机跟动画走)
-    /// - hitTimesSec 单位为秒,内部换算成 Animancer 的归一化时间(0~1)
+    /// - hitTimes 单位为秒,内部换算成 Animancer 的归一化时间(0~1)
     /// 返回播放状态(可用 Length 算冷却),未配动画返回 null(调用方退回秒表模式)
     /// </summary>
-    public AnimancerState PlayAttackAnim(AIStateType type, float[] hitTimesSec, Action onHit, Action onEnd)
+    public AnimancerState PlayAttackAnim(AIAttackData data, Action onHit, Action onEnd)
     {
-        var state = PlayAnim(type);
+        var state = PlayAnim(data);
         if (state == null) return null;
 
         // 同一片段复用同一个 AnimancerState,必须清掉残留事件,否则检查点/命中帧会重复触发
         state.Events.Clear();
 
         float length = Mathf.Max(state.Length, 0.01f);
-        foreach (var t in hitTimesSec)
+        if (data.hitTimes != null)
         {
-            float normalized = Mathf.Clamp01(t / length);
-            state.Events.Add(normalized, onHit);
+            foreach (var t in data.hitTimes)
+            {
+                float normalized = Mathf.Clamp01(t / length);
+                state.Events.Add(normalized, onHit);
+            }
         }
         state.Events.OnEnd = onEnd;
         return state;

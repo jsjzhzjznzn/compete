@@ -49,44 +49,44 @@ public class AIDieData : AIStateData
 public class AIHurtData : AIStateData { }
 
 /// <summary>
-/// 攻击数据（Attack1/2/3 各一份）
-/// 原来写死在 AttackState 里的时长/伤害/范围全部搬到这里配置
+/// 攻击段数据（一段攻击一份）
+/// 单段/多段/AOE 统一由本类描述：命中帧可多段，isAoe 打开时走范围伤害。
+/// 连招顺序由 AIComboData.attacks 列表顺序决定（像 player 的 ComboContainerData）
 /// </summary>
 [System.Serializable]
 public class AIAttackData : AIStateData
 {
-    /// <summary>整个攻击动作的总时长（秒）</summary>
+    /// <summary>整个攻击动作的总时长（秒，秒表兜底模式用）</summary>
     [field: SerializeField] public float duration { get; private set; } = 0.8f;
 
-    /// <summary>命中判定时刻（动画开始后第几秒出伤害）</summary>
-    [field: SerializeField] public float hitTime { get; private set; } = 0.35f;
-
-    /// <summary>第二段命中时刻（仅 Attack2 连击用）</summary>
-    [field: SerializeField] public float secondHitTime { get; private set; } = 0.75f;
+    /// <summary>命中判定时刻列表（动画开始后第几秒出伤害，可多段；空=本段无伤害判定）</summary>
+    [field: SerializeField] public List<float> hitTimes { get; private set; } = new List<float> { 0.35f };
 
     /// <summary>攻击范围（米）</summary>
     [field: SerializeField] public float range { get; private set; } = 2f;
 
-    /// <summary>伤害</summary>
+    /// <summary>伤害（每次命中结算一次）</summary>
     [field: SerializeField] public float damage { get; private set; } = 10f;
 
     /// <summary>收招后额外冷却（秒）</summary>
     [field: SerializeField] public float cooldown { get; private set; } = 0.2f;
 
-    /// <summary>AOE 半径（仅 Attack3 大招用）</summary>
+    /// <summary>是否范围(AOE)伤害：开启则命中帧对 aoeRadius 内所有目标结算</summary>
+    [field: SerializeField] public bool isAoe { get; private set; } = false;
+
+    /// <summary>AOE 半径（米，仅 isAoe 时生效）</summary>
     [field: SerializeField] public float aoeRadius { get; private set; } = 4f;
 }
 
 /// <summary>
-/// AI 连招配置（模仿 Player 的连击索引）
-/// 按序列循环出招：每次实际出招索引 ++，resetTime 内没出下一招就归零从头开始
+/// AI 连招配置（模仿 player 的 ComboContainerData）
+/// attacks 列表顺序 = 连招顺序：每次实际出招索引 ++，resetTime 内没出下一招就归零从头开始
 /// </summary>
 [System.Serializable]
 public class AIComboData
 {
-    /// <summary>连招序列（循环）：如 Attack1 → Attack2 → Attack1。只填 Attack1/2/3</summary>
-    [field: SerializeField] public List<AIStateType> comboSequence { get; private set; }
-        = new List<AIStateType> { AIStateType.Attack1, AIStateType.Attack2 };
+    /// <summary>攻击段列表（顺序即连招顺序）：如 [轻攻击, 连击, AOE大招]</summary>
+    [field: SerializeField] public List<AIAttackData> attacks { get; private set; } = new List<AIAttackData>();
 
     /// <summary>多久没出下一次攻击就重置回序列开头（秒）</summary>
     [field: SerializeField, Min(0.1f)] public float resetTime { get; private set; } = 2f;
@@ -109,15 +109,9 @@ public class AIMovementData
     /// <summary>脱离追击半径（米）</summary>
     [field: SerializeField] public float chaseRange { get; private set; } = 10f;
 
-    [Header("连招")]
-    [field: SerializeField] public AIComboData comboData { get; private set; }
-
     [Header("各状态数据")]
     [field: SerializeField] public AIIdleData idleData { get; private set; }
     [field: SerializeField] public AIWalkData walkData { get; private set; }
     [field: SerializeField] public AIHurtData hurtData { get; private set; }
     [field: SerializeField] public AIDieData dieData { get; private set; }
-    [field: SerializeField] public AIAttackData attack1Data { get; private set; }
-    [field: SerializeField] public AIAttackData attack2Data { get; private set; }
-    [field: SerializeField] public AIAttackData attack3Data { get; private set; }
 }
