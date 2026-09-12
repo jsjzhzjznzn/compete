@@ -217,6 +217,12 @@ public class Player : CharacterMoveControllerBase
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
         }
+
+        // 单机（未启动网络）：OnNetworkSpawn 不会触发，这里直接绑定座位0的相机（Camera/thirdcamera）
+        if (!IsSpawned)
+        {
+            StartCameraBinding();
+        }
     }
 
     // ============ 联机排障日志：拥有者端每秒采样一次输入（定位"客户端无法操作角色"，定位后可删） ============
