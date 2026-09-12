@@ -93,6 +93,27 @@ public class AIComboData
 }
 
 /// <summary>
+/// Boss 阶段数据（每个阶段一份，列表顺序即阶段顺序：0=起始阶段）
+/// 把「该阶段的连招 + 属性」收在一起，单一数据源：
+/// 连招挂在阶段里，不再单独维护 normalCombo/rageCombo
+/// </summary>
+[System.Serializable]
+public class AIPhaseData
+{
+    /// <summary>进入本阶段的血量比例阈值（0~1，血量比 ≤ 该值触发）；起始阶段(索引0)忽略</summary>
+    [field: SerializeField, Range(0f, 1f)] public float enterHpRatio { get; private set; } = 0.5f;
+
+    /// <summary>本阶段使用的连招容器（连招单一来源）</summary>
+    [field: SerializeField] public AIComboData combo { get; private set; }
+
+    /// <summary>本阶段伤害倍率（作用在 AIAttackData.damage 上，1=不变）</summary>
+    [field: SerializeField, Min(0f)] public float damageMultiplier { get; private set; } = 1f;
+
+    /// <summary>进入本阶段设置的 MaxHP（&lt;=0 表示不改血量上限）</summary>
+    [field: SerializeField] public float maxHp { get; private set; }
+}
+
+/// <summary>
 /// AI 移动/行为参数集合（模仿 PlayerMovementData）
 /// 作为 AIPlayerSO 的子字段在 Inspector 中配置
 /// </summary>

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -9,9 +10,6 @@ public class AIPlayerSO : ScriptableObject
 {
     [field: SerializeField] public AIMovementData movementData { get; private set; }
 
-    [field: SerializeField, Header("普通连招（一阶段）")]
-    public AIComboData normalCombo { get; private set; }
-
-    [field: SerializeField, Header("暴怒连招（二阶段：进入暴怒后自动启用）")]
-    public AIComboData rageCombo { get; private set; }
+    [field: SerializeField, Header("Boss 阶段表（顺序即阶段：0=起始；每阶段自带连招与属性）")]
+    public List<AIPhaseData> phases { get; private set; } = new List<AIPhaseData>();
 }

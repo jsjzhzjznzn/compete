@@ -18,24 +18,24 @@ public class AIStateMachine : MonoBehaviour
 
     private AIMovementData movementData => AiSO != null ? AiSO.movementData : null;
 
-    /// <summary>是否处于暴怒（Boss 二阶段）：false 用普通连招，true 用暴怒连招</summary>
-    public bool IsEnraged { get; private set; }
+    // ============ Boss 阶段（只切数据：连招 / 伤害倍率 / 血量上限） ============
 
-    /// <summary>当前生效的连招容器（普通 / 暴怒，由 IsEnraged 决定）</summary>
-    private AIComboData comboData =>
-        AiSO == null ? null : (IsEnraged ? AiSO.rageCombo : AiSO.normalCombo);
+    /// <summary>当前阶段索引（0=起始/普通，1=暴怒…），由 phases 顺序决定</summary>
+    public int CurrentPhaseIndex { get; private set; }
 
-    /// <summary>
-    /// 进入暴怒（Boss 二阶段）：切到暴怒连招，连招索引归零从头打。
-    /// 由二阶段触发逻辑调用（如血量降到阈值 / 行为树条件节点）
-    /// </summary>
-    public void EnterRageMode()
+    /// <summary>当前阶段数据（未配 phases 返回 null）</summary>
+    public AIPhaseData CurrentPhaseData => GetPhaseData(CurrentPhaseIndex);
+
+    /// <summary>按索引取阶段数据（越界返回 null）</summary>
+    public AIPhaseData GetPhaseData(int index)
     {
-        if (IsEnraged) return;
-        IsEnraged = true;
-        comboIndex = 0;          // 切套从头开始，避免沿用普通连招的进度
-        Debug.Log("[AI] 进入暴怒（二阶段）→ 启用暴怒连招");
+        var list = AiSO?.phases;
+        if (list == null || index < 0 || index >= list.Count) return null;
+        return list[index];
     }
+
+    /// <summary>当前生效的连招容器（单一数据源：来自当前阶段）</summary>
+    private AIComboData comboData => CurrentPhaseData?.combo;
 
     /// <summary>目标查找的物理层过滤（LayerMask,默认指向 "player" 层,Build 时兜底注入）</summary>
     public LayerMask targetLayer;
@@ -98,6 +98,10 @@ public class AIStateMachine : MonoBehaviour
     private int comboIndex;                  // 当前连招段（指向序列中的下一个出招位）
     private float lastAttackTime = -999f;    // 上一次实际出招/收招的时间（超时归零用）
 
+    /// <summary>挂起的 Boss 阶段切换（-1=无）：血量达标但正在出招时先记下，收招后再真正切，
+    /// 避免"进行中的段"读到新连招的数据</summary>
+    private int pendingPhaseIndex = -1;
+
     /// <summary>当前连招索引（调试/行为树读取用）</summary>
     public int ComboIndex => comboIndex;
 
@@ -121,6 +125,8 @@ public class AIStateMachine : MonoBehaviour
 
     private CharacterController characterController;
     private NavMeshAgent navAgent;           // NavMesh 寻路(只算路径不位移,可选:没挂组件时退回直线移动)
+    private HealthModel selfHealth;          // 自身血量组件(Boss 阶段判定读血量比用)
+    private NetworkObject networkObject;     // 自身网络对象(判断是否联网 spawn，阶段判定单机限定用)
 
     /// <summary>寻路代理(预制体上挂了 NavMeshAgent 才有,Walk 状态追击/巡逻用)</summary>
     public NavMeshAgent NavAgent => navAgent;
@@ -137,6 +143,8 @@ public class AIStateMachine : MonoBehaviour
         AiSO = so;
         animancer = GetComponent<AnimancerComponent>();
         characterController = GetComponent<CharacterController>();
+        selfHealth = GetComponent<HealthModel>();
+        networkObject = GetComponentInParent<NetworkObject>();
 
         // 目标层兜底:没配置就指向 "player" 层(AI 索敌/AOE 都用它做物理过滤)
         if (targetLayer.value == 0)
@@ -243,8 +251,57 @@ public class AIStateMachine : MonoBehaviour
         if (next != null)
             SwitchState(next.Value);
 
+        CheckPhaseTransition();   // Boss 阶段切换检查(血量达标先挂起)
         currentState.OnUpdate();
+        ApplyPendingPhase();      // 收招后应用挂起的阶段切换
         ResetComboIfExpired();
+    }
+
+    /// <summary>
+    /// Boss 阶段切换检查(单机)：血量比跌破"下一阶段 enterHpRatio" → 挂起该阶段切换。
+    /// 纯数据切换(换连招/伤害倍率/血量上限),不进状态、不打断当前动作；
+    /// 若正在出招则先挂起，收招后由 ApplyPendingPhase 应用。
+    /// 联网:血量在服务端权威,这里应先判断 IsServer 并同步 netPhase —— 本步先单机。
+    /// </summary>
+    private void CheckPhaseTransition()
+    {
+        if (networkObject != null && networkObject.IsSpawned) return;   // TODO(联网第二步): 仅服务端判定 + netPhase 同步
+        if (selfHealth == null) return;
+
+        int nextIndex = CurrentPhaseIndex + 1;
+        var nextPhase = GetPhaseData(nextIndex);
+        if (nextPhase == null) return;   // 没有下一阶段了
+
+        float maxHp = selfHealth.MaxHP.Value;
+        if (maxHp <= 0f) return;
+
+        if (selfHealth.CurrentHP.Value / maxHp <= nextPhase.enterHpRatio)
+            pendingPhaseIndex = nextIndex;   // 挂起，等收招后再应用
+    }
+
+    /// <summary>应用挂起的阶段切换：收招后(!IsAttacking)才真正切，避免进行中的段读到新连招数据</summary>
+    private void ApplyPendingPhase()
+    {
+        if (pendingPhaseIndex < 0) return;
+        if (IsAttacking) return;          // 还在出招：继续等收招
+
+        SwitchPhase(pendingPhaseIndex);
+        pendingPhaseIndex = -1;
+    }
+
+    /// <summary>切换到指定阶段(纯数据)：连招索引归零 + 应用血量上限；伤害倍率由 ApplyHit 实时读取</summary>
+    private void SwitchPhase(int phaseIndex)
+    {
+        var phase = GetPhaseData(phaseIndex);
+        if (phase == null) return;
+
+        CurrentPhaseIndex = phaseIndex;
+        comboIndex = 0;          // 切套从头打，避免沿用上一阶段的连招进度
+
+        if (selfHealth != null && phase.maxHp > 0f)
+            selfHealth.SetMaxHP(phase.maxHp);
+
+        Debug.Log($"[AI] 进入阶段 {phaseIndex}({phaseIndex switch { 0 => "普通", 1 => "暴怒", _ => "阶段" + phaseIndex }}) → 切换连招/属性");
     }
 
     /// <summary>连招超时检查：resetTime 内没出下一招，索引归零重新开始。
@@ -431,9 +488,12 @@ public class AIStateMachine : MonoBehaviour
     /// <summary>单次命中结算:伤害管道 → 本地/网络分发</summary>
     private void ApplyHit(HealthModel health, float baseDamage)
     {
+        // 当前阶段伤害倍率(暴怒阶段加伤)
+        float phaseMult = CurrentPhaseData?.damageMultiplier ?? 1f;
+
         var result = DamageCalculator.Calculate(new DamageContext
         {
-            baseDamage = baseDamage,
+            baseDamage = baseDamage * phaseMult,
             critRate = 0f,          // TODO: 需要暴击时把 critRate/critMultiplier 加进 AIAttackData
             critMultiplier = 1f,
             attacker = gameObject,

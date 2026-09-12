@@ -50,11 +50,8 @@ public class AIPlayer : CharacterMoveControllerBase
     /// <summary>是否已死亡</summary>
     public bool IsDead => aiStateMachine != null && aiStateMachine.isDead;
 
-    /// <summary>是否处于暴怒（Boss 二阶段）</summary>
-    public bool IsEnraged => aiStateMachine != null && aiStateMachine.IsEnraged;
-
-    /// <summary>进入暴怒（Boss 二阶段）：切换为暴怒连招</summary>
-    public void EnterRageMode() => aiStateMachine?.EnterRageMode();
+    /// <summary>当前 Boss 阶段索引（0=普通，1=暴怒…；调试/外部读取用）</summary>
+    public int CurrentPhaseIndex => aiStateMachine != null ? aiStateMachine.CurrentPhaseIndex : 0;
 
     // ================================================================
     // 生命周期
