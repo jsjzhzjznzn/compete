@@ -34,5 +34,15 @@ using UnityEngine;
         /// <summary>形态/武器切换专用技能连招数据</summary>
         //[field:SerializeField,Header("切换形态技能")] 
        // public ComboData switchSkill { get; private set; }
+
+        /// <summary>是否开启攻击自动索敌（仅单机生效；联网时朝向由网络同步）</summary>
+        [field: SerializeField, Header("攻击自动索敌")]
+        public bool autoAimEnabled { get; private set; } = true;
+
+        /// <summary>自动索敌的搜索半径（米）：半径内最近的敌人会被作为朝向目标</summary>
+        [field: SerializeField] public float autoAimRadius { get; private set; } = 5f;
+
+        /// <summary>自动索敌的前方夹角上限（度）：敌人与角色正面的夹角超过它则不转向（180=附近即转）</summary>
+        [field: SerializeField] public float autoAimMaxAngle { get; private set; } = 180f;
     }
 

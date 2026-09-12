@@ -1,3 +1,4 @@
+using SkierFramework;
 using UnityEngine;
 
 /// <summary>
@@ -56,6 +57,10 @@ public class AIPlayer : CharacterMoveControllerBase
     protected override void Awake()
     {
         base.Awake();
+
+        // 阵营层：AI 自身及子物体统一设为 "enemy" 层，供玩家攻击判定/自动索敌按层过滤。
+        // 只改"是什么层",不影响 AI 自身索敌(查 player 层)与地面检测(查 environment 层)
+        gameObject.SetLayerRecursively(LayerMask.NameToLayer("enemy"));
 
         // 状态机组件兜底挂载:预制体上没挂就自动补(AI 人物只需挂 AIPlayer 一个脚本)
         aiStateMachine = GetComponent<AIStateMachine>();

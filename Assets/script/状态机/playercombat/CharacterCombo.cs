@@ -173,6 +173,13 @@ public class CharacterCombo
     /// <summary>预分配的命中检测缓冲（OverlapSphereNonAlloc 用，避免每次打击帧 GC 分配；敌人多时调大）</summary>
     private readonly Collider[] _detectBuffer = new Collider[16];
 
+    /// <summary>自动索敌命中缓冲（复用，避免 OverlapSphere 每次起手 GC）</summary>
+    private readonly Collider[] _enemyBuffer = new Collider[16];
+
+    /// <summary>敌人层掩码缓存（懒加载 LayerMask.GetMask("enemy")，只取一次）</summary>
+    private int enemyLayerMask;
+    private bool enemyLayerMaskCached;
+
     /// <summary>打击帧动画事件入口：根据当前招式类型走不同伤害逻辑</summary>
     public void ATK()
     {
@@ -288,10 +295,73 @@ public class CharacterCombo
 
     // ==================== 辅助 ====================
 
-    /// <summary>攻击时转向敌人（敌人系统接入后补实现）</summary>
+    /// <summary>
+    /// 攻击起手时转向敌人（软锁定，仅单机）：
+    /// 在 autoAimRadius 内、与正面夹角不超过 autoAimMaxAngle 的存活敌人里取最近者，
+    /// 把角色水平朝向瞬间转过去，让原本偏离的挥击能命中。
+    /// 命中判定用角色自身 forward（AttackDetection），所以转向会真正改变打击方向。
+    /// 联网/远程端不生效：朝向由 NetworkTransform 同步，本地硬转会被覆盖并抖动。
+    /// </summary>
     public void UpdateAttackLookAtEnemy()
     {
-        // TODO: 接入敌人系统后实现 Look 转向
+        if (player == null || player.IsSpawned) return;              // 单机限定
+        if (comboData == null || !comboData.autoAimEnabled) return;
+        if (comboData.autoAimRadius <= 0f) return;
+
+        int enemyMask = GetEnemyLayerMask();
+        if (enemyMask == 0) return;
+
+        var playerTransform = player.transform;
+        int count = Physics.OverlapSphereNonAlloc(
+            playerTransform.position, comboData.autoAimRadius, _enemyBuffer, enemyMask);
+        if (count == _enemyBuffer.Length)
+            Debug.LogWarning($"[Combo] {player.name} 自动索敌命中数达 buffer 上限({count}),可能漏检,建议调大 _enemyBuffer", player);
+
+        Transform best = null;
+        float bestDist = float.MaxValue;
+        for (int i = 0; i < count; i++)
+        {
+            var col = _enemyBuffer[i];
+            if (col == null) continue;
+
+            Transform t = col.transform;
+            if (t.IsChildOf(playerTransform)) continue;              // 排除自身及子物体
+
+            var health = col.GetComponentInParent<HealthModel>();
+            if (health == null || !health.IsAlive) continue;         // 跳过死亡/非战斗单位
+
+            Vector3 dir = t.position - playerTransform.position;
+            dir.y = 0f;
+            float dist = dir.magnitude;
+            if (dist < 0.0001f) continue;
+
+            // 前方夹角过滤：默认 180° = 只要在附近就转，设小则只锁定前方扇形内目标
+            if (Vector3.Angle(playerTransform.forward, dir) > comboData.autoAimMaxAngle) continue;
+
+            if (dist < bestDist)
+            {
+                bestDist = dist;
+                best = t;
+            }
+        }
+
+        if (best == null) return;
+
+        Vector3 lookDir = best.position - playerTransform.position;
+        lookDir.y = 0f;
+        if (lookDir.sqrMagnitude < 0.0001f) return;
+        playerTransform.rotation = Quaternion.LookRotation(lookDir);
+    }
+
+    /// <summary>敌人层掩码（LayerMask.GetMask("enemy")）；懒加载缓存避免每次起手重复取名</summary>
+    private int GetEnemyLayerMask()
+    {
+        if (!enemyLayerMaskCached)
+        {
+            enemyLayerMask = LayerMask.GetMask("enemy");
+            enemyLayerMaskCached = true;
+        }
+        return enemyLayerMask;
     }
 
     /// <summary>可被打断且玩家在移动时，打断攻击（切回移动状态）</summary>

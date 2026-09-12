@@ -35,33 +35,11 @@ public class PlayerATKIngState : PlayerComboState
         if (player.IsRemote && reusableData.currentCombo == null)
             reusableData.currentCombo = stateMachine.characterCombo.LightCombo;
 
-        //  FaceAttackDirection();
+        // 起手瞬间转向最近的敌人（软锁定，仅单机；让偏离朝向的挥击能命中）
+        stateMachine.characterCombo.UpdateAttackLookAtEnemy();
+
         PlayAttackClip();
     }
-
-    /// <summary>
-    /// 攻击朝向修正：起手时让角色面向"相机前方"（水平面）。
-    /// 因为攻击期间移动状态机处于空状态、角色不会转向，
-    /// 不修正的话会保持旧朝向，挥击弧线（动画本身朝角色右侧）看起来就"偏"。
-    /// </summary>
-   /* private void FaceAttackDirection()
-    {
-        Vector3 camFwd = player.CameraTransform != null
-            ? player.CameraTransform.forward
-            : player.transform.forward;
-        camFwd.y = 0f;
-        camFwd.Normalize();
-        if (camFwd.sqrMagnitude <= 0.001f)
-        {
-            camFwd = player.transform.forward;
-            camFwd.y = 0f;
-            camFwd.Normalize();
-        }
-        if (camFwd.sqrMagnitude > 0.001f)
-        {
-            player.transform.rotation = Quaternion.LookRotation(camFwd);
-        }
-    }*/
 
     public override void Update()
     {
