@@ -8,7 +8,7 @@ namespace BehaviorDesigner.Runtime.Tasks
     public class AIInAttackRange : Conditional
     {
         private AIStateMachine sm;
-        public override void OnAwake() { sm = GetComponent<AIStateMachine>(); }
+        public override void OnAwake() { sm = AITaskUtil.GetStateMachine(this); }
         public override TaskStatus OnUpdate()
         {
             if (sm == null || sm.target == null) return TaskStatus.Failure;

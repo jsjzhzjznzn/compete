@@ -2,40 +2,49 @@ using UnityEngine;
 
 /// <summary>
 /// 轻攻击:单段攻击,收招后停在本状态并标记 IsFinished,由行为树决定去留。
-/// 参数(动画/时长/伤害/范围)由 AIPlayerSO 的 attack1Data 配置。
-/// 进入/连招/离开全部由行为树触发(EnterAttack / SwitchState),本状态不主动切任何状态。
+/// 命中判定/收招时机由 Animancer 动画事件驱动(hitTime 秒 → 归一化命中帧,OnEnd 收招),
+/// 未配动画时退回秒表模式(hitTime/duration 计时)。
+/// 参数由 AIPlayerSO 的 attack1Data 配置;进入/连招/离开全部由行为树触发。
 /// </summary>
 public class AttackState1 : AIState
 {
     // ============ 运行时状态 ============
-    private float timer;                  // 本段攻击已进行时长
-    private bool hasHit;                  // 本次攻击是否已判定过命中(一段只判一次)
-    private bool finished;                // 收招完成标记(置位后停在这里,等行为树切走)
+    private float timer;        // 已进行时长(冷却计时用)
+    private bool hasHit;        // 秒表兜底模式的命中标记(一段只判一次)
+    private bool animEnded;     // 动画播完标记(OnEnd 触发,之后进入冷却)
+    private bool finished;      // 收招完成标记(置位后停在这里,等行为树切走)
+    private float duration;     // 动画实际时长(= 片段长度/播放速度)
+    private bool hasAnim;       // 是否成功走了 Animancer 事件模式
 
     // ============ 攻击参数（全部读 AIPlayerSO.attack1Data,未配置用代码默认值） ============
     private AIAttackData Data => stateMachine.GetAttackData(StateType);
-    private float Duration => Data?.duration ?? 0.8f;      // 整个攻击动作总时长
-    private float HitTime => Data?.hitTime ?? 0.35f;       // 命中判定时刻(动画播到这秒出伤害)
+    private float Duration => Data?.duration ?? 0.8f;      // 秒表兜底用:动作总时长
+    private float HitTime => Data?.hitTime ?? 0.35f;       // 命中判定时刻(秒,换算成动画归一化命中帧)
     private float Range => Data?.range ?? 2f;              // 攻击范围(米)
     private float Damage => Data?.damage ?? 10f;           // 伤害
-    private float Cooldown => Data?.cooldown ?? 0.2f;      // 收招后的额外冷却
+    private float Cooldown => Data?.cooldown ?? 0.2f;      // 动画播完后的额外冷却
 
     public override bool IsFinished => finished;
 
     public AttackState1(AIStateMachine m, GameObject o)
         : base(m, o, AIStateType.Attack1) { }
 
-    /// <summary>进入轻攻击:复位计时/命中标记/完成标记,播放攻击动画</summary>
+    /// <summary>进入轻攻击:播动画并注册命中帧/收招事件;没配动画则退回秒表模式</summary>
     public override void OnEnter()
     {
-        timer = 0f; hasHit = false; finished = false;
-        stateMachine.PlayAnim(StateType);
-        Debug.Log("[Attack1] 轻攻击");
+        timer = 0f; hasHit = false; finished = false; animEnded = false;
+
+        var animState = stateMachine.PlayAttackAnim(StateType, new[] { HitTime }, OnHitFrame, OnAnimEnd);
+        hasAnim = animState != null;
+        if (hasAnim)
+            duration = animState.Length / Mathf.Max(animState.Speed, 0.01f);
+        else
+            Debug.LogWarning("[Attack1] 未配置攻击动画,退回秒表模式");
     }
 
     /// <summary>
-    /// 每帧流程:计时 → 到命中帧判定伤害 → 动作+冷却播完收招(只标记,不切状态)。
-    /// 朝向由行为树的 FaceTarget 节点负责,状态不管转向
+    /// 事件模式:命中/收招全由动画事件触发,这里只做"播完后冷却到点收招";
+    /// 秒表兜底:计时 → 到点判定 → 收招。朝向由行为树的 FaceTarget 节点负责
     /// </summary>
     public override void OnUpdate()
     {
@@ -43,18 +52,36 @@ public class AttackState1 : AIState
 
         timer += Time.deltaTime;
 
-        // 命中帧:到 HitTime 时刻判定一次,目标在范围内则造成伤害
-        // TODO: 接入真实伤害(target.GetComponent<HealthModel>().TakeDamage(Damage, owner))
-        if (!hasHit && timer >= HitTime)
+        if (hasAnim)
         {
-            hasHit = true;
-            if (stateMachine.TargetInRange(Range))
-                Debug.Log($"[Attack1] 命中 {Damage} 伤害");
+            // OnEnd(动画播完)之后走 Cooldown 冷却,到点收招
+            if (animEnded && timer >= duration + Cooldown)
+                FinishAttack();
         }
+        else
+        {
+            // 兜底:到命中时刻判定一次
+            if (!hasHit && timer >= HitTime)
+            {
+                hasHit = true;
+                stateMachine.DealDamage(Range, Damage);
+            }
+            if (timer >= Duration + Cooldown)
+                FinishAttack();
+        }
+    }
 
-        // 动作时长 + 冷却都走完 → 收招
-        if (timer >= Duration + Cooldown)
-            FinishAttack();
+    /// <summary>Animancer 命中帧事件:走伤害管道结算一次</summary>
+    private void OnHitFrame()
+    {
+        if (finished) return;   // 极端情况:收招后残留事件不再结算
+        stateMachine.DealDamage(Range, Damage);
+    }
+
+    /// <summary>Animancer 播完事件:进入冷却阶段</summary>
+    private void OnAnimEnd()
+    {
+        animEnded = true;
     }
 
     /// <summary>

@@ -8,7 +8,7 @@ namespace BehaviorDesigner.Runtime.Tasks
     public class AIIsDead : Conditional
     {
         private AIStateMachine sm;
-        public override void OnAwake() { sm = GetComponent<AIStateMachine>(); }
+        public override void OnAwake() { sm = AITaskUtil.GetStateMachine(this); }
         public override TaskStatus OnUpdate()
         {
             return sm != null && sm.isDead ? TaskStatus.Success : TaskStatus.Failure;

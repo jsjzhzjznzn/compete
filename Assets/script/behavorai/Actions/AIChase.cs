@@ -8,7 +8,7 @@ namespace BehaviorDesigner.Runtime.Tasks
     public class AIChase : Action
     {
         private AIStateMachine sm;
-        public override void OnAwake() { sm = GetComponent<AIStateMachine>(); }
+        public override void OnAwake() { sm = AITaskUtil.GetStateMachine(this); }
         public override TaskStatus OnUpdate()
         {
             sm?.SwitchState(AIStateType.Walk);

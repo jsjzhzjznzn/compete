@@ -5,11 +5,10 @@ using UnityEngine;
 /// - 继承 CharacterMoveControllerBase：复用重力/地面检测/斜坡修正
 /// - 持有 AIPlayerSO 角色数据资产（模仿 Player 持有 PlayerSO），Awake 时传给状态机构建
 /// - Animancer 播放动画（与 Player 一致，片段在 AIPlayerSO 上配置）
-/// - HealthModel 血量，死亡事件 → 通知 AIStateMachine 切 Die
-/// - 决策完全由同物体上的 AIStateMachine（分层状态机）驱动，不碰 CharacterInputSystem
-/// 挂载：复制 Player 预制体，移除 Player 脚本，挂 AIPlayer（AIStateMachine 会自动要求）
+/// - HealthModel 血量，死亡/受击事件 → 通知状态机
+/// - 决策完全由 AIStateMachine（分层状态机）驱动，不碰 CharacterInputSystem
+/// 挂载：AI 人物预制体上只需要挂 AIPlayer——AIStateMachine 会在 Awake 里自动补挂并构建
 /// </summary>
-[RequireComponent(typeof(AIStateMachine))]
 public class AIPlayer : CharacterMoveControllerBase
 {
     [Header("角色数据资产（动画/连招/伤害配置，Inspector 拖入）")]
@@ -38,11 +37,11 @@ public class AIPlayer : CharacterMoveControllerBase
     }
 
     [Header("目标查找（状态机搜索该 Tag 作为攻击目标）")]
-    [SerializeField] private string targetTag = "player";
+    [SerializeField] private string targetTag = "Player";
 
     // ============ 组件引用 ============
-    private AIStateMachine aiStateMachine;   // AI 决策状态机（同物体上,Awake 里构建）
-    private HealthModel health;              // 血量组件（E_OnDeath 派发源,预制体上挂好）
+    private AIStateMachine aiStateMachine;   // AI 决策状态机（Awake 里确保存在并构建）
+    private HealthModel health;              // 血量组件（E_OnDeath/E_OnDamage 派发源,预制体上挂好）
 
     /// <summary>AI 决策状态机</summary>
     public AIStateMachine AIStateMachine => aiStateMachine;
@@ -57,7 +56,11 @@ public class AIPlayer : CharacterMoveControllerBase
     protected override void Awake()
     {
         base.Awake();
+
+        // 状态机组件兜底挂载:预制体上没挂就自动补(AI 人物只需挂 AIPlayer 一个脚本)
         aiStateMachine = GetComponent<AIStateMachine>();
+        if (aiStateMachine == null)
+            aiStateMachine = gameObject.AddComponent<AIStateMachine>();
 
         // 先传 SO 构建状态机（模仿 Player.Awake 里 new PlayerMovementStateMachine(this, playerSO)）
         aiStateMachine.Build(aiSO);
@@ -101,4 +104,14 @@ public class AIPlayer : CharacterMoveControllerBase
         if (data.target == gameObject && !data.isDoT)
             aiStateMachine.RequestHurt();
     }
+
+#if UNITY_EDITOR
+    // 旧值迁移:序列化字段里残留的小写 "player"(项目未定义该 Tag,FindGameObjectsWithTag 会抛异常)
+    // 统一修正成 Unity 自带的 "Player"。回编辑器等编译完重新保存场景/预制体即生效
+    private void OnValidate()
+    {
+        if (targetTag == "player")
+            targetTag = "Player";
+    }
+#endif
 }

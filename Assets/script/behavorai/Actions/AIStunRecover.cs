@@ -12,7 +12,7 @@ namespace BehaviorDesigner.Runtime.Tasks
     public class AIStunRecover : Action
     {
         private AIStateMachine sm;
-        public override void OnAwake() { sm = GetComponent<AIStateMachine>(); }
+        public override void OnAwake() { sm = AITaskUtil.GetStateMachine(this); }
         public override TaskStatus OnUpdate()
         {
             if (sm == null || !sm.IsHurt) return TaskStatus.Success;

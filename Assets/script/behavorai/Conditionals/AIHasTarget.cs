@@ -16,7 +16,7 @@ namespace BehaviorDesigner.Runtime.Tasks
         public float viewAngle = 120f;   // 视野扇形角度(度),以角色正面朝向为中心
 
         private AIStateMachine sm;
-        public override void OnAwake() { sm = GetComponent<AIStateMachine>(); }
+        public override void OnAwake() { sm = AITaskUtil.GetStateMachine(this); }
 
         public override TaskStatus OnUpdate()
         {

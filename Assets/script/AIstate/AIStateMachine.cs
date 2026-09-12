@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using Animancer;
+using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -17,7 +19,7 @@ public class AIStateMachine : MonoBehaviour
     private AIMovementData movementData => AiSO != null ? AiSO.movementData : null;
 
     [Header("目标查找（要攻击的对象 Tag）")]
-    public string targetTag = "player";
+    public string targetTag = "Player";
 
     [HideInInspector] public AnimancerComponent animancer;
 
@@ -315,13 +317,13 @@ public class AIStateMachine : MonoBehaviour
         if (dist <= (GetAttackData(AIStateType.Attack2)?.range ?? 2.5f) && targetHp < 0.6f)
             return AIStateType.Attack2;
 
-        return Random.value < 0.5f ? AIStateType.Attack1 : AIStateType.Attack2;
+        return UnityEngine.Random.value < 0.5f ? AIStateType.Attack1 : AIStateType.Attack2;
     }
 
     private float GetTargetHpNormalized()
     {
         // TODO: 替换成实际敌人血量(如 HealthModel / DamageCalculator)
-        return Random.value;
+        return UnityEngine.Random.value;
     }
 
     // 辅助:判断目标是否在攻击范围内
@@ -329,5 +331,83 @@ public class AIStateMachine : MonoBehaviour
     {
         if (target == null) return false;
         return Vector3.Distance(transform.position, target.position) <= range + 0.3f;
+    }
+
+    // ================================================================
+    // 伤害结算(走项目统一管道 DamageCalculator,模仿 CharacterCombo.ATK)
+    // ================================================================
+
+    /// <summary>
+    /// 播放攻击动画并注册 Animancer 事件(与 PlayerComboState 的连击事件同款机制):
+    /// - 每个命中帧时刻触发一次 onHit(伤害判定跟动画走,不靠秒表)
+    /// - 动画播完触发一次 onEnd(收招时机跟动画走)
+    /// - hitTimesSec 单位为秒,内部换算成 Animancer 的归一化时间(0~1)
+    /// 返回播放状态(可用 Length 算冷却),未配动画返回 null(调用方退回秒表模式)
+    /// </summary>
+    public AnimancerState PlayAttackAnim(AIStateType type, float[] hitTimesSec, Action onHit, Action onEnd)
+    {
+        var state = PlayAnim(type);
+        if (state == null) return null;
+
+        // 同一片段复用同一个 AnimancerState,必须清掉残留事件,否则检查点/命中帧会重复触发
+        state.Events.Clear();
+
+        float length = Mathf.Max(state.Length, 0.01f);
+        foreach (var t in hitTimesSec)
+        {
+            float normalized = Mathf.Clamp01(t / length);
+            state.Events.Add(normalized, onHit);
+        }
+        state.Events.OnEnd = onEnd;
+        return state;
+    }
+
+    /// <summary>对锁定目标结算一次伤害(目标必须在 range 内且存活)</summary>
+    public void DealDamage(float range, float baseDamage)
+    {
+        if (target == null || !TargetInRange(range)) return;
+
+        var health = target.GetComponentInParent<HealthModel>();
+        if (health == null || !health.IsAlive) return;
+
+        ApplyHit(health, baseDamage);
+    }
+
+    /// <summary>AOE 结算:radius 范围内所有 targetTag 目标各吃一次伤害</summary>
+    public void DealAoeDamage(float radius, float baseDamage)
+    {
+        Collider[] hits = Physics.OverlapSphere(transform.position, radius);
+        foreach (var h in hits)
+        {
+            if (h.gameObject == gameObject) continue;
+            if (!h.CompareTag(targetTag)) continue;
+
+            var health = h.GetComponentInParent<HealthModel>();
+            if (health == null || !health.IsAlive) continue;
+
+            ApplyHit(health, baseDamage);
+        }
+    }
+
+    /// <summary>单次命中结算:伤害管道 → 本地/网络分发</summary>
+    private void ApplyHit(HealthModel health, float baseDamage)
+    {
+        var result = DamageCalculator.Calculate(new DamageContext
+        {
+            baseDamage = baseDamage,
+            critRate = 0f,          // TODO: 需要暴击时把 critRate/critMultiplier 加进 AIAttackData
+            critMultiplier = 1f,
+            attacker = gameObject,
+            defender = health.gameObject,
+        });
+
+        // 联网目标走网络伤害(转发到拥有者端结算);单机/未联网直接本地结算
+        var attackerNetObj = GetComponentInParent<NetworkObject>();
+        if (health.IsSpawned && attackerNetObj != null && attackerNetObj.IsSpawned)
+            health.ApplyNetworkDamage(result.finalDamage, attackerNetObj.NetworkObjectId, result.isCritical);
+        else
+            health.TakeDamage(result.finalDamage, gameObject, result.isCritical);
+
+        Debug.Log($"[AI] 命中 {health.name} 伤害 {result.finalDamage:F1}{(result.isCritical ? "(暴击)" : "")}");
     }
 }

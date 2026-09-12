@@ -3405,6 +3405,9 @@ GameObject:
   - component: {fileID: 8801845324893430787}
   - component: {fileID: 8801845324893430788}
   - component: {fileID: 8801845324893430789}
+  - component: {fileID: 8801845324893430792}
+  - component: {fileID: 8801845324893430791}
+  - component: {fileID: 8801845324893430793}
   m_Layer: 0
   m_Name: "\u602A\u517D"
   m_TagString: Untagged
@@ -5938,7 +5941,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 1782786805
+  GlobalObjectIdHash: 679906814
   InScenePlacedSourceGlobalObjectIdHash: 1129160375
   DeferredDespawnTick: 0
   Ownership: 1
@@ -8664,6 +8667,76 @@ NavMeshAgent:
   m_BaseOffset: 0
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4
+--- !u!114 &8801845324893430791
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2850096627639198915}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c74288d67c82e51419414d7b15b0cf06, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AIPlayer
+  ShowTopMostFoldoutHeaderGroup: 1
+  characterGravity: -9
+  maxVerticalSpeed: 20
+  minVerticalSpeed: -30
+  verticalSpeed: 0
+  fallOutTimer: 0.2
+  GroundDetectionRadius: 0
+  GroundDetectionOffset: 0
+  whatIsGround:
+    serializedVersion: 2
+    m_Bits: 64
+  isOnGround: 0
+  SlopDetectionLenth: 1
+  moveMult: 1
+  aiSO: {fileID: 11400000, guid: 837108c1fa6923943b07db499677a25b, type: 2}
+  targetTag: player
+--- !u!114 &8801845324893430792
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2850096627639198915}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 40b6fe23731aa2642a4bf8da6e59d73c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AIStateMachine
+  targetTag: player
+  animancer: {fileID: 0}
+  target: {fileID: 0}
+  isDead: 0
+--- !u!114 &8801845324893430793
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2850096627639198915}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 3587706766
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  m_InScenePlaced: 1
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 0
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
 --- !u!1 &8874369665114197491
 GameObject:
   m_ObjectHideFlags: 0
