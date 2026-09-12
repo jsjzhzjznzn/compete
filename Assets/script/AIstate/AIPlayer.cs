@@ -36,8 +36,8 @@ public class AIPlayer : CharacterMoveControllerBase
         }
     }
 
-    [Header("目标查找（状态机搜索该 Tag 作为攻击目标）")]
-    [SerializeField] private string targetTag = "Player";
+    [Header("目标查找（状态机在该物理层内索敌,Inspector 勾选 player 层）")]
+    [SerializeField] private LayerMask targetLayer;
 
     // ============ 组件引用 ============
     private AIStateMachine aiStateMachine;   // AI 决策状态机（Awake 里确保存在并构建）
@@ -62,9 +62,9 @@ public class AIPlayer : CharacterMoveControllerBase
         if (aiStateMachine == null)
             aiStateMachine = gameObject.AddComponent<AIStateMachine>();
 
-        // 先传 SO 构建状态机（模仿 Player.Awake 里 new PlayerMovementStateMachine(this, playerSO)）
+        // 目标层先注入再构建(Build 里 0 值会兜底成 "player" 层)
+        aiStateMachine.targetLayer = targetLayer;
         aiStateMachine.Build(aiSO);
-        aiStateMachine.targetTag = targetTag;
 
         // 血量组件：预制体上应已挂好（联网组件不能运行时 AddComponent），漏挂只警告
         health = GetComponent<HealthModel>();
@@ -102,16 +102,9 @@ public class AIPlayer : CharacterMoveControllerBase
     {
         if (IsDead) return;   // 死亡后不接受受击
         if (data.target == gameObject && !data.isDoT)
+        {
+            Debug.Log($"[AI][诊断] {name} 收到受击事件,RequestHurt (计数→{aiStateMachine.HurtHitCount + 1})");
             aiStateMachine.RequestHurt();
+        }
     }
-
-#if UNITY_EDITOR
-    // 旧值迁移:序列化字段里残留的小写 "player"(项目未定义该 Tag,FindGameObjectsWithTag 会抛异常)
-    // 统一修正成 Unity 自带的 "Player"。回编辑器等编译完重新保存场景/预制体即生效
-    private void OnValidate()
-    {
-        if (targetTag == "player")
-            targetTag = "Player";
-    }
-#endif
 }

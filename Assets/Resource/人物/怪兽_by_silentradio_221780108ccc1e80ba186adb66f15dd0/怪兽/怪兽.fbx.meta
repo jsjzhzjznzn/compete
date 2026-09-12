@@ -180,7 +180,7 @@ ModelImporter:
       takeName: Goblin_Ani_Stun_Hit_L_Front
       internalID: -777874509372367948
       firstFrame: 0
-      lastFrame: 131
+      lastFrame: 90
       wrapMode: 0
       orientationOffsetY: 0
       level: 0
@@ -189,8 +189,8 @@ ModelImporter:
       hasAdditiveReferencePose: 0
       loopTime: 0
       loopBlend: 0
-      loopBlendOrientation: 0
-      loopBlendPositionY: 0
+      loopBlendOrientation: 1
+      loopBlendPositionY: 1
       loopBlendPositionXZ: 0
       keepOriginalOrientation: 0
       keepOriginalPositionY: 1

@@ -18,8 +18,8 @@ public class AIStateMachine : MonoBehaviour
 
     private AIMovementData movementData => AiSO != null ? AiSO.movementData : null;
 
-    [Header("目标查找（要攻击的对象 Tag）")]
-    public string targetTag = "Player";
+    /// <summary>目标查找的物理层过滤（LayerMask,默认指向 "player" 层,Build 时兜底注入）</summary>
+    public LayerMask targetLayer;
 
     [HideInInspector] public AnimancerComponent animancer;
 
@@ -95,6 +95,10 @@ public class AIStateMachine : MonoBehaviour
         animancer = GetComponent<AnimancerComponent>();
         characterController = GetComponent<CharacterController>();
 
+        // 目标层兜底:没配置就指向 "player" 层(AI 索敌/AOE 都用它做物理过滤)
+        if (targetLayer.value == 0)
+            targetLayer = LayerMask.GetMask("player");
+
         // NavMeshAgent 只负责算路径:位移仍走 CharacterController(和重力系统共用),
         // 位置/转向都由外部同步,避免两套移动打架
         navAgent = GetComponent<NavMeshAgent>();
@@ -130,6 +134,19 @@ public class AIStateMachine : MonoBehaviour
 
         var state = animancer.Play(data.animationClip, data.fadeDuration);
         state.Speed = data.playSpeed;
+        return state;
+    }
+
+    /// <summary>
+    /// 从头播放状态动画:先 Play 再归零播放头。
+    /// 专给受击刷新用——Animancer 对"已在播的同一段动画"调用 Play 只会继续播,
+    /// 硬直中再次受击重入 Hurt 节点时,必须归零受击动画才会重播
+    /// </summary>
+    public AnimancerState ReplayAnim(AIStateType type)
+    {
+        var state = PlayAnim(type);
+        if (state != null)
+            state.Time = 0f;          // 播放头拨回开头,保证从头播
         return state;
     }
 
@@ -213,11 +230,17 @@ public class AIStateMachine : MonoBehaviour
     public void NotifyAttackEnded() => lastAttackTime = Time.time;
 
     // 顶层切换:Root 换子状态(行为树调用入口;同状态重复调用是幂等的)
-    public void SwitchState(AIStateType type)
+    /// <summary>
+    /// 切换 Root 层状态
+    /// </summary>
+    /// <param name="type">目标状态</param>
+    /// <param name="forceRestart">目标就是当前状态时是否重入(Exit→Enter,重播动画);
+    /// 行为树用它实现"硬直中再次受击 → 重新进入 Hurt 节点"</param>
+    public void SwitchState(AIStateType type, bool forceRestart = false)
     {
         if (currentState is AIHierarchicalState root)
         {
-            root.SwitchSubState(type);
+            root.SwitchSubState(type, forceRestart);
         }
     }
 
@@ -275,19 +298,20 @@ public class AIStateMachine : MonoBehaviour
 
     public void TriggerDeath() => isDead = true;
 
+    /// <summary>直线兜底索敌(行为树 AIHasTarget 是主索敌入口):目标层内找最近的一个</summary>
     public Transform FindTarget()
     {
-        var enemies = GameObject.FindGameObjectsWithTag(targetTag);
+        Collider[] hits = Physics.OverlapSphere(transform.position, detectRange, targetLayer);
         Transform nearest = null;
         float minDist = float.MaxValue;
-        foreach (var e in enemies)
+        foreach (var h in hits)
         {
-            if (e == gameObject) continue;
-            float d = Vector3.Distance(transform.position, e.transform.position);
-            if (d < minDist && d <= detectRange)
+            if (h.transform.IsChildOf(transform)) continue;   // 排除自己及子物体
+            float d = Vector3.Distance(transform.position, h.transform.position);
+            if (d < minDist)
             {
                 minDist = d;
-                nearest = e.transform;
+                nearest = h.transform;
             }
         }
         return nearest;
@@ -373,14 +397,13 @@ public class AIStateMachine : MonoBehaviour
         ApplyHit(health, baseDamage);
     }
 
-    /// <summary>AOE 结算:radius 范围内所有 targetTag 目标各吃一次伤害</summary>
+    /// <summary>AOE 结算:radius 范围内所有目标层内的单位各吃一次伤害</summary>
     public void DealAoeDamage(float radius, float baseDamage)
     {
-        Collider[] hits = Physics.OverlapSphere(transform.position, radius);
+        Collider[] hits = Physics.OverlapSphere(transform.position, radius, targetLayer);
         foreach (var h in hits)
         {
-            if (h.gameObject == gameObject) continue;
-            if (!h.CompareTag(targetTag)) continue;
+            if (h.transform.IsChildOf(transform)) continue;   // 排除自己及子物体
 
             var health = h.GetComponentInParent<HealthModel>();
             if (health == null || !health.IsAlive) continue;

@@ -44,13 +44,9 @@ public class AIDieData : AIStateData
     [field: SerializeField, Min(0.1f)] public float dieAnimDuration { get; private set; } = 2f;
 }
 
-/// <summary>受击硬直数据</summary>
+/// <summary>受击硬直数据（僵直时长 = 受击动画播放时长,这里只配动画和播放参数）</summary>
 [System.Serializable]
-public class AIHurtData : AIStateData
-{
-    /// <summary>硬直时长（秒，定身 + 可被再次受击刷新）</summary>
-    [field: SerializeField, Min(0.05f)] public float stunDuration { get; private set; } = 0.4f;
-}
+public class AIHurtData : AIStateData { }
 
 /// <summary>
 /// 攻击数据（Attack1/2/3 各一份）

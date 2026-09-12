@@ -2,78 +2,49 @@ using UnityEngine;
 
 /// <summary>
 /// 受击硬直:被打时打断当前动作,播受击动画并定身。
-/// 硬直时长 = 受击动画本身的播放时长(动画播完即硬直结束),未配动画时退回 SO 里的 stunDuration。
+/// 没有独立僵直时长——受击动画播完(Animancer OnEnd)即硬直结束。
 /// 挂在 Root 层(与 Idle/Walk/Die 平级):任何状态下被打都要能立即切进来。
-/// 硬直期间再次被打 → 通过 HurtHitCount 计数感知 → 重播受击动画并刷新硬直计时(重新执行自己,不是切状态)。
+/// 硬直期间再次被打 → 行为树 AIStunRecover 检测到新受击 → forceRestart 重入本节点(动画重播)。
 /// 硬直结束后只标记 IsFinished 停在原地,去留由行为树决定;死亡反射转移保留(isDead→Die)。
 /// </summary>
 public class HurtState : AIState
 {
     // ============ 运行时状态 ============
-    private float timer;          // 硬直已持续时长
-    private float duration;       // 硬直总时长(= 受击动画长度/播放速度)
-    private bool finished;        // 硬直结束标记(行为树据此接管)
-    private int seenHitCount;     // 本状态已处理到的受击次数(对照 HurtHitCount 检测新受击)
-
-    // ============ 兜底参数（SO 里未配受击动画时用） ============
-    private AIHurtData Data => stateMachine.GetStateData(AIStateType.Hurt) as AIHurtData;
-    private float FallbackDuration => Data?.stunDuration ?? 0.4f;
+    private bool finished;   // 受击动画播完标记(行为树据此接管)
 
     public override bool IsFinished => finished;
 
     public HurtState(AIStateMachine m, GameObject o) : base(m, o, AIStateType.Hurt) { }
 
-    /// <summary>进入硬直:同步受击计数,播受击动画(硬直时长 = 动画长度)</summary>
+    /// <summary>进入硬直:播受击动画,Animancer OnEnd 触发结束(每次进入都重播,含 forceRestart 重入)</summary>
     public override void OnEnter()
     {
-        seenHitCount = stateMachine.HurtHitCount;
-        PlayHurt();
-    }
-
-    /// <summary>
-    /// 硬直期间定身(状态不产生任何位移)。
-    /// 检测到新受击 → 重播受击动画刷新硬直;
-    /// 动画播完 → 清受击标记 + 标记完成,不切状态
-    /// </summary>
-    public override void OnUpdate()
-    {
-        // 硬直中再次被打:重播受击动画,重置计时(未播完被打=从头播;播完了被打=继续留在硬直里重新打)
-        if (seenHitCount != stateMachine.HurtHitCount)
-        {
-            seenHitCount = stateMachine.HurtHitCount;
-            PlayHurt();
-        }
-
-        if (finished) return;   // 硬直已结束:停在原地,去留由行为树决定
-
-        timer += Time.deltaTime;
-        if (timer >= duration)
-        {
-            finished = true;
-            stateMachine.IsHurt = false;   // 受击结束:清标记,行为树的硬直分支随之退出
-        }
-    }
-
-    /// <summary>播放/重播受击动画,硬直时长取动画长度(重置计时与完成标记)</summary>
-    private void PlayHurt()
-    {
-        timer = 0f;
         finished = false;
+        Debug.Log($"[AI][诊断] Hurt.OnEnter (受击计数={stateMachine.HurtHitCount})");
 
-        var animState = stateMachine.PlayAnim(StateType);
-        if (animState != null)
+        var animState = stateMachine.ReplayAnim(StateType);
+        if (animState == null)
         {
-            // 墙钟时长 = 片段长度 / 播放速度(playSpeed 调速时硬直跟着动画走)
-            float speed = Mathf.Max(animState.Speed, 0.01f);
-            duration = animState.Length / speed;
-        }
-        else
-        {
-            duration = FallbackDuration;
-            Debug.LogWarning("[Hurt] 未配置受击动画,硬直时长退回 stunDuration 配置值");
+            // 没配受击动画:无法定义"播完",硬直立即结束(仅警告提示去配 AIPlayerSO)
+            Debug.LogWarning("[Hurt] 未配置受击动画,硬直立即结束");
+            finished = true;
+            stateMachine.IsHurt = false;
+            return;
         }
 
-        Debug.Log($"[Hurt] 受击硬直 {duration:F2}s");
+        // 同一片段复用同一 AnimancerState,清掉残留事件再挂本次的 OnEnd
+        animState.Events.Clear();
+        animState.Events.OnEnd = OnAnimEnd;
+    }
+
+    /// <summary>硬直期间定身(状态不产生任何位移),结束全由 Animancer OnEnd 事件驱动,无计时逻辑</summary>
+    public override void OnUpdate() { }
+
+    /// <summary>Animancer 播完事件:硬直结束,清受击标记,行为树接管去留</summary>
+    private void OnAnimEnd()
+    {
+        finished = true;
+        stateMachine.IsHurt = false;   // 受击结束:清标记,行为树的硬直分支随之退出
     }
 
     public override AIStateType? CheckTransitions()

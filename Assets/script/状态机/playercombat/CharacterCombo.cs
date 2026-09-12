@@ -268,8 +268,9 @@ public class CharacterCombo
         reusableData.detectionOrigin = origin;
         reusableData.detectionDir = playerTransform.forward;
 
-        // 敌人层：本段 ComboData 里配置的 LayerMask；未配置(0)回退全层，靠下方 IsChildOf 排除玩家自身
-        int layerMask = data.enemyLayer.value != 0 ? data.enemyLayer : Physics.DefaultRaycastLayers;
+        // 敌人层：本段 ComboData 里配置的 LayerMask；未配置(0)回退 player+enemy 两层
+        // (阵营统一走物理层:玩家角色在 player 层,敌方 AI 在 enemy 层,都纳入可被打的判定范围)
+        int layerMask = data.enemyLayer.value != 0 ? data.enemyLayer : LayerMask.GetMask("player", "enemy");
 
         int count = Physics.OverlapSphereNonAlloc(origin, data.attackDistance, _detectBuffer, layerMask);
 
