@@ -85,6 +85,9 @@ public class AIStateMachine : MonoBehaviour
     /// <summary>寻路代理(预制体上挂了 NavMeshAgent 才有,Walk 状态追击/巡逻用)</summary>
     public NavMeshAgent NavAgent => navAgent;
 
+    // FindTarget 用命中 buffer:复用同一数组,避免每帧 new Collider[](GC)
+    private readonly Collider[] targetBuffer = new Collider[32];
+
     /// <summary>
     /// 构建状态机（由 AIPlayer.Awake 调用并传入 SO，保证建状态机前数据已就位；
     /// 组件引用也在这里取，不依赖本组件 Awake 的执行顺序）
@@ -301,17 +304,22 @@ public class AIStateMachine : MonoBehaviour
     /// <summary>直线兜底索敌(行为树 AIHasTarget 是主索敌入口):目标层内找最近的一个</summary>
     public Transform FindTarget()
     {
-        Collider[] hits = Physics.OverlapSphere(transform.position, detectRange, targetLayer);
+        // NonAlloc 写入复用 buffer,不 new 数组 → 零 GC;物理计算不变
+        int count = Physics.OverlapSphereNonAlloc(transform.position, detectRange, targetBuffer, targetLayer);
+        if (count == targetBuffer.Length)
+            Debug.LogWarning($"[AI] {name} 索敌命中数达 buffer 上限({count}),可能漏检,建议调大 targetBuffer", this);
+
         Transform nearest = null;
         float minDist = float.MaxValue;
-        foreach (var h in hits)
+        for (int i = 0; i < count; i++)
         {
-            if (h.transform.IsChildOf(transform)) continue;   // 排除自己及子物体
-            float d = Vector3.Distance(transform.position, h.transform.position);
+            Transform t = targetBuffer[i].transform;
+            if (t.IsChildOf(transform)) continue;   // 排除自己及子物体
+            float d = Vector3.Distance(transform.position, t.position);
             if (d < minDist)
             {
                 minDist = d;
-                nearest = h.transform;
+                nearest = t;
             }
         }
         return nearest;

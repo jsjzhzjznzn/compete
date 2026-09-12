@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: AIPlayer
   m_EditorClassIdentifier: Assembly-CSharp::AIPlayerSO
   <movementData>k__BackingField:
-    <walkSpeed>k__BackingField: 3
+    <walkSpeed>k__BackingField: 1.5
     <detectRange>k__BackingField: 8
     <chaseRange>k__BackingField: 10
     <comboData>k__BackingField:
@@ -36,7 +36,6 @@ MonoBehaviour:
       <playSpeed>k__BackingField: 1
       <fadeDuration>k__BackingField: 0.15
       <rotationTime>k__BackingField: 0.04
-      <stunDuration>k__BackingField: 0.4
     <dieData>k__BackingField:
       <animationClip>k__BackingField: {fileID: -398616934780067719, guid: f5255da99f6af944b907e552b710ca49, type: 3}
       <playSpeed>k__BackingField: 1
