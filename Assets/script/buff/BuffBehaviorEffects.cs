@@ -9,6 +9,8 @@ using UnityEngine;
 [CreateAssetMenu(fileName = "BuffStun", menuName = "Create/Buff/眩晕")]
 public class BuffStunEffect : BuffEffect
 {
+    public override BuffControlFlags controlFlags => BuffControlFlags.Stun;
+
     public override void OnApply(BuffInstance buff) => GetState(buff)?.AddStun();
 
     public override void OnExpire(BuffInstance buff) => GetState(buff)?.RemoveStun();
@@ -21,6 +23,8 @@ public class BuffStunEffect : BuffEffect
 [CreateAssetMenu(fileName = "BuffSilence", menuName = "Create/Buff/沉默")]
 public class BuffSilenceEffect : BuffEffect
 {
+    public override BuffControlFlags controlFlags => BuffControlFlags.Silence;
+
     public override void OnApply(BuffInstance buff) => GetState(buff)?.AddSilence();
 
     public override void OnExpire(BuffInstance buff) => GetState(buff)?.RemoveSilence();
@@ -33,6 +37,8 @@ public class BuffSilenceEffect : BuffEffect
 [CreateAssetMenu(fileName = "BuffInvincible", menuName = "Create/Buff/无敌")]
 public class BuffInvincibleEffect : BuffEffect
 {
+    public override BuffControlFlags controlFlags => BuffControlFlags.Invincible;
+
     public override void OnApply(BuffInstance buff) => GetState(buff)?.AddInvincible();
 
     public override void OnExpire(BuffInstance buff) => GetState(buff)?.RemoveInvincible();

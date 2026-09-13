@@ -34,6 +34,17 @@ public class CharacterState : MonoBehaviour
     public void AddInvincible() => _invincibleCount++;
     public void RemoveInvincible() { if (_invincibleCount > 0) _invincibleCount--; }
 
+    /// <summary>
+    /// 直接设置三个状态计数（客户端从网络 Buff 镜像重建时调用）。
+    /// 服务端走 Add/Remove 引用计数；客户端不执行效果钩子，只能整份赋值。
+    /// </summary>
+    public void SetControlStates(int stun, int silence, int invincible)
+    {
+        _stunCount = Mathf.Max(0, stun);
+        _silenceCount = Mathf.Max(0, silence);
+        _invincibleCount = Mathf.Max(0, invincible);
+    }
+
     /// <summary>清空全部状态计数（死亡/复活重置）</summary>
     public void ClearAll()
     {

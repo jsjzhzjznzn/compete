@@ -21,6 +21,13 @@ public abstract class BuffEffect : ScriptableObject
     /// <summary>tick 间隔（秒）；0 = 不需要周期结算</summary>
     public virtual float tickInterval => 0f;
 
+    /// <summary>
+    /// 该策略贡献的行为控制标志（行为类 Buff 用）。
+    /// 服务端同步 buff 状态时写入 NetworkList，客户端据此同步本地 CharacterState；
+    /// 普通效果（属性/DoT/HoT）保持 None。
+    /// </summary>
+    public virtual BuffControlFlags controlFlags => BuffControlFlags.None;
+
     /// <summary>首次挂上时调用</summary>
     public virtual void OnApply(BuffInstance buff) { }
 

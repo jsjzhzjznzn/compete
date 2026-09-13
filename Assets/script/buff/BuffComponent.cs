@@ -24,15 +24,47 @@ public class BuffComponent : NetworkBehaviour
 
     private readonly List<BuffInstance> _buffs = new List<BuffInstance>();
 
+    /// <summary>
+    /// 网络 Buff 列表（服务端写、全员可读）：服务端把 _buffs 的摘要同步到各端，
+    /// 客户端据此重建只读镜像——解决迟到加入/断线重连看不到已有 Buff、客户端查询不到的问题。
+    /// 单机（!IsSpawned）全程不使用（NetworkList 未 spawn 时不可写）。
+    /// </summary>
+    private readonly NetworkList<BuffNetState> _netBuffs = new NetworkList<BuffNetState>();
+
     /// <summary>血量组件缓存（同物体上必有 HealthModel，首次访问懒获取）</summary>
     private HealthModel _health;
 
     private HealthModel Health => _health != null ? _health : _health = GetComponent<HealthModel>();
 
+    /// <summary>行为状态组件缓存（可能未挂载，未挂时行为类效果空转）</summary>
+    private CharacterState _characterState;
+
+    private CharacterState CharacterState => _characterState != null ? _characterState : _characterState = GetComponent<CharacterState>();
+
+    public override void OnNetworkSpawn()
+    {
+        _netBuffs.OnListChanged += OnNetBuffsChanged;
+
+        if (IsServer)
+            SyncNetBuffs();               // 初次全量推送（含 spawn 前已挂的 Buff）
+        else
+            RebuildLocalBuffsFromNet();   // 迟到加入：NetworkList 首次同步不走 OnListChanged，必须主动重建
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        _netBuffs.OnListChanged -= OnNetBuffsChanged;
+    }
+
     private void Update()
     {
-        // 服务端权威：非服务端不结算 Buff（DoT/回血/到期只由服务端模拟）
-        if (IsSpawned && !IsServer) return;
+        // 服务端权威：非服务端不结算 Buff（DoT/回血/到期只由服务端模拟），
+        // 只递减镜像剩余时间供展示（不跑效果、不做到期移除，移除由服务端列表增量驱动）
+        if (IsSpawned && !IsServer)
+        {
+            TickClientMirror();
+            return;
+        }
 
         // 死亡清空：血量归零后移除所有 Buff
         var health = Health;
@@ -44,6 +76,7 @@ public class BuffComponent : NetworkBehaviour
 
         // 倒序遍历：移除时安全 RemoveAt
         float dt = Time.deltaTime;
+        bool netDirty = false;
         for (int i = _buffs.Count - 1; i >= 0; i--)
         {
             var buff = _buffs[i];
@@ -70,8 +103,12 @@ public class BuffComponent : NetworkBehaviour
                 effect.OnExpire(buff);
                 _buffs.RemoveAt(i);
                 NotifyChange(buff.data, 0, 0f, false);
+                netDirty = true;
             }
         }
+
+        // 到期移出后统一同步一次网络列表（循环内只置脏，避免每帧多次写）
+        if (netDirty) SyncNetBuffs();
     }
 
     // ==================== 添加 / 移除 ====================
@@ -99,6 +136,7 @@ public class BuffComponent : NetworkBehaviour
             existing.stacks = Mathf.Min(existing.stacks + Mathf.Max(1, stacks), existing.data.maxStack);
             if (existing.data.duration > 0f) existing.remainTime = existing.data.duration;  // 叠加刷新时长
             existing.data.effect?.OnStackChanged(existing);   // 层数变化 → 属性类效果重算 Modifier
+            SyncNetBuffs();                                   // 层数/时长变化同步到网络列表
             NotifyChange(existing.data, existing.stacks, existing.remainTime, true);
             return;
         }
@@ -106,6 +144,7 @@ public class BuffComponent : NetworkBehaviour
         var buff = new BuffInstance(data, gameObject, source, stacks);
         _buffs.Add(buff);
         data.effect?.OnApply(buff);
+        SyncNetBuffs();                                       // 新增一条同步到网络列表
         NotifyChange(data, buff.stacks, buff.remainTime, true);
     }
 
@@ -151,6 +190,7 @@ public class BuffComponent : NetworkBehaviour
                 var removed = _buffs[i];
                 removed.data.effect?.OnRemove(removed);
                 _buffs.RemoveAt(i);
+                SyncNetBuffs();                               // 移除后同步到网络列表
                 NotifyChange(removed.data, 0, 0f, false);
                 return;
             }
@@ -170,6 +210,8 @@ public class BuffComponent : NetworkBehaviour
             _buffs.RemoveAt(i);
             NotifyChange(data, 0, 0f, false);
         }
+
+        SyncNetBuffs();   // 清空后同步（_netBuffs 一并清空）
     }
 
     /// <summary>是否带有指定 Buff（按 buffIdHash 匹配，与叠加判定口径一致）</summary>
@@ -180,6 +222,121 @@ public class BuffComponent : NetworkBehaviour
         for (int i = 0; i < _buffs.Count; i++)
             if (_buffs[i].data.buffIdHash == hash) return true;
         return false;
+    }
+
+    // ==================== 网络同步 ====================
+
+    /// <summary>
+    /// 服务端把 _buffs 的摘要按 buffIdHash 增量同步到 _netBuffs：
+    ///   新出现 → Add；已存在但状态变化（层数/到期时刻/控制标志）→ Set；已消失 → RemoveAt。
+    /// 单机（!IsSpawned）与客户端不可写，直接 return。
+    /// </summary>
+    private void SyncNetBuffs()
+    {
+        if (!IsSpawned || !IsServer) return;
+
+        // 反向：_netBuffs 中已不在 _buffs 的移除（从后往前 RemoveAt 安全）
+        for (int i = _netBuffs.Count - 1; i >= 0; i--)
+        {
+            if (FindBuff(_netBuffs[i].buffIdHash) == null)
+                _netBuffs.RemoveAt(i);
+        }
+
+        // 正向：_buffs 每条写入 / 更新（Set 内部有相等门禁：值没变不发事件）
+        for (int i = 0; i < _buffs.Count; i++)
+        {
+            var state = ToNetState(_buffs[i]);
+            int index = IndexOfNetBuff(state.buffIdHash);
+            if (index < 0) _netBuffs.Add(state);
+            else _netBuffs[index] = state;
+        }
+    }
+
+    /// <summary>
+    /// 客户端订阅 _netBuffs 变化：任何结构性变更都整体重建镜像（不按事件 Index 增量，避免索引错位）。
+    /// 服务端本地写也会触发本事件（host），必须 return 防重入、防与服务端本地派发重复。
+    /// </summary>
+    private void OnNetBuffsChanged(NetworkListEvent<BuffNetState> changeEvent)
+    {
+        if (IsServer) return;
+        RebuildLocalBuffsFromNet();
+    }
+
+    /// <summary>
+    /// 客户端从 _netBuffs 重建只读镜像 _buffs，并同步 CharacterState 的控制计数。
+    /// 【绝不调用效果钩子】：属性 Modifier 与控制效果只在服务端生效，客户端调钩子会污染本地账本。
+    /// </summary>
+    private void RebuildLocalBuffsFromNet()
+    {
+        if (!IsSpawned || IsServer) return;
+
+        _buffs.Clear();
+
+        int stun = 0, silence = 0, invincible = 0;
+        for (int i = 0; i < _netBuffs.Count; i++)
+        {
+            var state = _netBuffs[i];
+            var data = BuffDatabase.Resolve(state.buffIdHash);
+            if (data == null)
+            {
+                Debug.LogWarning($"[Buff] 客户端无法解析 buffIdHash={state.buffIdHash}，跳过（BuffDatabase 两端不一致？）", this);
+                continue;
+            }
+
+            var buff = new BuffInstance(data, gameObject, null, state.stacks);
+            buff.remainTime = state.endServerTime > 0.0
+                ? Mathf.Max(0f, (float)(state.endServerTime - NetworkManager.ServerTime.Time))
+                : float.MaxValue;
+            _buffs.Add(buff);
+
+            if ((state.controlFlags & (byte)BuffControlFlags.Stun) != 0) stun++;
+            if ((state.controlFlags & (byte)BuffControlFlags.Silence) != 0) silence++;
+            if ((state.controlFlags & (byte)BuffControlFlags.Invincible) != 0) invincible++;
+        }
+
+        CharacterState?.SetControlStates(stun, silence, invincible);
+    }
+
+    /// <summary>
+    /// 客户端镜像计时：仅按 deltaTime 递减 remainTime 供 UI 展示，
+    /// 不做任何结算、不做到期移除、不派发事件——到期移除完全由服务端 _netBuffs 增量驱动。
+    /// 与服务端一致用 Time.deltaTime，顿帧/慢动作时两端同步暂停。
+    /// </summary>
+    private void TickClientMirror()
+    {
+        float dt = Time.deltaTime;
+        for (int i = 0; i < _buffs.Count; i++)
+        {
+            var buff = _buffs[i];
+            if (buff.data.duration > 0f && buff.remainTime < float.MaxValue)
+                buff.remainTime = Mathf.Max(0f, buff.remainTime - dt);
+        }
+    }
+
+    /// <summary>把一条运行时 Buff 摘要成可同步状态（永久 Buff 的 endServerTime 用 0 哨兵，避免超大数）</summary>
+    private BuffNetState ToNetState(BuffInstance buff)
+    {
+        double endServerTime = buff.data.duration > 0f
+            ? NetworkManager.ServerTime.Time + buff.remainTime
+            : 0.0;
+        byte flags = (byte)(buff.data.effect != null ? buff.data.effect.controlFlags : BuffControlFlags.None);
+        return new BuffNetState(buff.data.buffIdHash, buff.stacks, endServerTime, flags);
+    }
+
+    /// <summary>按 buffIdHash 找运行时 Buff（找不到返回 null）</summary>
+    private BuffInstance FindBuff(int buffIdHash)
+    {
+        for (int i = 0; i < _buffs.Count; i++)
+            if (_buffs[i].data.buffIdHash == buffIdHash) return _buffs[i];
+        return null;
+    }
+
+    /// <summary>按 buffIdHash 找 _netBuffs 下标（找不到返回 -1）</summary>
+    private int IndexOfNetBuff(int buffIdHash)
+    {
+        for (int i = 0; i < _netBuffs.Count; i++)
+            if (_netBuffs[i].buffIdHash == buffIdHash) return i;
+        return -1;
     }
 
     // ==================== 内部 ====================
