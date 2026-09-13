@@ -90,39 +90,57 @@ public class HealthModel : NetworkBehaviour
         netMaxHP.Value = MaxHP.Value;
     }
 
-    // ============ 网络伤害入口（攻击者端命中远程玩家时走这里，服务器结算） ============
+    // ============ 伤害请求入口（服务端权威：服务端用服务端属性重算） ============
 
     /// <summary>
-    /// 网络伤害入口：攻击者（任意端）命中远程玩家时调用。
-    /// 伤害通过 ServerRpc 发到服务器，服务器校验后结算，结算结果：
-    ///   - NetworkVariable 广播血量（所有端血条刷新）
-    ///   - 定向 ClientRpc 通知目标拥有者端派发表现事件（受击/飘字/震屏/死亡）
-    /// 单机模式（未 spawn）直接本地结算，保持原逻辑。
+    /// 伤害请求入口（攻击方调用）：单机本地用 DamageCalculator 结算；
+    /// 联网发到服务端，由服务端按攻击段原始数值 + 服务端属性重算后结算。
+    /// 这样受击方减伤/攻击方增伤等只以【服务端】数据为准，修复跨端读到本地旧副本的问题。
     /// </summary>
-    /// <param name="amount">扣血量</param>
-    /// <param name="sourceId">伤害来源 NetworkObjectId（未 spawn 时忽略）</param>
-    /// <param name="isCritical">是否暴击（飘字样式区分）</param>
-    /// <param name="isDoT">是否持续伤害（Buff 灼烧类 tick；订阅方据此跳过受击硬直/闪避触发）</param>
-    public void ApplyNetworkDamage(float amount, ulong sourceId, bool isCritical = false, bool isDoT = false)
+    /// <param name="req">伤害请求（原始数值 + 攻击者网络 id）</param>
+    /// <param name="source">攻击者 GameObject（单机路径直接用；联网路径忽略，服务端按 id 解析）</param>
+    public void RequestDamage(in DamageRequest req, GameObject source = null)
     {
         if (!IsSpawned)
         {
-            // 单机模式：攻击者即本地玩家，直接走本地结算链路
-            TakeDamage(amount, GetSourceObject(sourceId), isCritical, isDoT);
+            // 单机：本地计算 + 结算（保持原行为）
+            var localResult = DamageCalculator.Calculate(new DamageContext
+            {
+                baseDamage = req.baseDamage,
+                critRate = req.critRate,
+                critMultiplier = req.critMultiplier,
+                attacker = source,
+                defender = gameObject,
+            });
+            TakeDamage(localResult.finalDamage, source, localResult.isCritical, req.isDoT);
             return;
         }
-        SendDamageServerRpc(amount, sourceId, isCritical, isDoT);
+
+        RequestDamageServerRpc(req.baseDamage, req.critRate, req.critMultiplier, req.sourceId, req.isDoT);
     }
 
+    /// <summary>
+    /// 服务端结算：按服务端属性重算最终伤害（增伤/减伤账本都在服务端）。
+    /// </summary>
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-    private void SendDamageServerRpc(float amount, ulong sourceId, bool isCritical, bool isDoT)
+    private void RequestDamageServerRpc(float baseDamage, float critRate, float critMultiplier, ulong sourceId, bool isDoT)
     {
         if (!IsServer) return;
 
-        // 基础校验：数值非法/超上限直接丢弃（阶段 2 换成服务器按攻击配置重算伤害，这里才是真正的数值权威）
-        if (!float.IsFinite(amount) || amount <= 0f || amount > MaxHitDamage) return;
+        // 基础校验：数值非法/超上限直接丢弃（防伪造）
+        if (!float.IsFinite(baseDamage) || baseDamage < 0f || baseDamage > MaxHitDamage) return;
 
-        TakeDamage(amount, GetSourceObject(sourceId), isCritical, isDoT);   // 服务器结算 + 内部定向通知
+        var attacker = GetSourceObject(sourceId);
+        var result = DamageCalculator.Calculate(new DamageContext
+        {
+            baseDamage = baseDamage,
+            critRate = critRate,
+            critMultiplier = critMultiplier,
+            attacker = attacker,
+            defender = gameObject,
+        });
+
+        TakeDamage(result.finalDamage, attacker, result.isCritical, isDoT);   // 服务端结算 + 内部定向通知
     }
 
     // ============ 扣血逻辑（联网时只在服务器执行） ============

@@ -14,7 +14,7 @@ using UnityEngine;
 ///   纯计算无状态、无 Update，不需要场景对象，直接 DamageCalculator.Calculate() 调用。
 ///
 /// 数值来源约定：
-///   增伤/减伤系数从攻击方/受击方的 BuffComponent 查询（没挂组件返回 0）；
+///   增伤/减伤系数从攻击方/受击方的 AttributeComponent 属性账本读取（没挂组件/无加成返回 0）；
 ///   暴击参数由调用方传入（ComboData 每段独立配置）。
 /// </summary>
 public static class DamageCalculator
@@ -35,8 +35,8 @@ public static class DamageCalculator
         float damage = ctx.baseDamage;
         result.stageBase = damage;
 
-        // 阶段 2：攻击方增伤（BuffComponent 查询，无组件返回 0 即无加成）
-        float attackerBonus = GetModifier(ctx.attacker, BuffEffectType.DamageUp);
+        // 阶段 2：攻击方增伤（读 AttributeComponent.DamageUp，无组件返回 0 即无加成）
+        float attackerBonus = GetModifier(ctx.attacker, AttrType.DamageUp);
         damage *= 1f + attackerBonus;
         result.stageAttackerBonus = damage;
 
@@ -48,8 +48,8 @@ public static class DamageCalculator
         }
         result.stageCritical = damage;
 
-        // 阶段 4：防御方减伤（系数 clamp 到 [0, 0.9]）
-        float defenderReduction = Mathf.Clamp(GetModifier(ctx.defender, BuffEffectType.DamageDown), 0f, MaxDamageReduction);
+        // 阶段 4：防御方减伤（读 AttributeComponent.DamageDown，系数 clamp 到 [0, 0.9]）
+        float defenderReduction = Mathf.Clamp(GetModifier(ctx.defender, AttrType.DamageDown), 0f, MaxDamageReduction);
         damage *= 1f - defenderReduction;
         result.stageDefenderReduction = damage;
 
@@ -70,22 +70,17 @@ public static class DamageCalculator
     }
 
     /// <summary>
-    /// 查询某角色的指定类型 Buff 修饰系数（各层数值求和，向上取整层数倍）。
-    /// 角色身上没有 BuffComponent 或没有对应 Buff 时返回 0（无修饰）。
+    /// 查询某角色指定系数型属性的最终值（读 AttributeComponent 账本）。
+    /// 角色身上没有 AttributeComponent（或其加成 Buff 不在本端）时返回 0（无修饰）。
     /// </summary>
-    private static float GetModifier(GameObject target, BuffEffectType type)
+    private static float GetModifier(GameObject target, AttrType type)
     {
         if (target == null) return 0f;
 
-        // GetComponentInParent：命中 Collider 挂在子物体时也能找到角色根上的 BuffComponent
-        var buffComponent = target.GetComponentInParent<BuffComponent>();
-        if (buffComponent == null) return 0f;
+        // GetComponentInParent：命中 Collider 挂在子物体时也能找到角色根上的属性组件
+        var attr = target.GetComponentInParent<AttributeComponent>();
+        if (attr == null) return 0f;
 
-        return type switch
-        {
-            BuffEffectType.DamageUp => buffComponent.GetDamageUpModifier(),
-            BuffEffectType.DamageDown => buffComponent.GetDamageDownModifier(),
-            _ => 0f,
-        };
+        return attr.GetValue(type);
     }
 }

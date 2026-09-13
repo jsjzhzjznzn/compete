@@ -16,9 +16,6 @@ MonoBehaviour:
     <walkSpeed>k__BackingField: 1.5
     <detectRange>k__BackingField: 8
     <chaseRange>k__BackingField: 10
-    <comboData>k__BackingField:
-      <comboSequence>k__BackingField: 060000000700000008000000
-      <resetTime>k__BackingField: 2
     <idleData>k__BackingField:
       <animationClip>k__BackingField: {fileID: -6197149268509949104, guid: f5255da99f6af944b907e552b710ca49, type: 3}
       <playSpeed>k__BackingField: 1
@@ -42,39 +39,16 @@ MonoBehaviour:
       <fadeDuration>k__BackingField: 0.15
       <rotationTime>k__BackingField: 0.04
       <dieAnimDuration>k__BackingField: 2
-    <attack1Data>k__BackingField:
-      <animationClip>k__BackingField: {fileID: 8094536438289310887, guid: f5255da99f6af944b907e552b710ca49, type: 3}
-      <playSpeed>k__BackingField: 1
-      <fadeDuration>k__BackingField: 0.15
-      <rotationTime>k__BackingField: 0.04
-      <duration>k__BackingField: 0.8
-      <hitTime>k__BackingField: 0.35
-      <secondHitTime>k__BackingField: 0.75
-      <range>k__BackingField: 2
-      <damage>k__BackingField: 10
-      <cooldown>k__BackingField: 0.2
-      <aoeRadius>k__BackingField: 4
-    <attack2Data>k__BackingField:
-      <animationClip>k__BackingField: {fileID: -8010443721694757569, guid: f5255da99f6af944b907e552b710ca49, type: 3}
-      <playSpeed>k__BackingField: 1
-      <fadeDuration>k__BackingField: 0.15
-      <rotationTime>k__BackingField: 0.04
-      <duration>k__BackingField: 0.8
-      <hitTime>k__BackingField: 0.35
-      <secondHitTime>k__BackingField: 0.75
-      <range>k__BackingField: 2
-      <damage>k__BackingField: 10
-      <cooldown>k__BackingField: 0.2
-      <aoeRadius>k__BackingField: 4
-    <attack3Data>k__BackingField:
-      <animationClip>k__BackingField: {fileID: 4141581912768169984, guid: f5255da99f6af944b907e552b710ca49, type: 3}
-      <playSpeed>k__BackingField: 1
-      <fadeDuration>k__BackingField: 0.15
-      <rotationTime>k__BackingField: 0.04
-      <duration>k__BackingField: 0.8
-      <hitTime>k__BackingField: 0.35
-      <secondHitTime>k__BackingField: 0.75
-      <range>k__BackingField: 2
-      <damage>k__BackingField: 10
-      <cooldown>k__BackingField: 0.2
-      <aoeRadius>k__BackingField: 4
+  <phases>k__BackingField:
+  - <enterHpRatio>k__BackingField: 0.453
+    <combo>k__BackingField:
+      <attacks>k__BackingField: []
+      <resetTime>k__BackingField: 0.1
+    <damageMultiplier>k__BackingField: 0
+    <maxHp>k__BackingField: 0
+  - <enterHpRatio>k__BackingField: 0
+    <combo>k__BackingField:
+      <attacks>k__BackingField: []
+      <resetTime>k__BackingField: 0
+    <damageMultiplier>k__BackingField: 0
+    <maxHp>k__BackingField: 0

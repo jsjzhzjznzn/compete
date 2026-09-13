@@ -82,6 +82,12 @@ public class AIPlayer : CharacterMoveControllerBase
         // Buff 组件兜底挂载（与 Player 一致：增伤/减伤/持续伤害都依赖它）
         if (GetComponent<BuffComponent>() == null)
             gameObject.AddComponent<BuffComponent>();
+
+        // 属性账本（Buff 的属性加成写 Modifier）+ 行为状态（眩晕/沉默计数）
+        if (GetComponent<AttributeComponent>() == null)
+            gameObject.AddComponent<AttributeComponent>();
+        if (GetComponent<CharacterState>() == null)
+            gameObject.AddComponent<CharacterState>();
     }
 
     private void OnEnable()

@@ -218,27 +218,22 @@ public class CharacterCombo
 
             if (!_hitTargets.Add(target.gameObject)) continue;  // 同一受击单位只结算一次
 
-            // 走伤害计算管道：Base → 攻击方增伤 → 暴击 → 防御方减伤 → 保底（明细可查 result.stage* 字段调试）
-            var result = DamageCalculator.Calculate(new DamageContext
+            // 伤害交给受击方走请求入口：单机本地算，联网由服务端用服务端属性重算（服务端权威）
+            target.RequestDamage(new DamageRequest
             {
                 baseDamage = data.comboDamage,
                 critRate = data.critRate,
                 critMultiplier = data.critMultiplier,
-                attacker = player.gameObject,
-                defender = target.gameObject,
-            });
-            // 网络伤害：命中远程玩家 → RPC 转发到目标拥有者端结算（受击/飘字在对方端走本地链路）；
-            // 单机敌人（未 spawn）直接本地结算，保持原逻辑
-            if (target.IsSpawned)
-                target.ApplyNetworkDamage(result.finalDamage, player.NetworkObjectId, result.isCritical);
-            else
-                target.TakeDamage(result.finalDamage, player.gameObject, result.isCritical);
+                sourceId = player.IsSpawned ? player.NetworkObjectId : 0UL,
+                isDoT = false,
+            }, player.gameObject);
 
             // 命中附带 Buff：本次伤害先结算完再挂状态（挂的增伤/减伤从下一击生效，不影响本次）
+            // 走 RequestAddBuff：联网时转发到服务端挂（Buff 服务端权威），单机本地挂
             if (data.hitBuff != null)
             {
                 var targetBuff = target.GetComponent<BuffComponent>();
-                targetBuff?.AddBuff(data.hitBuff, player.gameObject);
+                targetBuff?.RequestAddBuff(data.hitBuff, player.gameObject);
             }
 
             // 命中事件：吸血/叠层/击杀回怒类效果订阅（HitData 已定义，此前无人派发）

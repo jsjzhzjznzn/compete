@@ -35,11 +35,14 @@ public class BuffData : ScriptableObject
     public string buffId => _buffId;
 
     /// <summary>
-    /// Buff 标识的预计算哈希（叠加判定用，替代字符串比较）
+    /// Buff 标识的预计算哈希（叠加判定用，替代字符串比较）。
     /// Animator.StringToHash 内部有全局字符串→哈希缓存表，同一字符串只算一次；
     /// 后续所有比较都走 int，比 string == 快一个量级。哈希冲突概率极低，可忽略。
+    ///
+    /// 空 buffId 兜底用【资产名】：否则所有没填 buffId 的 BuffData 都会哈希到同一个值，
+    /// 被当成同一个 Buff 叠到一起（配置串味）。
     /// </summary>
-    public int buffIdHash => Animator.StringToHash(_buffId ?? string.Empty);
+    public int buffIdHash => Animator.StringToHash(string.IsNullOrEmpty(_buffId) ? name : _buffId);
 
     /// <summary>Buff 显示名称</summary>
     public string buffName => _buffName;
@@ -53,4 +56,13 @@ public class BuffData : ScriptableObject
     /// <summary>最大层数</summary>
     public int maxStack => _maxStack;
     #endregion
+
+#if UNITY_EDITOR
+    /// <summary>编辑器校验：buffId 为空会回退资产名当叠层键，提醒显式填写</summary>
+    private void OnValidate()
+    {
+        if (string.IsNullOrEmpty(_buffId))
+            Debug.LogWarning($"[BuffData] \"{name}\" 未填 buffId，将临时用资产名当叠层键；建议显式填写（同一 buffId 视为同一 Buff）", this);
+    }
+#endif
 }

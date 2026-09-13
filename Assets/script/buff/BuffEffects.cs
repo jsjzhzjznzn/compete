@@ -2,43 +2,67 @@ using UnityEngine;
 
 // ============================================================================
 // Buff 效果策略具体实现（每类一个策略资产，Inspector 右键 Create/Buff/... 创建）
-// 新增效果类型：新建一个继承 BuffEffect 的类即可，BuffComponent 不用改。
+// 注意：策略资产全局共享，禁止存运行时状态；状态一律放 BuffInstance。
 // ============================================================================
 
 /// <summary>
-/// 增伤策略：提升造成的伤害（乘区）
-/// 资产配置：每层增伤系数，如 0.3 = 伤害 +30%
+/// 属性加成策略（系数型）：给携带者的指定属性增/删一条 Modifier。
+/// 资产配置：作用属性(AttrType) + 修改类型(加/乘) + 每层数值。
+///
+/// 叠层正确性：每次重算都先按来源删掉旧 Modifier 再加新的，
+/// 因此 3 层 = perStack × 3（而不是重复 Add 造成的 1+2+3 三角叠加）。
+/// 清理放在 OnExpire（OnRemove 默认转 OnExpire），主动移除与自然到期都会清账。
 /// </summary>
-[CreateAssetMenu(fileName = "BuffDamageUp", menuName = "Create/Buff/增伤")]
-public class BuffDamageUpEffect : BuffEffect
+[CreateAssetMenu(fileName = "BuffAttribute", menuName = "Create/Buff/属性加成")]
+public class BuffAttributeEffect : BuffEffect
 {
-    [SerializeField, Header("每层增伤系数（0.3 = 伤害 +30%）")]
-    private float _percent = 0.3f;
+    [SerializeField, Header("作用的属性（系数型）")]
+    private AttrType _attrType = AttrType.DamageUp;
 
-    public override BuffEffectType effectType => BuffEffectType.DamageUp;
+    [SerializeField, Header("修改类型（加法/乘法）")]
+    private ModType _modType = ModType.Add;
 
-    public override float GetModifier(BuffInstance buff) => _percent * buff.stacks;
+    [SerializeField, Header("每层数值（最终 = 此值 × 层数）")]
+    private float _valuePerStack = 0.3f;
+
+#if UNITY_EDITOR
+    /// <summary>编辑器校验：系数型属性 Base=0，用 Multiply 会把结果乘成 0，提醒改用 Add</summary>
+    private void OnValidate()
+    {
+        if (_modType == ModType.Multiply)
+            Debug.LogWarning($"[{name}] 属性加成选了 Multiply；系数型属性 Base=0 时 (0+Add)×Mul 通常得到 0，一般应选 Add", this);
+    }
+#endif
+
+    public override void OnApply(BuffInstance buff) => ApplyModifier(buff);
+
+    public override void OnStackChanged(BuffInstance buff) => ApplyModifier(buff);
+
+    public override void OnExpire(BuffInstance buff) => RemoveModifier(buff);
+
+    private void ApplyModifier(BuffInstance buff)
+    {
+        var attr = GetAttr(buff);
+        if (attr == null) return;
+
+        var container = attr.Get(_attrType);
+        container.RemoveAllFromSource(buff);   // 先删旧（叠层重算/重复挂），避免累加出错
+        container.AddModifier(new AttributeModifier(_modType, _valuePerStack * buff.stacks, buff));
+    }
+
+    private void RemoveModifier(BuffInstance buff)
+    {
+        GetAttr(buff)?.Get(_attrType).RemoveAllFromSource(buff);
+    }
+
+    private static AttributeComponent GetAttr(BuffInstance buff)
+        => buff.owner != null ? buff.owner.GetComponent<AttributeComponent>() : null;
 }
 
 /// <summary>
-/// 减伤策略：降低受到的伤害（乘区）
-/// 资产配置：每层减伤系数，如 0.2 = 受到的伤害 -20%（DamageCalculator 统一 clamp 上限 90%）
-/// </summary>
-[CreateAssetMenu(fileName = "BuffDamageDown", menuName = "Create/Buff/减伤")]
-public class BuffDamageDownEffect : BuffEffect
-{
-    [SerializeField, Header("每层减伤系数（0.2 = 受到的伤害 -20%）")]
-    private float _percent = 0.2f;
-
-    public override BuffEffectType effectType => BuffEffectType.DamageDown;
-
-    public override float GetModifier(BuffInstance buff) => _percent * buff.stacks;
-}
-
-/// <summary>
-/// 持续伤害策略（DoT，灼烧/中毒）：
-/// 按 tickInterval 周期扣血，isDoT=true → 不触发受击硬直、无视无敌窗口
-/// 资产配置：每次 tick 扣血量 + tick 间隔
+/// 持续伤害策略（DoT，灼烧/中毒）：按 tickInterval 周期扣血，isDoT=true → 不触发受击硬直、无视无敌。
+/// 资产配置：每次 tick 扣血量 + tick 间隔（实际扣血 = 此值 × 层数）。
+/// 服务端结算（BuffComponent 只在服务端 tick）。
 /// </summary>
 [CreateAssetMenu(fileName = "BuffDot", menuName = "Create/Buff/持续伤害DoT")]
 public class BuffDotEffect : BuffEffect
@@ -49,19 +73,18 @@ public class BuffDotEffect : BuffEffect
     [SerializeField, Header("tick 间隔（秒）")]
     private float _tickInterval = 0.5f;
 
-    public override BuffEffectType effectType => BuffEffectType.DoT;
-
     public override float tickInterval => _tickInterval;
 
     public override void OnTick(BuffInstance buff, HealthModel health)
     {
+        if (health == null) return;
         health.TakeDamage(_tickDamage * buff.stacks, buff.source, false, true);
     }
 }
 
 /// <summary>
-/// 持续回血策略（HoT，治疗/再生）：按 tickInterval 周期回血
-/// 资产配置：每次 tick 回血量 + tick 间隔
+/// 持续回血策略（HoT，治疗/再生）：按 tickInterval 周期回血。
+/// 资产配置：每次 tick 回血量 + tick 间隔（实际回血 = 此值 × 层数）。
 /// </summary>
 [CreateAssetMenu(fileName = "BuffHot", menuName = "Create/Buff/持续回血HoT")]
 public class BuffHoTEffect : BuffEffect
@@ -72,44 +95,11 @@ public class BuffHoTEffect : BuffEffect
     [SerializeField, Header("tick 间隔（秒）")]
     private float _tickInterval = 1f;
 
-    public override BuffEffectType effectType => BuffEffectType.HoT;
-
     public override float tickInterval => _tickInterval;
 
     public override void OnTick(BuffInstance buff, HealthModel health)
     {
+        if (health == null) return;
         health.Heal(_tickHeal * buff.stacks);
     }
-}
-
-/// <summary>
-/// 加速策略：提升移动速度（乘区）
-/// 资产配置：每层移速加成系数，如 0.2 = 移速 +20%
-/// （移动状态机接入见二期，接口已提供 GetSpeedModifier）
-/// </summary>
-[CreateAssetMenu(fileName = "BuffSpeedUp", menuName = "Create/Buff/加速")]
-public class BuffSpeedUpEffect : BuffEffect
-{
-    [SerializeField, Header("每层移速加成系数（0.2 = +20%）")]
-    private float _percent = 0.2f;
-
-    public override BuffEffectType effectType => BuffEffectType.SpeedUp;
-
-    public override float GetModifier(BuffInstance buff) => _percent * buff.stacks;
-}
-
-/// <summary>
-/// 减速策略：降低移动速度（乘区）
-/// 资产配置：每层移速降低系数，如 0.2 = -20%
-/// GetModifier 返回负值，便于 GetSpeedModifier 直接把增/减速求和
-/// </summary>
-[CreateAssetMenu(fileName = "BuffSpeedDown", menuName = "Create/Buff/减速")]
-public class BuffSpeedDownEffect : BuffEffect
-{
-    [SerializeField, Header("每层移速降低系数（0.2 = -20%）")]
-    private float _percent = 0.2f;
-
-    public override BuffEffectType effectType => BuffEffectType.SpeedDown;
-
-    public override float GetModifier(BuffInstance buff) => -_percent * buff.stacks;
 }

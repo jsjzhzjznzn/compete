@@ -485,28 +485,24 @@ public class AIStateMachine : MonoBehaviour
         }
     }
 
-    /// <summary>单次命中结算:伤害管道 → 本地/网络分发</summary>
+    /// <summary>单次命中结算:走受击方的伤害请求入口(服务端权威:联网由服务端用服务端属性重算)</summary>
     private void ApplyHit(HealthModel health, float baseDamage)
     {
         // 当前阶段伤害倍率(暴怒阶段加伤)
         float phaseMult = CurrentPhaseData?.damageMultiplier ?? 1f;
 
-        var result = DamageCalculator.Calculate(new DamageContext
+        var attackerNetObj = GetComponentInParent<NetworkObject>();
+        ulong sourceId = (attackerNetObj != null && attackerNetObj.IsSpawned) ? attackerNetObj.NetworkObjectId : 0UL;
+
+        health.RequestDamage(new DamageRequest
         {
             baseDamage = baseDamage * phaseMult,
             critRate = 0f,          // TODO: 需要暴击时把 critRate/critMultiplier 加进 AIAttackData
             critMultiplier = 1f,
-            attacker = gameObject,
-            defender = health.gameObject,
-        });
+            sourceId = sourceId,
+            isDoT = false,
+        }, gameObject);
 
-        // 联网目标走网络伤害(转发到拥有者端结算);单机/未联网直接本地结算
-        var attackerNetObj = GetComponentInParent<NetworkObject>();
-        if (health.IsSpawned && attackerNetObj != null && attackerNetObj.IsSpawned)
-            health.ApplyNetworkDamage(result.finalDamage, attackerNetObj.NetworkObjectId, result.isCritical);
-        else
-            health.TakeDamage(result.finalDamage, gameObject, result.isCritical);
-
-        Debug.Log($"[AI] 命中 {health.name} 伤害 {result.finalDamage:F1}{(result.isCritical ? "(暴击)" : "")}");
+        Debug.Log($"[AI] 请求命中 {health.name}(基础伤害 {baseDamage * phaseMult:F1})");
     }
 }
