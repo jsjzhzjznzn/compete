@@ -59,11 +59,15 @@ public class AIAttackData : AIStateData
     /// <summary>整个攻击动作的总时长（秒，秒表兜底模式用）</summary>
     [field: SerializeField] public float duration { get; private set; } = 0.8f;
 
-    /// <summary>命中判定时刻列表（动画开始后第几秒出伤害，可多段；空=本段无伤害判定）</summary>
-    [field: SerializeField] public List<float> hitTimes { get; private set; } = new List<float> { 0.35f };
+    /// <summary>命中判定时刻列表（0~1 动画归一化比例，0.6=动画播到 60% 时出伤害；可多段；空=本段无伤害判定）</summary>
+    [field: SerializeField] public List<float> hitTimes { get; private set; } = new List<float> { 0.6f };
 
     /// <summary>攻击范围（米）</summary>
     [field: SerializeField] public float range { get; private set; } = 2f;
+
+    /// <summary>命中判定角度（度，以角色正面为中心的扇形，只算水平面）：只打前方这个角度内的目标；
+    /// &lt;=0 或 &gt;=360 视为全向（不判角度，保持旧行为）</summary>
+    [field: SerializeField] public float hitAngle { get; private set; } = 360f;
 
     /// <summary>伤害（每次命中结算一次）</summary>
     [field: SerializeField] public float damage { get; private set; } = 10f;
@@ -108,9 +112,6 @@ public class AIPhaseData
 
     /// <summary>本阶段伤害倍率（作用在 AIAttackData.damage 上，1=不变）</summary>
     [field: SerializeField, Min(0f)] public float damageMultiplier { get; private set; } = 1f;
-
-    /// <summary>进入本阶段设置的 MaxHP（&lt;=0 表示不改血量上限）</summary>
-    [field: SerializeField] public float maxHp { get; private set; }
 }
 
 /// <summary>
@@ -129,6 +130,9 @@ public class AIMovementData
 
     /// <summary>脱离追击半径（米）</summary>
     [field: SerializeField] public float chaseRange { get; private set; } = 10f;
+
+    /// <summary>进入"攻击"分支的距离门槛（米）：到锁定目标这么近就出招（与招式里的 range 无关）</summary>
+    [field: SerializeField] public float attackRange { get; private set; } = 2f;
 
     [Header("各状态数据")]
     [field: SerializeField] public AIIdleData idleData { get; private set; }

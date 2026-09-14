@@ -18,7 +18,7 @@ public class AIStateMachine : MonoBehaviour
 
     private AIMovementData movementData => AiSO != null ? AiSO.movementData : null;
 
-    // ============ Boss 阶段（只切数据：连招 / 伤害倍率 / 血量上限） ============
+    // ============ Boss 阶段（只切数据：连招 / 伤害倍率） ============
 
     /// <summary>当前阶段索引（0=起始/普通，1=暴怒…），由 phases 顺序决定</summary>
     public int CurrentPhaseIndex { get; private set; }
@@ -48,6 +48,13 @@ public class AIStateMachine : MonoBehaviour
     public float detectRange => movementData?.detectRange ?? 8f;
     public float chaseRange => movementData?.chaseRange ?? 10f;
 
+    /// <summary>进入"攻击"分支的距离门槛（米）：行为树 AIInAttackRange 用它判定（固定值，与招式 range 无关）。
+    /// 兜底：SO 没配/配 0 时回退 2 米——否则判定永远 false，AI 只会追击顶着玩家走。</summary>
+    public float attackRange
+    {
+        get { float r = movementData?.attackRange ?? 2f; return r > 0f ? r : 2f; }
+    }
+
     /// <summary>按状态类型取状态数据（动画片段/播放参数）</summary>
     public AIStateData GetStateData(AIStateType type) => type switch
     {
@@ -72,23 +79,6 @@ public class AIStateMachine : MonoBehaviour
         var combo = comboData;
         if (combo?.attacks == null || index < 0 || index >= combo.attacks.Count) return null;
         return combo.attacks[index];
-    }
-
-    /// <summary>连招里最大的攻击范围（行为树 AIInAttackRange 判定用：任一段够得着即算在范围内）</summary>
-    public float MaxAttackRange
-    {
-        get
-        {
-            var combo = comboData;
-            if (combo?.attacks == null || combo.attacks.Count == 0) return 2f;
-            float max = 0f;
-            for (int i = 0; i < combo.attacks.Count; i++)
-            {
-                var a = combo.attacks[i];
-                if (a != null && a.range > max) max = a.range;
-            }
-            return max;
-        }
     }
 
     // ============ 状态表与连招 ============
@@ -185,7 +175,8 @@ public class AIStateMachine : MonoBehaviour
         }
 
         var state = animancer.Play(data.animationClip, data.fadeDuration);
-        state.Speed = data.playSpeed;
+        // 兜底：playSpeed 配成 0 会把动画冻住（且 OnEnd 永不到来，攻击状态出不来），下限钳到 0.01
+        state.Speed = Mathf.Max(0.01f, data.playSpeed);
         return state;
     }
 
@@ -255,11 +246,28 @@ public class AIStateMachine : MonoBehaviour
         currentState.OnUpdate();
         ApplyPendingPhase();      // 收招后应用挂起的阶段切换
         ResetComboIfExpired();
+        LogDiagOncePerSecond();   // 临时排障：定位"攻击后楞住"（定位后可删）
+    }
+
+    // ============ 临时排障（定位"攻击后楞住"；定位后整段删掉即可） ============
+    private float _diagNextLogTime;
+
+    private void LogDiagOncePerSecond()
+    {
+        if (Time.unscaledTime < _diagNextLogTime) return;
+        _diagNextLogTime = Time.unscaledTime + 1f;
+
+        int segCount = comboData?.attacks?.Count ?? 0;
+        string targetInfo = target != null
+            ? $"目标距离={Vector3.Distance(transform.position, target.position):F2}"
+            : "无目标！";
+        Debug.Log($"[AI][诊断] {name} 状态={CurrentRootState} 在攻击={IsAttacking} {targetInfo} " +
+                  $"攻击范围={attackRange:F1} 连招索引={ComboIndex} 阶段={CurrentPhaseIndex} 攻击段数={segCount}");
     }
 
     /// <summary>
     /// Boss 阶段切换检查(单机)：血量比跌破"下一阶段 enterHpRatio" → 挂起该阶段切换。
-    /// 纯数据切换(换连招/伤害倍率/血量上限),不进状态、不打断当前动作；
+    /// 纯数据切换(换连招/伤害倍率),不进状态、不打断当前动作；
     /// 若正在出招则先挂起，收招后由 ApplyPendingPhase 应用。
     /// 联网:血量在服务端权威,这里应先判断 IsServer 并同步 netPhase —— 本步先单机。
     /// </summary>
@@ -272,10 +280,10 @@ public class AIStateMachine : MonoBehaviour
         var nextPhase = GetPhaseData(nextIndex);
         if (nextPhase == null) return;   // 没有下一阶段了
 
-        float maxHp = selfHealth.MaxHP.Value;
-        if (maxHp <= 0f) return;
+        float maxHealth = selfHealth.MaxHP.Value;
+        if (maxHealth <= 0f) return;
 
-        if (selfHealth.CurrentHP.Value / maxHp <= nextPhase.enterHpRatio)
+        if (selfHealth.CurrentHP.Value / maxHealth <= nextPhase.enterHpRatio)
             pendingPhaseIndex = nextIndex;   // 挂起，等收招后再应用
     }
 
@@ -289,7 +297,7 @@ public class AIStateMachine : MonoBehaviour
         pendingPhaseIndex = -1;
     }
 
-    /// <summary>切换到指定阶段(纯数据)：连招索引归零 + 应用血量上限；伤害倍率由 ApplyHit 实时读取</summary>
+    /// <summary>切换到指定阶段(纯数据)：连招索引归零；伤害倍率由 ApplyHit 实时读取</summary>
     private void SwitchPhase(int phaseIndex)
     {
         var phase = GetPhaseData(phaseIndex);
@@ -297,9 +305,6 @@ public class AIStateMachine : MonoBehaviour
 
         CurrentPhaseIndex = phaseIndex;
         comboIndex = 0;          // 切套从头打，避免沿用上一阶段的连招进度
-
-        if (selfHealth != null && phase.maxHp > 0f)
-            selfHealth.SetMaxHP(phase.maxHp);
 
         Debug.Log($"[AI] 进入阶段 {phaseIndex}({phaseIndex switch { 0 => "普通", 1 => "暴怒", _ => "阶段" + phaseIndex }}) → 切换连招/属性");
     }
@@ -421,10 +426,28 @@ public class AIStateMachine : MonoBehaviour
     }
 
     // 辅助:判断目标是否在攻击范围内
-    public bool TargetInRange(float range)
+    /// <summary>目标是否在攻击范围内：距离 ≤ range(+0.3 容差)，且在自己前方 angleDeg 度扇形内（水平面）。</summary>
+    public bool TargetInRange(float range, float angleDeg)
     {
         if (target == null) return false;
-        return Vector3.Distance(transform.position, target.position) <= range + 0.3f;
+        if (Vector3.Distance(transform.position, target.position) > range + 0.3f) return false;
+        return InFront(target.position, angleDeg);
+    }
+
+    /// <summary>某点是否在自己前方 angleDeg 度扇形内（水平面）。angleDeg ≤0 或 ≥360 视为全向，不判角度。</summary>
+    private bool InFront(Vector3 worldPos, float angleDeg)
+    {
+        if (angleDeg <= 0f || angleDeg >= 360f) return true;   // 全向
+
+        Vector3 to = worldPos - transform.position;
+        to.y = 0f;                                             // 角度只看水平面朝向
+        if (to.sqrMagnitude < 0.0001f) return true;            // 就在脚下，算命中
+
+        Vector3 forward = transform.forward;
+        forward.y = 0f;
+        if (forward.sqrMagnitude < 0.0001f) return true;       // 朝向退化时不判角度
+
+        return Vector3.Angle(forward, to) <= angleDeg * 0.5f;
     }
 
     // ================================================================
@@ -435,7 +458,7 @@ public class AIStateMachine : MonoBehaviour
     /// 播放攻击段动画并注册 Animancer 事件(与 PlayerComboState 的连击事件同款机制):
     /// - data.hitTimes 里每个命中帧时刻触发一次 onHit(伤害判定跟动画走,不靠秒表)
     /// - 动画播完触发一次 onEnd(收招时机跟动画走)
-    /// - hitTimes 单位为秒,内部换算成 Animancer 的归一化时间(0~1)
+    /// - hitTimes 直接是归一化比例(0~1 动画百分比)，不再按秒换算
     /// 返回播放状态(可用 Length 算冷却),未配动画返回 null(调用方退回秒表模式)
     /// </summary>
     public AnimancerState PlayAttackAnim(AIAttackData data, Action onHit, Action onEnd)
@@ -446,23 +469,22 @@ public class AIStateMachine : MonoBehaviour
         // 同一片段复用同一个 AnimancerState,必须清掉残留事件,否则检查点/命中帧会重复触发
         state.Events.Clear();
 
-        float length = Mathf.Max(state.Length, 0.01f);
         if (data.hitTimes != null)
         {
             foreach (var t in data.hitTimes)
             {
-                float normalized = Mathf.Clamp01(t / length);
-                state.Events.Add(normalized, onHit);
+                // hitTimes 就是归一化比例(0~1)：0.35 = 动画播到 35% 时出判定
+                state.Events.Add(Mathf.Clamp01(t), onHit);
             }
         }
         state.Events.OnEnd = onEnd;
         return state;
     }
 
-    /// <summary>对锁定目标结算一次伤害(目标必须在 range 内且存活)</summary>
-    public void DealDamage(float range, float baseDamage)
+    /// <summary>对锁定目标结算一次伤害(目标必须在 range 内、前方 angleDeg 扇形内且存活)</summary>
+    public void DealDamage(float range, float baseDamage, float angleDeg)
     {
-        if (target == null || !TargetInRange(range)) return;
+        if (target == null || !TargetInRange(range, angleDeg)) return;
 
         var health = target.GetComponentInParent<HealthModel>();
         if (health == null || !health.IsAlive) return;
@@ -470,13 +492,14 @@ public class AIStateMachine : MonoBehaviour
         ApplyHit(health, baseDamage);
     }
 
-    /// <summary>AOE 结算:radius 范围内所有目标层内的单位各吃一次伤害</summary>
-    public void DealAoeDamage(float radius, float baseDamage)
+    /// <summary>AOE 结算:radius 范围内、且在自己前方 angleDeg 扇形内的目标层单位各吃一次伤害</summary>
+    public void DealAoeDamage(float radius, float baseDamage, float angleDeg)
     {
         Collider[] hits = Physics.OverlapSphere(transform.position, radius, targetLayer);
         foreach (var h in hits)
         {
-            if (h.transform.IsChildOf(transform)) continue;   // 排除自己及子物体
+            if (h.transform.IsChildOf(transform)) continue;           // 排除自己及子物体
+            if (!InFront(h.transform.position, angleDeg)) continue;   // 扇形过滤
 
             var health = h.GetComponentInParent<HealthModel>();
             if (health == null || !health.IsAlive) continue;

@@ -6,7 +6,7 @@ using UnityEngine;
 /// 一段的形态完全由 AIAttackData 描述：
 /// - hitTimes 列表 → 单段/多段命中通用
 /// - isAoe → 命中帧走范围伤害
-/// 命中/收招时机由 Animancer 动画事件驱动（hitTimes 秒 → 归一化命中帧，OnEnd 收招），
+/// 命中/收招时机由 Animancer 动画事件驱动（hitTimes 归一化比例(0~1) → 命中帧，OnEnd 收招），
 /// 未配动画时退回秒表模式。收招后停在本状态并标记 IsFinished，由行为树决定去留。
 /// </summary>
 public class AIAttackState : AIState
@@ -43,6 +43,8 @@ public class AIAttackState : AIState
             return;
         }
 
+        WarnIfUnconfigured(data);
+
         var animState = stateMachine.PlayAttackAnim(data, OnHitFrame, OnAnimEnd);
         hasAnim = animState != null;
         if (hasAnim)
@@ -58,7 +60,7 @@ public class AIAttackState : AIState
 
     /// <summary>
     /// 事件模式:命中/收招全由动画事件触发,这里只做"播完后冷却到点收招";
-    /// 秒表兜底:按 hitTimes 逐个到点判定 → 收招。朝向由行为树的 FaceTarget 节点负责
+    /// 秒表兜底:按 hitTimes(归一化比例 × duration) 逐个到点判定 → 收招。朝向由行为树的 FaceTarget 节点负责
     /// </summary>
     public override void OnUpdate()
     {
@@ -79,7 +81,7 @@ public class AIAttackState : AIState
             {
                 for (int i = 0; i < hitTimes.Count && i < hitFlags.Length; i++)
                 {
-                    if (!hitFlags[i] && timer >= hitTimes[i])
+                    if (!hitFlags[i] && timer >= hitTimes[i] * Duration)   // hitTimes 是归一化比例(0~1)，× 总时长换成到点时间
                     {
                         hitFlags[i] = true;
                         DoHit();
@@ -104,9 +106,9 @@ public class AIAttackState : AIState
         if (data == null) return;
 
         if (data.isAoe)
-            stateMachine.DealAoeDamage(data.aoeRadius, data.damage);
+            stateMachine.DealAoeDamage(data.aoeRadius, data.damage, data.hitAngle);
         else
-            stateMachine.DealDamage(data.range, data.damage);
+            stateMachine.DealDamage(data.range, data.damage, data.hitAngle);
     }
 
     /// <summary>Animancer 播完事件:进入冷却阶段</summary>
@@ -124,6 +126,23 @@ public class AIAttackState : AIState
     {
         finished = true;
         stateMachine.NotifyAttackEnded();
+    }
+
+    /// <summary>
+    /// 兜底校验：攻击段关键参数为 0/空时告警。避免"AI 有攻击动作却打不出伤害/进不了攻击范围"这类**静默失效**
+    /// （Unity 新建攻击段时字段常是 0，不会自动带 C# 默认值，极易漏配）。
+    /// </summary>
+    private static void WarnIfUnconfigured(AIAttackData data)
+    {
+        string issues = "";
+        if (data.range <= 0f) issues += "\n  - range=0（单体命中判定 distance<=0，打不中；单体攻击请填 range）";
+        if (data.hitTimes == null || data.hitTimes.Count == 0) issues += "\n  - hitTimes 为空（没有命中帧，不会结算伤害）";
+        if (data.damage <= 0f) issues += "\n  - damage=0（命中也是 0 伤害）";
+        if (data.animationClip != null && data.playSpeed <= 0f) issues += "\n  - playSpeed=0（动画会冻住，攻击状态出不来）";
+        if (data.animationClip == null && data.duration <= 0f) issues += "\n  - 没配动画且 duration=0（秒表兜底模式下立刻结束）";
+
+        if (issues.Length > 0)
+            Debug.LogWarning($"[AI] 攻击段参数没配好，请到 AIPlayerSO 的对应攻击段里填：{issues}");
     }
 
     public override AIStateType? CheckTransitions()

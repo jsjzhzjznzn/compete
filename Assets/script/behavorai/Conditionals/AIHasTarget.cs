@@ -14,7 +14,7 @@ namespace BehaviorDesigner.Runtime.Tasks
     public class AIHasTarget : Conditional
     {
         public float viewAngle = 120f;   // 视野扇形角度(度),以角色正面朝向为中心
-        public float closeRange = 2.5f;  // 近距离圆形检测半径(米),AI周围一圈全向检测
+        public float closeRange = 3.5f;  // 近距离圆形检测半径(米),AI周围一圈全向检测
 
         private AIStateMachine sm;
 
