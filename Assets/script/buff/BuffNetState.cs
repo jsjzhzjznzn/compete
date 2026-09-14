@@ -1,4 +1,5 @@
 using System;
+using Unity.Netcode;
 
 /// <summary>
 /// Buff 行为控制标志（位组合）：服务端在同步 buff 状态时按效果类型计算，
@@ -26,11 +27,14 @@ public enum BuffControlFlags : byte
 /// 所以本结构体只能含非托管字段（int/double/byte），且相等性必须比较【全部字段】——
 /// 否则叠层/刷新时长时 NetworkList.Set 的相等门禁会把变更吞掉。
 ///
+/// 序列化：显式实现 INetworkSerializeByMemcpy —— 本结构体全是 blittable 字段，直接按内存拷贝最省事，
+/// 且**不依赖 NGO 的 ILPP 自动生成**（否则会报 "Serialization has not been generated for type BuffNetState"）。
+///
 /// 只带"跨端展示与查询够用"的字段：
 ///   - 不含 source（只有服务端 DoT 结算用，客户端镜像传 null）
 ///   - 不含 tickTimer（tick 只在服务端结算）
 /// </summary>
-public struct BuffNetState : IEquatable<BuffNetState>
+public struct BuffNetState : IEquatable<BuffNetState>, INetworkSerializeByMemcpy
 {
     /// <summary>Buff 标识哈希（身份键 + 客户端 BuffDatabase.Resolve 反查配置用）</summary>
     public int buffIdHash;

@@ -8,19 +8,19 @@ using UnityEngine;
 // ============================================================================
 
 /// <summary>
-/// 造成伤害节点：对 target 发起一次伤害请求（服务端权威，最终伤害由服务端重算）。
-/// 最终基础伤害 = 配置基础伤害 × 本次释放系数(context.skillCoef)。
+/// 造成伤害节点：对 target 发起一次伤害请求（服务端权威，最终伤害由服务端按攻击力×倍率重算）。
+/// 最终倍率 = 配置伤害倍率 × 本次释放系数(context.skillCoef)。
 /// </summary>
 public class DamageEffectNode : ISkillEffect
 {
-    private readonly float _baseDamage;      // 配置基础伤害（构建后只读）
+    private readonly float _damageMultiplier;    // 配置伤害倍率（相对攻击力；构建后只读）
     private readonly float _critRate;
     private readonly float _critMultiplier;
     private readonly bool _isDoT;
 
-    public DamageEffectNode(float baseDamage, float critRate = 0f, float critMultiplier = 1f, bool isDoT = false)
+    public DamageEffectNode(float damageMultiplier, float critRate = 0f, float critMultiplier = 1f, bool isDoT = false)
     {
-        _baseDamage = baseDamage;
+        _damageMultiplier = damageMultiplier;
         _critRate = critRate;
         _critMultiplier = critMultiplier;
         _isDoT = isDoT;
@@ -35,7 +35,7 @@ public class DamageEffectNode : ISkillEffect
 
         health.RequestDamage(new DamageRequest
         {
-            baseDamage = _baseDamage * context.skillCoef,
+            multiplier = _damageMultiplier * context.skillCoef,
             critRate = _critRate,
             critMultiplier = _critMultiplier,
             sourceId = ResolveSourceId(source),

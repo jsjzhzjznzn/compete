@@ -106,9 +106,9 @@ public class AIAttackState : AIState
         if (data == null) return;
 
         if (data.isAoe)
-            stateMachine.DealAoeDamage(data.aoeRadius, data.damage, data.hitAngle);
+            stateMachine.DealAoeDamage(data.aoeRadius, data.damageMultiplier, data.hitAngle);
         else
-            stateMachine.DealDamage(data.range, data.damage, data.hitAngle);
+            stateMachine.DealDamage(data.range, data.damageMultiplier, data.hitAngle);
     }
 
     /// <summary>Animancer 播完事件:进入冷却阶段</summary>
@@ -137,7 +137,7 @@ public class AIAttackState : AIState
         string issues = "";
         if (data.range <= 0f) issues += "\n  - range=0（单体命中判定 distance<=0，打不中；单体攻击请填 range）";
         if (data.hitTimes == null || data.hitTimes.Count == 0) issues += "\n  - hitTimes 为空（没有命中帧，不会结算伤害）";
-        if (data.damage <= 0f) issues += "\n  - damage=0（命中也是 0 伤害）";
+        if (data.damageMultiplier <= 0f) issues += "\n  - damageMultiplier=0（命中倍率为 0，伤害会保底 1）";
         if (data.animationClip != null && data.playSpeed <= 0f) issues += "\n  - playSpeed=0（动画会冻住，攻击状态出不来）";
         if (data.animationClip == null && data.duration <= 0f) issues += "\n  - 没配动画且 duration=0（秒表兜底模式下立刻结束）";
 

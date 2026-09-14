@@ -17,9 +17,12 @@ using Unity.Netcode;
 /// </summary>
 public class HealthModel : NetworkBehaviour
 {
-    [Header("初始属性")]
-    [SerializeField] private float initialMaxHP = 100f;
-    [SerializeField] private float initialHP = 100f;
+    /// <summary>
+    /// 兜底血量：角色(Player/AIPlayer)会在 Awake 里用配置(SO 的 CharacterStatsData)调 InitStats 推值；
+    /// 只有"没被初始化过"的对象（非角色却挂了 HealthModel / 漏配 SO）才会用到这个保底值。
+    /// 血量数值的**唯一权威来源是角色配置 SO**，不在这里配。
+    /// </summary>
+    private const float FallbackHP = 100f;
 
     // ============ 属性（外部只读属性值，修改必须走 TakeDamage / Heal / SetMaxHP / ResetHealth） ============
 
@@ -49,12 +52,29 @@ public class HealthModel : NetworkBehaviour
     /// <summary>服务器端闪避冷却：下次允许开无敌的 ServerTime 时间点（防连点/改内存刷无敌）</summary>
     private float _nextInvincibleAllowedServerTime;
 
-    /// <summary>单次伤害上限（基础校验用；真正的数值权威在阶段 2：服务器按攻击配置重算伤害）</summary>
-    private const float MaxHitDamage = 99999f;
+    /// <summary>单次请求的倍率上限（基础校验用；真实数值由服务端按权威攻击力算出，客户端只能传倍率）</summary>
+    private const float MaxHitMultiplier = 10f;
+
+    /// <summary>是否已由角色用配置(SO)初始化过血量（避免组件间 Awake 顺序不确定时被兜底值覆盖）</summary>
+    private bool _statsInitialized;
 
     private void Awake()
     {
-        ResetHealth(initialHP, initialMaxHP);
+        // 角色(Player/AIPlayer)通常已在它的 Awake 里调 InitStats 推过 SO 的血量了；
+        // 没被推过（非角色对象/漏配 SO）才用兜底值，避免血量停在 0 直接算死。
+        if (!_statsInitialized)
+            ResetHealth(FallbackHP, FallbackHP);
+    }
+
+    /// <summary>
+    /// 由角色用配置(SO 的 CharacterStatsData)初始化血量（Player/AIPlayer 的 Awake 调用）。
+    /// <paramref name="currentHP"/> &lt; 0 表示按上限满血。
+    /// 这是血量的**唯一权威来源**——HealthModel 本身不再持有初始血量配置。
+    /// </summary>
+    public void InitStats(float maxHP, float currentHP = -1f)
+    {
+        _statsInitialized = true;
+        ResetHealth(currentHP < 0f ? maxHP : currentHP, maxHP);
     }
 
     // ============ 网络同步：血量值广播给所有端（远程端血条实时刷新） ============
@@ -94,10 +114,10 @@ public class HealthModel : NetworkBehaviour
 
     /// <summary>
     /// 伤害请求入口（攻击方调用）：单机本地用 DamageCalculator 结算；
-    /// 联网发到服务端，由服务端按攻击段原始数值 + 服务端属性重算后结算。
-    /// 这样受击方减伤/攻击方增伤等只以【服务端】数据为准，修复跨端读到本地旧副本的问题。
+    /// 联网发到服务端，由服务端用【攻击者攻击力 × 招式倍率】+ 服务端属性重算后结算。
+    /// 攻击力/增伤/减伤都只以【服务端】数据为准，客户端连伤害数值都传不了（只能传倍率）。
     /// </summary>
-    /// <param name="req">伤害请求（原始数值 + 攻击者网络 id）</param>
+    /// <param name="req">伤害请求（招式倍率 + 暴击参数 + 攻击者网络 id）</param>
     /// <param name="source">攻击者 GameObject（单机路径直接用；联网路径忽略，服务端按 id 解析）</param>
     public void RequestDamage(in DamageRequest req, GameObject source = null)
     {
@@ -106,7 +126,7 @@ public class HealthModel : NetworkBehaviour
             // 单机：本地计算 + 结算（保持原行为）
             var localResult = DamageCalculator.Calculate(new DamageContext
             {
-                baseDamage = req.baseDamage,
+                multiplier = req.multiplier,
                 critRate = req.critRate,
                 critMultiplier = req.critMultiplier,
                 attacker = source,
@@ -116,24 +136,25 @@ public class HealthModel : NetworkBehaviour
             return;
         }
 
-        RequestDamageServerRpc(req.baseDamage, req.critRate, req.critMultiplier, req.sourceId, req.isDoT);
+        RequestDamageServerRpc(req.multiplier, req.critRate, req.critMultiplier, req.sourceId, req.isDoT);
     }
 
     /// <summary>
-    /// 服务端结算：按服务端属性重算最终伤害（增伤/减伤账本都在服务端）。
+    /// 服务端结算：用【攻击者攻击力 × 招式倍率】+ 服务端属性重算最终伤害
+    /// （攻击力/增伤/减伤账本都在服务端；客户端只传倍率，伪造不了伤害）。
     /// </summary>
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-    private void RequestDamageServerRpc(float baseDamage, float critRate, float critMultiplier, ulong sourceId, bool isDoT)
+    private void RequestDamageServerRpc(float multiplier, float critRate, float critMultiplier, ulong sourceId, bool isDoT)
     {
         if (!IsServer) return;
 
-        // 基础校验：数值非法/超上限直接丢弃（防伪造）
-        if (!float.IsFinite(baseDamage) || baseDamage < 0f || baseDamage > MaxHitDamage) return;
+        // 基础校验：倍率非法/超上限直接丢弃（防伪造；真实数值由服务端按权威攻击力算出）
+        if (!float.IsFinite(multiplier) || multiplier < 0f || multiplier > MaxHitMultiplier) return;
 
         var attacker = GetSourceObject(sourceId);
         var result = DamageCalculator.Calculate(new DamageContext
         {
-            baseDamage = baseDamage,
+            multiplier = multiplier,
             critRate = critRate,
             critMultiplier = critMultiplier,
             attacker = attacker,

@@ -898,6 +898,14 @@ PrefabInstance:
       propertyPath: m_Name
       value: "\u5B89\u6BD4dan"
       objectReference: {fileID: 0}
+    - target: {fileID: 8694884735357443807, guid: e2c5898cd3d33e24abc9d49b4c606f08, type: 3}
+      propertyPath: initialHP
+      value: 9999
+      objectReference: {fileID: 0}
+    - target: {fileID: 8694884735357443807, guid: e2c5898cd3d33e24abc9d49b4c606f08, type: 3}
+      propertyPath: initialMaxHP
+      value: 10000
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

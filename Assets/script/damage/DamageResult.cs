@@ -19,18 +19,21 @@ public struct DamageResult
     public bool isBlocked;
 
     // ============ 各阶段明细（调试用；纯字段替代原字典，零分配） ============
-    /// <summary>阶段1 基础伤害后</summary>
+    /// <summary>阶段1 攻击力 × 招式倍率 后</summary>
     public float stageBase;
 
-    /// <summary>阶段2 攻击方增伤后</summary>
+    /// <summary>阶段2 攻击方增伤系数后</summary>
     public float stageAttackerBonus;
 
     /// <summary>阶段3 暴击掷骰后</summary>
     public float stageCritical;
 
-    /// <summary>阶段4 防御方减伤后</summary>
+    /// <summary>阶段4 防御方防御力减免后</summary>
+    public float stageDefense;
+
+    /// <summary>阶段5 防御方减伤系数后</summary>
     public float stageDefenderReduction;
 
-    /// <summary>阶段5 保底后</summary>
+    /// <summary>阶段6 保底后</summary>
     public float stageFinal;
 }

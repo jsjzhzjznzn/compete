@@ -11,4 +11,8 @@ public class PlayerSO : ScriptableObject
 
     // 预留：连击系统接入后使用
     [field: SerializeField] public PlayerComboData comboData { get; private set; }
+
+    /// <summary>基础属性（攻击力 / 防御力 / 最大血量）：角色生成时写入 AttributeComponent / HealthModel</summary>
+    [field: SerializeField, Header("基础属性（攻击力 / 防御力 / 最大血量）")]
+    public CharacterStatsData statsData { get; private set; }
 }

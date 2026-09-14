@@ -114,18 +114,18 @@ public class ComboContainerData : ScriptableObject
 // ============ 伤害判定参数读取（对应 ComboData 已接入的字段） ============
 
     /// <summary>
-    /// 获取该段的攻击伤害数值
+    /// 获取该段的伤害倍率（小数；最终伤害 = 攻击者攻击力 × 该值）
     /// </summary>
-    public float GetComboDamage(int index)
+    public float GetComboDamageMultiplier(int index)
     {
         var data = GetComboData(index);
         if (data == null)
             return 0f;
 
-        if (data.comboDamage == 0)
-            Debug.LogWarning($"下标{index}连招未配置伤害数值");
+        if (data.damageMultiplier == 0)
+            Debug.LogWarning($"下标{index}连招未配置伤害倍率");
 
-        return data.comboDamage;
+        return data.damageMultiplier;
     }
 
     /// <summary>

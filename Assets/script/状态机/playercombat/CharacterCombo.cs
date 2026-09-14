@@ -221,7 +221,7 @@ public class CharacterCombo
             // 伤害交给受击方走请求入口：单机本地算，联网由服务端用服务端属性重算（服务端权威）
             target.RequestDamage(new DamageRequest
             {
-                baseDamage = data.comboDamage,
+                multiplier = data.damageMultiplier,
                 critRate = data.critRate,
                 critMultiplier = data.critMultiplier,
                 sourceId = player.IsSpawned ? player.NetworkObjectId : 0UL,

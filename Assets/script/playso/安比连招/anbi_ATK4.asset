@@ -34,7 +34,7 @@ MonoBehaviour:
     _Speed: 1
     _NormalizedStartTime: NaN
   _comboColdTime: 0
-  _comboDamage: 15
+  _damageMultiplier: 0.15
   _attackDistance: 2
   _comboOffset: 1.2
   _enemyLayer:

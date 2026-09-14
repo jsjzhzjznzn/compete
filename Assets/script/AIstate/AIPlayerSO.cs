@@ -12,4 +12,8 @@ public class AIPlayerSO : ScriptableObject
 
     [field: SerializeField, Header("Boss 阶段表（顺序即阶段：0=起始；每阶段自带连招与属性）")]
     public List<AIPhaseData> phases { get; private set; } = new List<AIPhaseData>();
+
+    /// <summary>基础属性（攻击力 / 防御力 / 最大血量）：角色生成时写入 AttributeComponent / HealthModel</summary>
+    [field: SerializeField, Header("基础属性（攻击力 / 防御力 / 最大血量）")]
+    public CharacterStatsData statsData { get; private set; }
 }

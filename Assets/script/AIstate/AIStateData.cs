@@ -69,8 +69,9 @@ public class AIAttackData : AIStateData
     /// &lt;=0 或 &gt;=360 视为全向（不判角度，保持旧行为）</summary>
     [field: SerializeField] public float hitAngle { get; private set; } = 360f;
 
-    /// <summary>伤害（每次命中结算一次）</summary>
-    [field: SerializeField] public float damage { get; private set; } = 10f;
+    /// <summary>伤害倍率（小数：0.10 = 攻击力的 10%；每次命中结算一次）。
+    /// 最终伤害 = 攻击者攻击力 × 该值 × 阶段倍率(AIPhaseData.damageMultiplier)</summary>
+    [field: SerializeField] public float damageMultiplier { get; private set; } = 0.1f;
 
     /// <summary>收招后额外冷却（秒）</summary>
     [field: SerializeField] public float cooldown { get; private set; } = 0.2f;
@@ -110,7 +111,7 @@ public class AIPhaseData
     /// <summary>本阶段使用的连招容器（连招单一来源）</summary>
     [field: SerializeField] public AIComboData combo { get; private set; }
 
-    /// <summary>本阶段伤害倍率（作用在 AIAttackData.damage 上，1=不变）</summary>
+    /// <summary>本阶段伤害倍率（与招式倍率相乘：最终倍率 = AIAttackData.damageMultiplier × 该值，1=不变）</summary>
     [field: SerializeField, Min(0f)] public float damageMultiplier { get; private set; } = 1f;
 }
 

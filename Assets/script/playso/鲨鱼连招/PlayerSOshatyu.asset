@@ -59,3 +59,7 @@ MonoBehaviour:
       <lightCombo>k__BackingField: {fileID: 11400000, guid: 1f5286155e68bb54cbab3f4f405fc9b0, type: 2}
       <skillCombo>k__BackingField: {fileID: 0}
       <finishSkillCombo>k__BackingField: {fileID: 0}
+  <statsData>k__BackingField:
+    <baseAttack>k__BackingField: 100
+    <baseDefense>k__BackingField: 0
+    <baseMaxHP>k__BackingField: 100

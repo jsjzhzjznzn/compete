@@ -43,8 +43,8 @@ public class ComboData : ScriptableObject
     private float _comboColdTime;
 
     // ============ 伤害判定参数（已接入系统，Inspector 按段配置） ============
-    [SerializeField, Header("本段攻击伤害")]
-    private float _comboDamage = 8f;
+    [SerializeField, Header("本段伤害倍率（小数：0.08 = 攻击力的 8%）")]
+    private float _damageMultiplier = 0.08f;
 
     [SerializeField, Header("本段暴击率（0~1，每次命中独立掷骰）")]
     private float _critRate = 0.2f;
@@ -115,8 +115,8 @@ public class ComboData : ScriptableObject
     public float linkCancelTime => _linkCancelTime;
 
     // ============ 伤害判定属性（对应上面已接入的字段） ============
-    /// <summary>本段攻击伤害</summary>
-    public float comboDamage => _comboDamage;
+    /// <summary>本段伤害倍率（小数：0.08 = 攻击力的 8%）；最终伤害 = 攻击者攻击力 × 该值</summary>
+    public float damageMultiplier => _damageMultiplier;
 
     /// <summary>本段暴击率（0~1，每次命中独立掷骰）</summary>
     public float critRate => _critRate;

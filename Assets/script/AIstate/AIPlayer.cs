@@ -88,6 +88,28 @@ public class AIPlayer : CharacterMoveControllerBase
             gameObject.AddComponent<AttributeComponent>();
         if (GetComponent<CharacterState>() == null)
             gameObject.AddComponent<CharacterState>();
+
+        // 把角色配置(SO)里的白值属性写进属性账本 / 血量组件
+        // （放在最后：上面保证 AttributeComponent 已存在；InitStats 要早于 HealthModel 的网络同步）
+        ApplyStatsFromSO();
+    }
+
+    /// <summary>把 AIPlayerSO.statsData 的基础属性写进 AttributeComponent(攻击/防御) 与 HealthModel(最大血量)。
+    /// 没配 statsData 时不覆盖，保持组件上的默认值。</summary>
+    private void ApplyStatsFromSO()
+    {
+        var stats = aiSO != null ? aiSO.statsData : null;
+        if (stats == null) return;
+
+        var attr = GetComponent<AttributeComponent>();
+        if (attr != null)
+        {
+            attr.SetBase(AttrType.Attack, stats.baseAttack);
+            attr.SetBase(AttrType.Defense, stats.baseDefense);
+        }
+
+        if (health != null)
+            health.InitStats(stats.baseMaxHP);
     }
 
     private void OnEnable()

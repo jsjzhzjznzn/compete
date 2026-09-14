@@ -31,13 +31,13 @@ public class PlayerCameraUtility
     private CinemachinePOV cinemachinePOV;
 
     /// <summary>
-    /// 初始化：缓存获取 CinemachinePOV 组件引用。
-    /// 在 Player.Awake() 中调用。未配置 virtualCamera 时自动查找场景中的虚拟相机。
+    /// 初始化：用【本座位】的虚拟相机缓存 CinemachinePOV 组件引用。
+    /// 由 Player.TryBindSceneCamera 在相机绑定成功后调用（传入按座位找到的那台）——
+    /// 多人时不能全场景找第一台，否则两个玩家会抓到同一台 vcam 的 POV、鼠标视角互相抢。
     /// </summary>
-    public void Init()
+    public void Init(CinemachineVirtualCamera vcam)
     {
-        if (virtualCamera == null)
-            virtualCamera = Object.FindAnyObjectByType<CinemachineVirtualCamera>();
+        virtualCamera = vcam != null ? vcam : Object.FindAnyObjectByType<CinemachineVirtualCamera>();   // 兜底
         cinemachinePOV = virtualCamera != null
             ? virtualCamera.GetCinemachineComponent<CinemachinePOV>()
             : null;

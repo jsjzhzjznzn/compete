@@ -482,18 +482,18 @@ public class AIStateMachine : MonoBehaviour
     }
 
     /// <summary>对锁定目标结算一次伤害(目标必须在 range 内、前方 angleDeg 扇形内且存活)</summary>
-    public void DealDamage(float range, float baseDamage, float angleDeg)
+    public void DealDamage(float range, float moveMultiplier, float angleDeg)
     {
         if (target == null || !TargetInRange(range, angleDeg)) return;
 
         var health = target.GetComponentInParent<HealthModel>();
         if (health == null || !health.IsAlive) return;
 
-        ApplyHit(health, baseDamage);
+        ApplyHit(health, moveMultiplier);
     }
 
     /// <summary>AOE 结算:radius 范围内、且在自己前方 angleDeg 扇形内的目标层单位各吃一次伤害</summary>
-    public void DealAoeDamage(float radius, float baseDamage, float angleDeg)
+    public void DealAoeDamage(float radius, float moveMultiplier, float angleDeg)
     {
         Collider[] hits = Physics.OverlapSphere(transform.position, radius, targetLayer);
         foreach (var h in hits)
@@ -504,28 +504,29 @@ public class AIStateMachine : MonoBehaviour
             var health = h.GetComponentInParent<HealthModel>();
             if (health == null || !health.IsAlive) continue;
 
-            ApplyHit(health, baseDamage);
+            ApplyHit(health, moveMultiplier);
         }
     }
 
-    /// <summary>单次命中结算:走受击方的伤害请求入口(服务端权威:联网由服务端用服务端属性重算)</summary>
-    private void ApplyHit(HealthModel health, float baseDamage)
+    /// <summary>单次命中结算:走受击方的伤害请求入口(服务端权威:联网由服务端按攻击者攻击力×倍率重算)</summary>
+    private void ApplyHit(HealthModel health, float moveMultiplier)
     {
-        // 当前阶段伤害倍率(暴怒阶段加伤)
+        // 招式倍率 × 当前阶段伤害倍率(暴怒阶段加伤)，最终伤害由服务端按攻击力重算
         float phaseMult = CurrentPhaseData?.damageMultiplier ?? 1f;
+        float totalMultiplier = moveMultiplier * phaseMult;
 
         var attackerNetObj = GetComponentInParent<NetworkObject>();
         ulong sourceId = (attackerNetObj != null && attackerNetObj.IsSpawned) ? attackerNetObj.NetworkObjectId : 0UL;
 
         health.RequestDamage(new DamageRequest
         {
-            baseDamage = baseDamage * phaseMult,
+            multiplier = totalMultiplier,
             critRate = 0f,          // TODO: 需要暴击时把 critRate/critMultiplier 加进 AIAttackData
             critMultiplier = 1f,
             sourceId = sourceId,
             isDoT = false,
         }, gameObject);
 
-        Debug.Log($"[AI] 请求命中 {health.name}(基础伤害 {baseDamage * phaseMult:F1})");
+        Debug.Log($"[AI] 请求命中 {health.name}(倍率 {totalMultiplier:F2})");
     }
 }

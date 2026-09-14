@@ -106,7 +106,12 @@ public class BattleSpawnManager : NetworkBehaviour
             return;
         }
 
-        // 把座位号写进角色（随生成同步给所有端），客户端据此选对应相机(Camera/thirdcamera 或 Camera (1)/thirdcamera (1))
+        // ⚠ 座位/英雄编号必须在 Spawn **之后**写：
+        //   NGO 要求 NetworkObject 已 spawn 才能标脏，提前写会报
+        //   "NetworkVariable is written to, but doesn't know its NetworkBehaviour yet"。
+        //   客户端的相机绑定带 0.5s 重试，会等座位号同步到之后再绑（NetSeatId 默认 -1 表示未分配）。
+        netObj.SpawnWithOwnership(info.ClientId);
+
         var playerCtrl = hero.GetComponent<Player>();
         if (playerCtrl != null)
         {
@@ -121,7 +126,6 @@ public class BattleSpawnManager : NetworkBehaviour
         // 现在改成默认 destroyWithScene=false：英雄被 Instantiate 进当前(战斗)场景，
         // 场景卸载时 Unity 会把它们随场景一起销毁（无需 destroyWithScene 标记），且不会在加载事件里被误清。
         // SpawnWithOwnership：把归属权给对应玩家（IsOwner 输入/血量逻辑），【不是】PlayerObject。
-        netObj.SpawnWithOwnership(info.ClientId);
         _spawnedCount++;
         Debug.Log($"[BattleSpawn] 玩家 {info.ClientId} 座位 {info.Seat} 生成英雄 CharId={info.CharId}, " +
                   $"OwnerClientId={netObj.OwnerClientId}（客户端应看到 Owner==自己的 LocalClientId 才能操作）");

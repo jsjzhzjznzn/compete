@@ -53,7 +53,7 @@ MonoBehaviour:
         - 0.6
         <range>k__BackingField: 3
         <hitAngle>k__BackingField: 360
-        <damage>k__BackingField: 10
+        <damageMultiplier>k__BackingField: 0.1
         <cooldown>k__BackingField: 0.2
         <isAoe>k__BackingField: 0
         <aoeRadius>k__BackingField: 4
@@ -66,7 +66,7 @@ MonoBehaviour:
         - 0.6
         <range>k__BackingField: 3
         <hitAngle>k__BackingField: 360
-        <damage>k__BackingField: 10
+        <damageMultiplier>k__BackingField: 0.1
         <cooldown>k__BackingField: 0.2
         <isAoe>k__BackingField: 0
         <aoeRadius>k__BackingField: 4
@@ -79,7 +79,7 @@ MonoBehaviour:
         - 0.6
         <range>k__BackingField: 3
         <hitAngle>k__BackingField: 360
-        <damage>k__BackingField: 10
+        <damageMultiplier>k__BackingField: 0.1
         <cooldown>k__BackingField: 0.2
         <isAoe>k__BackingField: 0
         <aoeRadius>k__BackingField: 4
@@ -90,3 +90,7 @@ MonoBehaviour:
       <attacks>k__BackingField: []
       <resetTime>k__BackingField: 0
     <damageMultiplier>k__BackingField: 1.5
+  <statsData>k__BackingField:
+    <baseAttack>k__BackingField: 100
+    <baseDefense>k__BackingField: 0
+    <baseMaxHP>k__BackingField: 20000

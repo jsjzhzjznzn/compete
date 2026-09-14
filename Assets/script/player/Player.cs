@@ -108,11 +108,12 @@ public class Player : CharacterMoveControllerBase
         new(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
     /// <summary>
-    /// 本角色座位号（服务端生成时写入：0=第一人，1=第二人）。
+    /// 本角色座位号（服务端生成时写入：0=第一人，1=第二人；**-1 = 还未分配**）。
     /// 客户端据此选场景里对应的那套相机（Camera/thirdcamera 或 Camera (1)/thirdcamera (1)）。
+    /// 单机（未 spawn）不走这个变量，相机固定用座位 0 那套。
     /// </summary>
     public readonly NetworkVariable<int> NetSeatId =
-        new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+        new(-1, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     /// <summary>本角色的英雄编号（服务端生成时写入：安比=0，艾莲=1），HUD 血条面板据此加载头像</summary>
     public readonly NetworkVariable<int> NetCharId =
@@ -191,7 +192,7 @@ public class Player : CharacterMoveControllerBase
         base.Awake();
         stateMachine = new PlayerMovementStateMachine(this, playerSO);
         comboStateMachine = new PlayerComboStateMachine(this);
-        playerCameraUtility?.Init();                    // 初始化相机辅助（缓存 Virtual Camera 的 CinemachinePOV）
+        // 相机工具类的初始化挪到 TryBindSceneCamera（绑定成功后传入"本座位"的 vcam）
         // 初始状态在 Start 切换：确保所有单例（CharacterInputSystem 等）Awake 已完成，
         // 事件订阅能拿到已初始化的 inputActions
 
@@ -204,6 +205,29 @@ public class Player : CharacterMoveControllerBase
             gameObject.AddComponent<AttributeComponent>();
         if (GetComponent<CharacterState>() == null)
             gameObject.AddComponent<CharacterState>();
+
+        // 把角色配置(SO)里的白值属性写进属性账本 / 血量组件
+        // （放在最后：上面保证 AttributeComponent 已存在；InitStats 要早于 HealthModel 的网络同步）
+        ApplyStatsFromSO();
+    }
+
+    /// <summary>把 PlayerSO.statsData 的基础属性写进 AttributeComponent(攻击/防御) 与 HealthModel(最大血量)。
+    /// 没配 statsData 时不覆盖，保持组件上的默认值。</summary>
+    private void ApplyStatsFromSO()
+    {
+        var stats = playerSO != null ? playerSO.statsData : null;
+        if (stats == null) return;
+
+        var attr = GetComponent<AttributeComponent>();
+        if (attr != null)
+        {
+            attr.SetBase(AttrType.Attack, stats.baseAttack);
+            attr.SetBase(AttrType.Defense, stats.baseDefense);
+        }
+
+        var health = GetComponent<HealthModel>();
+        if (health != null)
+            health.InitStats(stats.baseMaxHP);
     }
 
     protected override void Start()
@@ -312,7 +336,27 @@ public class Player : CharacterMoveControllerBase
     {
         if (_cameraAssigned) return;
 
-        int seat = NetSeatId.Value;
+        // 只给【本机拥有(IsOwner)】的角色绑相机：
+        //   联机时服务端上会同时存在双方角色的副本，若两边都跑绑定，
+        //   后绑的那个会执行"停用本机其它相机"，把先绑那套（主机的）关掉 → 主机没画面/晃不了视角。
+        //   （单机未 spawn 时 IsOwner 恒为 false，这里不会拦截。）
+        if (IsSpawned && !IsOwner) return;
+
+        // 座位解析：
+        //   单机           → 固定用座位 0 那套（Camera/thirdcamera）
+        //   联机           → 等 BattleSpawnManager 写入座位号（-1 = 还没分到，本次跳过、下次重试）
+        // 目的：联机时不会在座位号还没同步到的情况下，误绑成座位 0 的那套相机
+        int seat;
+        if (!IsSpawned)
+        {
+            seat = 0;
+        }
+        else
+        {
+            seat = NetSeatId.Value;
+            if (seat < 0) return;
+        }
+
         string vcamName = seat == 0 ? SeatVCamBaseName : $"{SeatVCamBaseName} ({seat})";
         string camName = seat == 0 ? SeatCameraBaseName : $"{SeatCameraBaseName} ({seat})";
 
@@ -354,6 +398,9 @@ public class Player : CharacterMoveControllerBase
         vcam.LookAt = transform;   // vcam 看向本角色
         viewCamera = mainCam;      // Player.viewCamera(主相机) = 本座位的 Camera
 
+        // 相机工具类绑定【本座位】的 vcam（多人时不能全场景找第一台，否则两个玩家抢同一台 POV）
+        playerCameraUtility?.Init(vcam);
+
         // 一屏只留自己那套相机：停用本机其它主相机和 vcam（复用已查找的 allVCams/allCams）
         foreach (var v in allVCams)
             if (v != vcam) v.gameObject.SetActive(false);
@@ -366,7 +413,7 @@ public class Player : CharacterMoveControllerBase
         }
 
         _cameraAssigned = true;
-        Debug.Log($"[{name}] 座位{seat}: 主相机={camName} vcam={vcamName} 已关联本角色", this);
+           Debug.Log($"[{name}] 座位{seat}: 主相机={camName} vcam={vcamName} 已关联本角色", this);
     }
 
     /// <summary>
