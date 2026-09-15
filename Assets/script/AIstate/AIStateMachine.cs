@@ -508,25 +508,30 @@ public class AIStateMachine : MonoBehaviour
         }
     }
 
-    /// <summary>单次命中结算:走受击方的伤害请求入口(服务端权威:联网由服务端按攻击者攻击力×倍率重算)</summary>
+    /// <summary>单次命中结算:出手伤害在攻方(AI 由服务端驱动,账本完整)这一刻算定,受方只做防御/减伤</summary>
     private void ApplyHit(HealthModel health, float moveMultiplier)
     {
-        // 招式倍率 × 当前阶段伤害倍率(暴怒阶段加伤)，最终伤害由服务端按攻击力重算
+        // 招式倍率 × 当前阶段伤害倍率(暴怒阶段加伤),再乘上 AI 自己的攻击力/增伤
         float phaseMult = CurrentPhaseData?.damageMultiplier ?? 1f;
         float totalMultiplier = moveMultiplier * phaseMult;
 
         var attackerNetObj = GetComponentInParent<NetworkObject>();
         ulong sourceId = (attackerNetObj != null && attackerNetObj.IsSpawned) ? attackerNetObj.NetworkObjectId : 0UL;
 
+        var outgoing = DamageCalculator.CalculateOutgoing(
+            gameObject,
+            totalMultiplier,
+            0f,                     // TODO: 需要暴击时把 critRate/critMultiplier 加进 AIAttackData
+            1f);
+
         health.RequestDamage(new DamageRequest
         {
-            multiplier = totalMultiplier,
-            critRate = 0f,          // TODO: 需要暴击时把 critRate/critMultiplier 加进 AIAttackData
-            critMultiplier = 1f,
+            damage = outgoing.finalDamage,
+            isCritical = outgoing.isCritical,
             sourceId = sourceId,
             isDoT = false,
         }, gameObject);
 
-        Debug.Log($"[AI] 请求命中 {health.name}(倍率 {totalMultiplier:F2})");
+        Debug.Log($"[AI] 请求命中 {health.name}(倍率 {totalMultiplier:F2} → 出手伤害 {outgoing.finalDamage:F1})");
     }
 }

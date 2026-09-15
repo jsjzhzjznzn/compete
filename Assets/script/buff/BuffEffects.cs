@@ -25,15 +25,6 @@ public class BuffAttributeEffect : BuffEffect
     [SerializeField, Header("每层数值（最终 = 此值 × 层数）")]
     private float _valuePerStack = 0.3f;
 
-#if UNITY_EDITOR
-    /// <summary>编辑器校验：系数型属性 Base=0，用 Multiply 会把结果乘成 0，提醒改用 Add</summary>
-    private void OnValidate()
-    {
-        if (_modType == ModType.Multiply && AttrTypeUtil.IsRatio(_attrType))
-            Debug.LogWarning($"[{name}] 属性加成选了 Multiply；系数型属性 Base=0 时 (0+Add)×Mul 通常得到 0，一般应选 Add", this);
-    }
-#endif
-
     public override void OnApply(BuffInstance buff) => ApplyModifier(buff);
 
     public override void OnStackChanged(BuffInstance buff) => ApplyModifier(buff);

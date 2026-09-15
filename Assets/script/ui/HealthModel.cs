@@ -52,9 +52,6 @@ public class HealthModel : NetworkBehaviour
     /// <summary>服务器端闪避冷却：下次允许开无敌的 ServerTime 时间点（防连点/改内存刷无敌）</summary>
     private float _nextInvincibleAllowedServerTime;
 
-    /// <summary>单次请求的倍率上限（基础校验用；真实数值由服务端按权威攻击力算出，客户端只能传倍率）</summary>
-    private const float MaxHitMultiplier = 10f;
-
     /// <summary>是否已由角色用配置(SO)初始化过血量（避免组件间 Awake 顺序不确定时被兜底值覆盖）</summary>
     private bool _statsInitialized;
 
@@ -110,58 +107,43 @@ public class HealthModel : NetworkBehaviour
         netMaxHP.Value = MaxHP.Value;
     }
 
-    // ============ 伤害请求入口（服务端权威：服务端用服务端属性重算） ============
+    // ============ 伤害请求入口（受方侧结算：攻方传来出手伤害，这里算防御/减伤） ============
 
     /// <summary>
-    /// 伤害请求入口（攻击方调用）：单机本地用 DamageCalculator 结算；
-    /// 联网发到服务端，由服务端用【攻击者攻击力 × 招式倍率】+ 服务端属性重算后结算。
-    /// 攻击力/增伤/减伤都只以【服务端】数据为准，客户端连伤害数值都传不了（只能传倍率）。
+    /// 伤害请求入口（攻击方调用）：出手伤害已由攻方在出手那一刻算定（见 DamageRequest 注释），
+    /// 这里只做受击方这一侧的结算（防御力减免 / 减伤 / 保底）。
+    /// 单机本地直接结算；联网发到服务端结算（受方的属性账本只在服务端完整）。
     /// </summary>
-    /// <param name="req">伤害请求（招式倍率 + 暴击参数 + 攻击者网络 id）</param>
+    /// <param name="req">伤害请求（攻方算好的出手伤害 + 暴击标记 + 攻击者网络 id）</param>
     /// <param name="source">攻击者 GameObject（单机路径直接用；联网路径忽略，服务端按 id 解析）</param>
     public void RequestDamage(in DamageRequest req, GameObject source = null)
     {
         if (!IsSpawned)
         {
-            // 单机：本地计算 + 结算（保持原行为）
-            var localResult = DamageCalculator.Calculate(new DamageContext
-            {
-                multiplier = req.multiplier,
-                critRate = req.critRate,
-                critMultiplier = req.critMultiplier,
-                attacker = source,
-                defender = gameObject,
-            });
-            TakeDamage(localResult.finalDamage, source, localResult.isCritical, req.isDoT);
+            // 单机：本地做受方侧结算
+            var localResult = DamageCalculator.CalculateIncoming(gameObject, req.damage);
+            TakeDamage(localResult.finalDamage, source, req.isCritical, req.isDoT);
             return;
         }
 
-        RequestDamageServerRpc(req.multiplier, req.critRate, req.critMultiplier, req.sourceId, req.isDoT);
+        RequestDamageServerRpc(req);
     }
 
     /// <summary>
-    /// 服务端结算：用【攻击者攻击力 × 招式倍率】+ 服务端属性重算最终伤害
-    /// （攻击力/增伤/减伤账本都在服务端；客户端只传倍率，伪造不了伤害）。
+    /// 服务端结算：对攻方传来的出手伤害做受方侧（防御/减伤）结算。
+    /// 不再按服务端属性重算出手伤害 —— 出手伤害已在攻方出手瞬间算定。
     /// </summary>
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-    private void RequestDamageServerRpc(float multiplier, float critRate, float critMultiplier, ulong sourceId, bool isDoT)
+    private void RequestDamageServerRpc(DamageRequest req)
     {
         if (!IsServer) return;
 
-        // 基础校验：倍率非法/超上限直接丢弃（防伪造；真实数值由服务端按权威攻击力算出）
-        if (!float.IsFinite(multiplier) || multiplier < 0f || multiplier > MaxHitMultiplier) return;
+        // 不做数值合理性/上限校验（出手伤害由攻方算定，按设计取舍）。
+        // CalculateIncoming 内部会丢弃 NaN/Infinity —— 那不是防作弊，是防止血量变 NaN 后角色僵死。
+        var attacker = GetSourceObject(req.sourceId);
+        var result = DamageCalculator.CalculateIncoming(gameObject, req.damage);
 
-        var attacker = GetSourceObject(sourceId);
-        var result = DamageCalculator.Calculate(new DamageContext
-        {
-            multiplier = multiplier,
-            critRate = critRate,
-            critMultiplier = critMultiplier,
-            attacker = attacker,
-            defender = gameObject,
-        });
-
-        TakeDamage(result.finalDamage, attacker, result.isCritical, isDoT);   // 服务端结算 + 内部定向通知
+        TakeDamage(result.finalDamage, attacker, req.isCritical, req.isDoT);   // 服务端结算 + 内部定向通知
     }
 
     // ============ 扣血逻辑（联网时只在服务器执行） ============

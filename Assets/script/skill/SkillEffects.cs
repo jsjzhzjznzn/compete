@@ -8,8 +8,9 @@ using UnityEngine;
 // ============================================================================
 
 /// <summary>
-/// 造成伤害节点：对 target 发起一次伤害请求（服务端权威，最终伤害由服务端按攻击力×倍率重算）。
-/// 最终倍率 = 配置伤害倍率 × 本次释放系数(context.skillCoef)。
+/// 造成伤害节点：对 target 发起一次伤害请求。
+/// 最终倍率 = 配置伤害倍率 × 本次释放系数(context.skillCoef)；
+/// 出手伤害由攻方在这里算定，受击方只做防御/减伤结算。
 /// </summary>
 public class DamageEffectNode : ISkillEffect
 {
@@ -33,11 +34,14 @@ public class DamageEffectNode : ISkillEffect
         var health = target.GetComponentInParent<HealthModel>();
         if (health == null || !health.IsAlive) return;
 
+        // 出手伤害在攻方这一刻算定（source 为 null 时攻击力走兜底，不会崩）
+        var outgoing = DamageCalculator.CalculateOutgoing(
+            source, _damageMultiplier * context.skillCoef, _critRate, _critMultiplier);
+
         health.RequestDamage(new DamageRequest
         {
-            multiplier = _damageMultiplier * context.skillCoef,
-            critRate = _critRate,
-            critMultiplier = _critMultiplier,
+            damage = outgoing.finalDamage,
+            isCritical = outgoing.isCritical,
             sourceId = ResolveSourceId(source),
             isDoT = _isDoT,
         }, source);

@@ -35,9 +35,9 @@ public enum AttrType
 public static class AttrTypeUtil
 {
     /// <summary>
-    /// 是否为"系数型"属性（基准 0 = 无加成）。
-    /// 系数型的 Base 通常是 0，对它用 Multiply 会把结果乘成 0 —— 一般应改用 Add。
-    /// 白值型（Attack/Defense）Base 是真实数值，Multiply 是合理用法。
+    /// 是否为"系数型"属性（0 = 无加成）。系数型由 MutableAttribute 以中性值 1 计算
+    /// （Final = (1 + ΣAdd) × ΠMul - 1），Add 与 Multiply 均可用。
+    /// 白值型（Attack/Defense）Base 是真实数值，按 (Base + ΣAdd) × ΠMul 计算。
     /// </summary>
     public static bool IsRatio(AttrType type) => type switch
     {

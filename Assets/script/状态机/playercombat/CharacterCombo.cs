@@ -218,12 +218,17 @@ public class CharacterCombo
 
             if (!_hitTargets.Add(target.gameObject)) continue;  // 同一受击单位只结算一次
 
-            // 伤害交给受击方走请求入口：单机本地算，联网由服务端用服务端属性重算（服务端权威）
+            // 出手伤害在攻方这一刻算定（攻击力 = 基础+Buff 账本的最终值 × 倍率 × 增伤 × 暴击），
+            // 之后攻方属性再变也不回溯影响本击（出手快照）。
+            // 逐个目标独立算：每次结算独立掷暴击骰，与拆分前一致。
+            var outgoing = DamageCalculator.CalculateOutgoing(
+                player.gameObject, data.damageMultiplier, data.critRate, data.critMultiplier);
+
+            // 受击方只做自己这一侧的防御/减伤结算
             target.RequestDamage(new DamageRequest
             {
-                multiplier = data.damageMultiplier,
-                critRate = data.critRate,
-                critMultiplier = data.critMultiplier,
+                damage = outgoing.finalDamage,
+                isCritical = outgoing.isCritical,
                 sourceId = player.IsSpawned ? player.NetworkObjectId : 0UL,
                 isDoT = false,
             }, player.gameObject);

@@ -1,16 +1,26 @@
 using System.Collections.Generic;
 
 /// <summary>
-/// 可变属性容器（系数型）：BaseValue + Modifier 账本 + Dirty 脏标记延迟计算。
+/// 可变属性容器（系数型 / 白值型通用）：BaseValue + Modifier 账本 + Dirty 脏标记延迟计算。
 ///
 /// 写阶段（加/删 Modifier、改 BaseValue）：只打脏标记，不遍历、不计算；
 /// 读阶段（FinalValue）：脏才 Recalculate()（遍历账本算一次并缓存），否则直接返回缓存。
 /// 战斗高频读属性时，绝大多数帧 Buff 没变 → 零遍历开销。
 ///
-/// 计算顺序固定：Final = (Base + 所有加法之和) × 所有乘法之积
+/// 计算顺序固定：
+///   白值型（Attack/Defense）：Final = (Base + 所有加法之和) × 所有乘法之积
+///   系数型（DamageUp/DamageDown/MoveSpeed）：Final = (1 + 所有加法之和) × 所有乘法之积 - 1
+/// 系数型中性值是 1（0 表示"无加成"，读法为 1 + Final），乘区作用在 (1 + 加成) 上；
+/// 若沿用 base=0 的乘式，(0 + 加成) × 倍率 会恒为 0，Multiply 静默失效。
 /// </summary>
 public class MutableAttribute
 {
+    /// <summary>是否为系数型属性（0 = 无加成）。true 时按中性值 1 计算，见 Recalculate</summary>
+    private readonly bool _isRatio;
+
+    /// <param name="isRatio">系数型传 true（AttrTypeUtil.IsRatio），白值型传 false</param>
+    public MutableAttribute(bool isRatio = false) => _isRatio = isRatio;
+
     private float _baseValue;
 
     /// <summary>基础值。做成属性而非 public 字段：修改时打脏标记，保证缓存失效</summary>
@@ -74,7 +84,7 @@ public class MutableAttribute
         _isDirty = true;
     }
 
-    /// <summary>核心重算：先全部加法，后统一乘法</summary>
+    /// <summary>核心重算：先全部加法，后统一乘法（系数型以 1 为中性值，结果再减回 1）</summary>
     private void Recalculate()
     {
         float addSum = 0f;
@@ -87,7 +97,9 @@ public class MutableAttribute
             else mulProduct *= mod.value;
         }
 
-        _cachedFinalValue = (_baseValue + addSum) * mulProduct;
+        _cachedFinalValue = _isRatio
+            ? (1f + addSum) * mulProduct - 1f
+            : (_baseValue + addSum) * mulProduct;
         _isDirty = false;
     }
 }
