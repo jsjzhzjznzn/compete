@@ -37,6 +37,16 @@ public class BagData
     /// <summary>槽位变化通知。参数是槽位号；-1 表示整体变化（Clear / 批量操作）</summary>
     public event Action<int> OnSlotChanged;
 
+    /// <summary>
+    /// 有东西没放进去 —— 背包满了，或者只放下了一部分。
+    /// 参数：(itemId, 没能放进去的数量)。
+    ///
+    /// ⚠ 只有"空间不够"才发这个事件。
+    ///   配置查不到 / 类型收不对 属于**配置或调用错误**，只打 LogError、**不发这个事件** ——
+    ///   否则 UI 会把配置 bug 提示成"背包已满"，真问题就被伪装成正常状态了（这是最容易埋雷的地方）。
+    /// </summary>
+    public event Action<int, int> OnAddOverflow;
+
     private readonly List<BagSlot> _slots;
 
     public BagData(BagType bagType, int capacity, ItemType acceptItemType)
@@ -67,21 +77,25 @@ public class BagData
 
     /// <summary>
     /// 放入物品：先叠到已有同类未满的槽，再填空槽。
-    /// 返回**没放进去的余量**（0 = 全放进去了；&gt;0 = 背包满了）。
+    /// 返回**没放进去的余量**（0 = 全部放进去了）。
+    ///
+    /// 放不下时会额外发 <see cref="OnAddOverflow"/>，UI 订阅它做提示即可 ——
+    /// 调用方不需要自己算空间（UI 看到的只是镜像，多背包 / 以后联机时自己算必然算错）。
     /// </summary>
     public int Add(int itemId, int count = 1)
     {
-        if (itemId == 0 || count <= 0) return 0;
+        if (itemId == 0 || count <= 0) return 0;      // 空物品 / 数量非法：不算错误也不算满
 
         var config = ItemDatabase.Resolve(itemId);
         if (config == null)
         {
-            Debug.LogWarning($"[BagData] 找不到 itemId={itemId} 的配置，未放入 {count} 个");
+            // 配置错误，不是"背包满" → 用 LogError 让它显眼，并且刻意不发 OnAddOverflow
+            Debug.LogError($"[BagData] 找不到 itemId={itemId} 的配置，未放入 {count} 个（这是配置错误，不是背包满）");
             return count;
         }
         if (config.itemType != acceptItemType)
         {
-            Debug.LogWarning($"[BagData] {bagType} 包不收 {config.itemType} 类型的 \"{config.itemName}\"");
+            Debug.LogError($"[BagData] {bagType} 包不收 {config.itemType} 类型的 \"{config.itemName}\"，未放入（这是配置/调用错误，不是背包满）");
             return count;
         }
 
@@ -115,6 +129,9 @@ public class BagData
             remain -= put;
             Notify(i);
         }
+
+        // 3) 还有剩下的 → 通知"没放下"（部分放下也会走到这，所以事件名叫 Overflow 不叫 BagFull）
+        if (remain > 0) OnAddOverflow?.Invoke(itemId, remain);
 
         return remain;
     }
@@ -199,6 +216,61 @@ public class BagData
             _slots[i].Clear();
         }
         Notify(-1);
+    }
+
+    /// <summary>
+    /// 合并散堆：把同种且可叠的多个堆，合并到占用格数最少。
+    ///
+    /// 例：3 格分别放 40 / 30 / 20 个（上限 99）→ 合并后 90 个占 1 格，另 2 格空出来。
+    ///
+    /// 规则：
+    ///   - 只处理"同 itemId 且 maxStack > 1"的堆（武器这类不可叠的整格跳过）
+    ///   - 只往**下标更小的同类堆**里塞，**不会**把整堆搬进空槽
+    ///     （所以它叫"合并"不叫"排序"：整理后物品不会自动挤到最前面。
+    ///       要做到那一步是另一个操作 ItemActionSort，需要吗再说）
+    ///   - 全部改完只发**一次**整体变化通知（-1），不逐格通知
+    ///
+    /// 放数据层而不是放在 ItemActionMerge 里：它是纯粹的容器操作，
+    /// 跟"按钮叫什么、什么时候能点"无关 —— 策略只负责触发。
+    /// </summary>
+    /// <returns>是否真的发生了变化</returns>
+    public bool MergeAll()
+    {
+        bool changed = false;
+
+        // 从前往后扫：把每一堆往它前面那些"同类未满"的堆里塞
+        for (int i = 0; i < _slots.Count; i++)
+        {
+            var from = _slots[i];
+            if (from.IsEmpty) continue;
+
+            var config = ItemDatabase.Resolve(from.itemId);
+            int maxStack = config != null ? config.maxStack : 1;
+            if (maxStack <= 1) continue;          // 不可叠的（武器）没有可合并的余地
+
+            for (int j = 0; j < i && from.count > 0; j++)
+            {
+                var to = _slots[j];
+                if (to.IsEmpty || to.itemId != from.itemId || to.count >= maxStack) continue;
+
+                int move = Mathf.Min(from.count, maxStack - to.count);
+                if (move <= 0) continue;
+
+                to.count += move;
+                from.count -= move;
+                changed = true;
+            }
+
+            // 这一堆被搬空了，把槽位还原成空格
+            if (from.count <= 0)
+            {
+                from.Clear();
+                changed = true;
+            }
+        }
+
+        if (changed) Notify(-1);
+        return changed;
     }
 
     private void Notify(int slotIndex) => OnSlotChanged?.Invoke(slotIndex);

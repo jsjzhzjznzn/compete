@@ -20,8 +20,9 @@ using UnityEngine.UI;
 ///   │             ├─ BagScrollArea ── BagViewport ── BagContent ── BagCellTemplate
 ///   │             ├─ BagScrollbar
 ///   │             ├─ BagAddButton          ← 打开加物品选择器
+///   │             ├─ BagNotice             ← 一行提示（背包满等），默认关
 ///   │             └─ BagDetail ─┬─ BagDetailIcon / Name / Desc / Stat
-///   │                           └─ BagDropButton   ← 丢弃选中的整叠
+///   │                           └─ BagActionButton0/1/2 ← 操作按钮池（显示几个由物品配了哪些 ItemAction 决定）
 ///   ├─ BagPicker（默认关）      ← 加物品选择器，复用同一套虚拟列表
 ///   └─ BagDragGhost（默认关）   ← 拖拽时跟手的图标
 /// </summary>
@@ -49,10 +50,17 @@ public static class BagUIBuilder
 
     private const float ScrollbarW = 14f;
 
+    /// <summary>详情面板上放几个操作按钮槽位（实际显示几个由物品配了几个 ItemAction 决定）</summary>
+    private const int ActionButtonCount = 3;
+
     // ==================== 资产路径 ====================
     private const string FontPath = "Assets/Resource/字体/晴圆 (Windows 8.1)_爱给网_aigei_com SDF.asset";
     private const string DbPath = "Assets/Resources/ItemDatabase.asset";
     private const string ItemFolder = "Assets/Resources/BagItems";
+
+    /// <summary>物品操作策略资产的存放目录，以及类型默认表的路径</summary>
+    private const string ActionFolder = "Assets/Resources/BagActions";
+    private const string DefaultsPath = "Assets/Resources/ItemActionDefaults.asset";
     /// <summary>
     /// 图标目录（散图全路径写进 SO，走 YooAsset 加载）。
     /// 这两个目录已在 YooAsset 收集器里，所以不用额外配置。
@@ -68,7 +76,9 @@ public static class BagUIBuilder
     private static readonly Color ColText = new Color(0.93f, 0.94f, 0.96f, 1f);
     private static readonly Color ColDim = new Color(0.70f, 0.72f, 0.76f, 1f);
     private static readonly Color ColBtn = new Color(0.26f, 0.34f, 0.46f, 1f);
-    private static readonly Color ColBtnDanger = new Color(0.55f, 0.26f, 0.26f, 1f);
+
+    /// <summary>警示色（背包满之类的提示）</summary>
+    private static readonly Color ColWarn = new Color(1f, 0.45f, 0.4f, 1f);
 
     /// <summary>一块"虚拟网格滚动区"的全套引用</summary>
     private struct GridArea
@@ -139,6 +149,12 @@ public static class BagUIBuilder
         var addButton = NewButton("BagAddButton", window.transform, "加物品", font, 24f,
             new Vector2(140f, 46f), new Vector2(-450f, -316f), ColBtn);
 
+        // 提示行（背包满等）：窗口底部，避开左边的"加物品"按钮；默认关，由 BagPanel.ShowNotice 打开
+        var notice = NewTMP("BagNotice", window.transform, "", font, 24f, TextAlignmentOptions.Center);
+        notice.color = ColWarn;
+        CenterRect(notice.rectTransform, new Vector2(640f, 40f), new Vector2(70f, -316f));
+        notice.gameObject.SetActive(false);
+
         // ==================== 详情面板 ====================
         var detail = NewUI("BagDetail", window.transform);
         CenterRect(detail.GetComponent<RectTransform>(), new Vector2(280f, ViewportH), new Vector2(398f, bodyCenterY));
@@ -155,14 +171,23 @@ public static class BagUIBuilder
 
         var detailDesc = NewTMP("BagDetailDesc", detail.transform, "", font, 20f, TextAlignmentOptions.TopLeft);
         detailDesc.color = ColDim;
-        CenterRect(detailDesc.rectTransform, new Vector2(270f, 150f), new Vector2(0f, -70f));
+        CenterRect(detailDesc.rectTransform, new Vector2(270f, 140f), new Vector2(0f, -60f));
 
         var detailStat = NewTMP("BagDetailStat", detail.transform, "", font, 22f, TextAlignmentOptions.TopLeft);
         detailStat.color = ColSelect;
-        CenterRect(detailStat.rectTransform, new Vector2(270f, 60f), new Vector2(0f, -180f));
+        CenterRect(detailStat.rectTransform, new Vector2(270f, 56f), new Vector2(0f, -170f));
 
-        var dropButton = NewButton("BagDropButton", detail.transform, "丢弃", font, 22f,
-            new Vector2(120f, 40f), new Vector2(0f, -230f), ColBtnDanger);
+        // 操作按钮池：横排 3 个，实际显示几个由选中物品的 ItemAction 列表决定
+        // （BagPanel.RefreshActionButtons 会按需显示/隐藏并改文字）
+        var actionButtons = new Button[ActionButtonCount];
+        for (int i = 0; i < ActionButtonCount; i++)
+        {
+            actionButtons[i] = NewButton($"BagActionButton{i}", detail.transform, "", font, 20f,
+                new Vector2(84f, 40f), new Vector2((i - 1) * 90f, -228f), ColBtn);
+
+            // 建完先关掉：编辑模式下不该看到一排空按钮，运行时 RefreshActionButtons 会按需打开
+            actionButtons[i].gameObject.SetActive(false);
+        }
 
         // ==================== 加物品选择器（默认关） ====================
         var picker = NewUI("BagPicker", root.transform);
@@ -202,9 +227,13 @@ public static class BagUIBuilder
         panelSo.FindProperty("_capacityText").objectReferenceValue = capacity;
         panelSo.FindProperty("_closeButton").objectReferenceValue = closeButton;
         panelSo.FindProperty("_list").objectReferenceValue = bagArea.list;
-        panelSo.FindProperty("_dropButton").objectReferenceValue = dropButton;
+        var actionArray = panelSo.FindProperty("_actionButtons");
+        actionArray.arraySize = actionButtons.Length;
+        for (int i = 0; i < actionButtons.Length; i++)
+            actionArray.GetArrayElementAtIndex(i).objectReferenceValue = actionButtons[i];
         panelSo.FindProperty("_addButton").objectReferenceValue = addButton;
         panelSo.FindProperty("_dragGhost").objectReferenceValue = ghostImage;
+        panelSo.FindProperty("_noticeText").objectReferenceValue = notice;
         panelSo.FindProperty("_detailRoot").objectReferenceValue = detail;
         panelSo.FindProperty("_detailIcon").objectReferenceValue = detailIconImage;
         panelSo.FindProperty("_detailName").objectReferenceValue = detailName;
@@ -217,6 +246,7 @@ public static class BagUIBuilder
 
         // ==================== 配置资产 ====================
         CreateItemAssets();
+        CreateItemActionAssets();
 
         // ==================== 收尾 ====================
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(
@@ -381,6 +411,91 @@ public static class BagUIBuilder
             template = templateRt,
             list = list,
         };
+    }
+
+    // ==================== 配置资产 ====================
+
+    // ==================== 物品操作策略资产 ====================
+
+    /// <summary>
+    /// 建/更新操作策略资产 + 类型默认表。
+    ///
+    /// 产出：
+    ///   Assets/Resources/BagActions/ItemAction_Use.asset       使用（参数：回血量、消耗数）
+    ///   Assets/Resources/BagActions/ItemAction_Discard.asset   丢弃
+    ///   Assets/Resources/BagActions/ItemAction_Merge.asset     合并（合并散堆）
+    ///   Assets/Resources/ItemActionDefaults.asset              类型 → 默认操作集
+    ///
+    /// 默认集：
+    ///   道具 Item   → 使用、丢弃、合并
+    ///   武器 Weapon → 丢弃、合并         （穿戴要等 instanceId，还没做）
+    ///
+    /// 加一种新行为 = 写一个 ItemAction 子类 + 这里多建一个资产 + 挂进默认表（或某件物品的 _actions）。
+    /// 加一个新类型 / 给某件特例物品换操作集 = 只改配置，代码不动。
+    /// </summary>
+    private static void CreateItemActionAssets()
+    {
+        EnsureFolder("Assets/Resources");
+        EnsureFolder(ActionFolder);
+
+        var discard = CreateOrLoadAsset<ItemActionDiscard>($"{ActionFolder}/ItemAction_Discard.asset");
+        var use = CreateOrLoadAsset<ItemActionUse>($"{ActionFolder}/ItemAction_Use.asset");
+        var merge = CreateOrLoadAsset<ItemActionMerge>($"{ActionFolder}/ItemAction_Merge.asset");
+
+        // 按钮文字（留空会用资产名兜底，但显式写更清楚）
+        SetActionName(discard, "丢弃");
+        SetActionName(use, "使用");
+        SetActionName(merge, "合并");
+
+        // 使用策略的参数（配在策略资产上，跟 Buff 的 BuffEffect 一个做法）
+        var useSo = new SerializedObject(use);
+        useSo.FindProperty("_healAmount").floatValue = 30f;
+        useSo.FindProperty("_cost").intValue = 1;
+        useSo.ApplyModifiedPropertiesWithoutUndo();
+
+        // 类型默认表
+        var defaults = CreateOrLoadAsset<ItemActionDefaults>(DefaultsPath);
+        var dso = new SerializedObject(defaults);
+        var entries = dso.FindProperty("_entries");
+        entries.arraySize = 2;
+
+        FillDefaultsEntry(entries.GetArrayElementAtIndex(0), ItemType.Item,
+            new ItemAction[] { use, discard, merge });
+        FillDefaultsEntry(entries.GetArrayElementAtIndex(1), ItemType.Weapon,
+            new ItemAction[] { discard, merge });
+
+        dso.ApplyModifiedPropertiesWithoutUndo();
+        AssetDatabase.SaveAssets();
+    }
+
+    private static void FillDefaultsEntry(SerializedProperty entry, ItemType itemType, ItemAction[] actions)
+    {
+        entry.FindPropertyRelative("itemType").enumValueIndex = (int)itemType;
+
+        var list = entry.FindPropertyRelative("actions");
+        list.arraySize = actions.Length;
+        for (int i = 0; i < actions.Length; i++)
+        {
+            list.GetArrayElementAtIndex(i).objectReferenceValue = actions[i];
+        }
+    }
+
+    private static void SetActionName(ItemAction action, string actionName)
+    {
+        var so = new SerializedObject(action);
+        so.FindProperty("_actionName").stringValue = actionName;
+        so.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    /// <summary>已存在就复用（保住 guid，避免把引用弄断），不存在才建</summary>
+    private static T CreateOrLoadAsset<T>(string path) where T : ScriptableObject
+    {
+        var asset = AssetDatabase.LoadAssetAtPath<T>(path);
+        if (asset != null) return asset;
+
+        asset = ScriptableObject.CreateInstance<T>();
+        AssetDatabase.CreateAsset(asset, path);
+        return asset;
     }
 
     // ==================== 配置资产 ====================

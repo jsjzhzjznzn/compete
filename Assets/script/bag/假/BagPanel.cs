@@ -36,9 +36,12 @@ public class BagPanel : MonoBehaviour
     [SerializeField] private VirtualGridList _list;
 
     [Header("操作")]
-    [SerializeField] private Button _dropButton;      // 丢弃当前选中的（整叠）
+    [SerializeField] private Button[] _actionButtons;  // 操作按钮池：按选中物品的 ItemAction 动态显示
     [SerializeField] private Button _addButton;       // 打开"加物品"选择器
     [SerializeField] private Image _dragGhost;        // 拖拽跟手的幽灵图（默认 inactive）
+
+    [Header("提示")]
+    [SerializeField] private TextMeshProUGUI _noticeText;   // 一行提示（背包满等），默认 inactive
 
     [Header("详情")]
     [SerializeField] private GameObject _detailRoot;
@@ -55,6 +58,9 @@ public class BagPanel : MonoBehaviour
     /// <summary>拖拽幽灵图的尺寸（跟格子不一样大，小一点更像"拿在手上"）</summary>
     private const float DragGhostSize = 90f;
 
+    /// <summary>提示文字显示多久后自动隐藏（秒）</summary>
+    private const float NoticeSeconds = 2.5f;
+
     private readonly List<int> _pickerIds = new List<int>();
 
     /// <summary>画选择器格子用的临时槽位（只用来借 BagCell 的画法，不进背包）</summary>
@@ -66,6 +72,7 @@ public class BagPanel : MonoBehaviour
     private int _detailIconToken;
     private bool _subscribed;
     private bool _warnedMissingCell;
+    private float _noticeHideAt;
 
     /// <summary>这个面板显示哪个背包</summary>
     public BagType bagType => _bagType;
@@ -98,7 +105,6 @@ public class BagPanel : MonoBehaviour
     private void Awake()
     {
         if (_closeButton != null) _closeButton.onClick.AddListener(Close);
-        if (_dropButton != null) _dropButton.onClick.AddListener(DropSelected);
         if (_addButton != null) _addButton.onClick.AddListener(OpenPicker);
         if (_pickerCloseButton != null) _pickerCloseButton.onClick.AddListener(ClosePicker);
 
@@ -120,6 +126,7 @@ public class BagPanel : MonoBehaviour
         if (_bag != null && _subscribed)
         {
             _bag.OnSlotChanged -= OnSlotChanged;
+            _bag.OnAddOverflow -= OnAddOverflow;
             _subscribed = false;
         }
         _draggingSlot = -1;
@@ -129,10 +136,13 @@ public class BagPanel : MonoBehaviour
     private void OnDestroy()
     {
         if (_closeButton != null) _closeButton.onClick.RemoveListener(Close);
-        if (_dropButton != null) _dropButton.onClick.RemoveListener(DropSelected);
         if (_addButton != null) _addButton.onClick.RemoveListener(OpenPicker);
         if (_pickerCloseButton != null) _pickerCloseButton.onClick.RemoveListener(ClosePicker);
-        if (_bag != null) _bag.OnSlotChanged -= OnSlotChanged;
+        if (_bag != null)
+        {
+            _bag.OnSlotChanged -= OnSlotChanged;
+            _bag.OnAddOverflow -= OnAddOverflow;
+        }
     }
 
     /// <summary>
@@ -157,6 +167,7 @@ public class BagPanel : MonoBehaviour
         if (!_subscribed)
         {
             bag.OnSlotChanged += OnSlotChanged;
+            bag.OnAddOverflow += OnAddOverflow;
             _subscribed = true;
         }
     }
@@ -190,15 +201,21 @@ public class BagPanel : MonoBehaviour
     /// <summary>清空本背包</summary>
     public void ClearBag() => Bag?.Clear();
 
-    /// <summary>丢弃当前选中的一整叠（没有选中就什么都不做）</summary>
-    public void DropSelected()
+    /// <summary>
+    /// 执行当前选中物品的某个操作（外部想程序化触发也能调）。
+    /// 数据修改由策略内部走 BagData 完成，这里只负责"跑完刷新界面"。
+    /// </summary>
+    public bool RunAction(ItemAction action, int slotIndex)
     {
         var bag = Bag;
-        var slot = bag?.GetSlot(_selectedSlot);
-        if (slot == null || slot.IsEmpty) return;
+        if (action == null || bag == null) return false;
 
-        // 删掉后 BagData 会发通知 → OnSlotChanged 会把选中清掉并刷新界面
-        bag.RemoveAt(_selectedSlot, slot.count);
+        bool changed = action.Run(bag, slotIndex);
+
+        // 改了数据的话 BagData 已经发过通知（OnSlotChanged 刷过一次）；
+        // 没改数据的操作（比如只回血）这里补一次，保证按钮的可点状态是最新的
+        RefreshDetail();
+        return changed;
     }
 
     // ==================== 列表绑定 ====================
@@ -358,9 +375,8 @@ public class BagPanel : MonoBehaviour
     {
         if (pickerIndex < 0 || pickerIndex >= _pickerIds.Count) return;
 
-        int remain = AddItem(_pickerIds[pickerIndex], 1);
-        if (remain > 0)
-            Debug.LogWarning($"[BagPanel] 「{_bagType}」背包满了，再加不进去了");
+        // 加不进去时不用在这里判断 —— BagData 会发 OnAddOverflow，由 OnAddOverflow 统一提示
+        AddItem(_pickerIds[pickerIndex], 1);
     }
 
     // ==================== 数据变化 → 刷新 ====================
@@ -381,6 +397,49 @@ public class BagPanel : MonoBehaviour
         RefreshDetail();
     }
 
+    /// <summary>
+    /// 有东西没放进去（背包满 / 只放下了一部分）。
+    /// 只负责提示 —— 数据层已经自己处理好"能放多少放多少"，UI 不做任何判断。
+    /// </summary>
+    private void OnAddOverflow(int itemId, int remain)
+    {
+        var config = ItemDatabase.Resolve(itemId);
+        string name = config != null ? config.itemName : $"#{itemId}";
+
+        ShowNotice($"{name} ×{remain} 放不下，背包已满");
+        Debug.Log($"[BagPanel] 「{_bagType}」放不下 {name} ×{remain}");
+    }
+
+    /// <summary>
+    /// 显示一条提示，<see cref="NoticeSeconds"/> 秒后自动隐藏。
+    ///
+    /// 【为什么不需要节流】
+    ///   整个面板只复用这**一个** TextMeshProUGUI，不是每次提示都 new 一个飘字对象。
+    ///   所以连点 100 次也不会叠出一屏字 —— 只是把隐藏时间不断往后推。
+    ///   这是选"单文本 + 自动隐藏"而不是"飘字池"的关键理由。
+    /// </summary>
+    public void ShowNotice(string message)
+    {
+        if (_noticeText == null)
+        {
+            // 没接提示控件时至少别让信息丢了
+            Debug.LogWarning($"[BagPanel] 提示（未接提示控件）：{message}");
+            return;
+        }
+
+        _noticeText.text = message;
+        if (!_noticeText.gameObject.activeSelf) _noticeText.gameObject.SetActive(true);
+        _noticeHideAt = Time.unscaledTime + NoticeSeconds;
+    }
+
+    private void Update()
+    {
+        if (_noticeText == null || !_noticeText.gameObject.activeSelf) return;
+        if (Time.unscaledTime < _noticeHideAt) return;
+
+        _noticeText.gameObject.SetActive(false);
+    }
+
     // ==================== 详情面板 ====================
 
     private void RefreshDetail()
@@ -389,6 +448,9 @@ public class BagPanel : MonoBehaviour
         var slot = bag?.GetSlot(_selectedSlot);
         bool hasItem = slot != null && !slot.IsEmpty;
         var config = hasItem ? ItemDatabase.Resolve(slot.itemId) : null;
+
+        // 按钮池必须在 hasItem 早退之前刷 —— 否则"取消选中 / 物品被拿空"时旧按钮会留在界面上
+        RefreshActionButtons(hasItem ? config : null, _selectedSlot);
 
         if (_detailRoot != null && _detailRoot.activeSelf != hasItem)
             _detailRoot.SetActive(hasItem);
@@ -404,6 +466,50 @@ public class BagPanel : MonoBehaviour
 
         if (_detailStat != null)
             _detailStat.text = BuildStatText(config);
+    }
+
+    /// <summary>
+    /// 按选中物品的 ItemAction 列表，驱动按钮池：有几个操作就显示几个按钮。
+    ///
+    /// 这里完全不判断"这件物品是什么类型、该显示什么按钮" ——
+    /// 那些信息全在配置里（ItemData.GetActions()），所以加/减操作只改配置，本方法一行不用动。
+    /// </summary>
+    private void RefreshActionButtons(ItemData config, int slotIndex)
+    {
+        if (_actionButtons == null) return;
+
+        var actions = config != null ? config.GetActions() : null;
+        int actionCount = actions != null ? actions.Count : 0;
+
+        for (int i = 0; i < _actionButtons.Length; i++)
+        {
+            var button = _actionButtons[i];
+            if (button == null) continue;
+
+            bool show = i < actionCount;
+            if (button.gameObject.activeSelf != show) button.gameObject.SetActive(show);
+            if (!show) continue;
+
+            var action = actions[i];
+            if (action == null)
+            {
+                button.interactable = false;
+                continue;
+            }
+
+            // 可点状态由策略自己判断（材料够不够、等级够不够…），面板不掺和
+            button.interactable = action.CanRun(Bag, slotIndex);
+
+            var label = button.GetComponentInChildren<TextMeshProUGUI>(true);
+            if (label != null) label.text = action.actionName;
+
+            button.onClick.RemoveAllListeners();
+
+            // 闭包要捕获"当前这一轮"的值，不能直接用循环变量和会变的字段
+            var capturedAction = action;
+            int capturedSlot = slotIndex;
+            button.onClick.AddListener(() => RunAction(capturedAction, capturedSlot));
+        }
     }
 
     /// <summary>详情图标也走异步加载，同样用 token 防串味（连续点不同格子时会把旧请求丢掉）</summary>

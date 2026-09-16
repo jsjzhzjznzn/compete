@@ -35,6 +35,9 @@ public class ItemData : ScriptableObject
     [SerializeField, Header("属性加成（本轮只用于详情展示，穿戴逻辑后续实现）")]
     private List<ItemStatEntry> _stats = new List<ItemStatEntry>();
 
+    [SerializeField, Header("本物品特有的操作（留空 = 用 ItemActionDefaults 里该类型的默认操作集）")]
+    private List<ItemAction> _actions = new List<ItemAction>();
+
     #region 只读属性封装（外部仅读取，禁止修改配置数据）
     /// <summary>配置里填的原始标识（可能为空字符串）</summary>
     public string itemId => _itemId;
@@ -72,6 +75,19 @@ public class ItemData : ScriptableObject
     /// <summary>属性加成列表（不穿戴时只是展示数据）</summary>
     public IReadOnlyList<ItemStatEntry> stats => _stats;
     #endregion
+
+    /// <summary>
+    /// 这件物品能做哪些操作。
+    ///
+    /// 自己配了 _actions 就用自己配的；没配就用类型默认表（ItemActionDefaults）里那一套。
+    /// 于是"装备有丢弃+穿戴、道具有丢弃+使用"是**配置出来的**，不是 if/else 判断出来的；
+    /// 想给某一件特例物品去掉某个操作（比如绑定装备不可丢弃），只改那一件物品的配置即可。
+    /// </summary>
+    public IReadOnlyList<ItemAction> GetActions()
+    {
+        if (_actions != null && _actions.Count > 0) return _actions;
+        return ItemActionDefaults.Get(_itemType);
+    }
 
 #if UNITY_EDITOR
     /// <summary>编辑器校验：只提醒，不阻断（配错只会表现为叠层异常/武器能叠）</summary>
