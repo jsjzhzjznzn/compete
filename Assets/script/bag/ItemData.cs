@@ -23,6 +23,9 @@ public class ItemData : ScriptableObject
     [SerializeField, Header("类型：决定归道具背包还是武器背包")]
     private ItemType _itemType = ItemType.Item;
 
+    [SerializeField, Header("稀有度（驱动格子底色 / 详情名字颜色）")]
+    private ItemRarity _rarity = ItemRarity.Common;
+
     [SerializeField, Header("图标路径（散图全路径，例：Assets/Resource/ui/mingchao/道具/T_IconA80_02_UI.png）")]
     private string _iconPath;
 
