@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0d6416d913afd7748b3db5ca16e37076, type: 3}
+  m_Name: Weapon_Blade02
+  m_EditorClassIdentifier: Assembly-CSharp::ItemData
+  _itemId: weapon.blade_02
+  _itemName: "\u8BD5\u4F5C\u53CC\u5203"
+  _itemType: 1
+  _icon: {fileID: 21300000, guid: 1cc3f8bed9d378b4c84a574554bd91f5, type: 3}
+  _desc: "\u53CC\u6301\u7528\u7684\u5200\u3002\uFF08\u793A\u4F8B\u6B66\u5668\uFF09"
+  _maxStack: 1
+  _stats:
+  - attr: 3
+    modType: 1
+    value: 1.15
+  - attr: 0
+    modType: 0
+    value: 0.1
