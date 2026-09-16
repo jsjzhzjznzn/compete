@@ -29,7 +29,6 @@ public class BagPanel : MonoBehaviour
     [SerializeField] private BagType _bagType = BagType.Item;
 
     [Header("顶部")]
-    [SerializeField] private TextMeshProUGUI _title;
     [SerializeField] private TextMeshProUGUI _capacityText;
     [SerializeField] private Button _closeButton;
 
@@ -148,9 +147,7 @@ public class BagPanel : MonoBehaviour
 
         if (_selectedSlot >= bag.capacity) _selectedSlot = -1;
 
-        if (_title != null)
-            _title.text = BagManager.Instance.TryGetDef(_bagType, out var def) ? def.displayName : _bagType.ToString();
-
+        // 标题不在这里设 —— 它是 UI 文案，写在预制体的 BagTitle 上
         if (_capacityText != null)
             _capacityText.text = $"{bag.capacity} 格";
 

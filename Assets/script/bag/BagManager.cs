@@ -2,8 +2,9 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// 一个背包的登记信息：它是谁、多大、收什么、叫什么。
+/// 一个背包的登记信息：它是谁、多大、收什么。
 /// 集中放在 BagManager 的 Defs 表里，一处定义所有背包。
+/// 显示名不在这里 —— UI 文案归 UI，标题写在各自的预制体上。
 /// </summary>
 public struct BagDef
 {
@@ -16,15 +17,11 @@ public struct BagDef
     /// <summary>收哪种类型的物品（对应 ItemData.itemType）</summary>
     public ItemType acceptItemType;
 
-    /// <summary>显示名（UI 标题用）</summary>
-    public string displayName;
-
-    public BagDef(BagType bagType, int capacity, ItemType acceptItemType, string displayName)
+    public BagDef(BagType bagType, int capacity, ItemType acceptItemType)
     {
         this.bagType = bagType;
         this.capacity = capacity;
         this.acceptItemType = acceptItemType;
-        this.displayName = displayName;
     }
 }
 
@@ -61,8 +58,8 @@ public class BagManager : SingletonMono<BagManager>
     /// </summary>
     private readonly BagDef[] Defs =
     {
-        new BagDef(BagType.Item,   120, ItemType.Item,   "道具背包"),   // 6 列 x 20 行
-        new BagDef(BagType.Weapon,  12, ItemType.Weapon, "武器背包"),   // 6 列 x 2 行
+        new BagDef(BagType.Item,   120, ItemType.Item),    // 6 列 x 20 行
+        new BagDef(BagType.Weapon,  12, ItemType.Weapon),  // 6 列 x 2 行
     };
 
     /// <summary>已创建的背包（懒创建后缓存）</summary>

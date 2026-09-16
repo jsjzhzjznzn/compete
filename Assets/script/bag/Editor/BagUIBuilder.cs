@@ -118,6 +118,7 @@ public static class BagUIBuilder
         CenterRect(window.GetComponent<RectTransform>(), new Vector2(WindowW, WindowH), Vector2.zero);
         window.AddComponent<Image>().color = ColWindow;
 
+        // 标题是纯 UI 文案，代码不读也不写它 —— 要改标题就改这个字符串（或者改场景里那个 TMP）
         var title = NewTMP("BagTitle", window.transform, "道具背包", font, 34f, TextAlignmentOptions.Left);
         CenterRect(title.rectTransform, new Vector2(500f, 56f), new Vector2(-250f, 300f));
 
@@ -198,7 +199,6 @@ public static class BagUIBuilder
         // ==================== 面板连线 ====================
         var panelSo = new SerializedObject(panel);
         panelSo.FindProperty("_bagType").enumValueIndex = (int)BagType.Item;
-        panelSo.FindProperty("_title").objectReferenceValue = title;
         panelSo.FindProperty("_capacityText").objectReferenceValue = capacity;
         panelSo.FindProperty("_closeButton").objectReferenceValue = closeButton;
         panelSo.FindProperty("_list").objectReferenceValue = bagArea.list;
