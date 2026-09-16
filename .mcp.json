@@ -1,11 +1,8 @@
 {
   "mcpServers": {
-    "unity": {
-      "command": "npx",
-      "args": ["-y", "mcp-proxy@latest", "http://localhost:11434/sse"],
-      "env": {
-        "NODE_OPTIONS": "--max-old-space-size=4096"
-      }
+    "unityMCP": {
+      "type": "http",
+      "url": "http://127.0.0.1:8080/mcp"
     }
   }
 }

@@ -1,0 +1,108 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!687078895 &4343727234628468602
+SpriteAtlas:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: "\u6B66\u5668"
+  m_EditorData:
+    serializedVersion: 2
+    textureSettings:
+      serializedVersion: 2
+      anisoLevel: 1
+      compressionQuality: 50
+      maxTextureSize: 2048
+      textureCompression: 0
+      filterMode: 1
+      generateMipMaps: 0
+      readable: 0
+      crunchedCompression: 0
+      sRGB: 1
+    platformSettings: []
+    packingSettings:
+      serializedVersion: 2
+      padding: 4
+      blockOffset: 1
+      allowAlphaSplitting: 0
+      enableRotation: 1
+      enableTightPacking: 1
+      enableAlphaDilation: 0
+    secondaryTextureSettings: {}
+    variantMultiplier: 1
+    packables:
+    - {fileID: 102900000, guid: d7a62d5a115b62b46b0a63a3aa24bf68, type: 3}
+    bindAsDefault: 1
+    isAtlasV2: 0
+    cachedData: {fileID: 0}
+    packedSpriteRenderDataKeys:
+    - 027605c11e7865844a65fc5076289da9: 21300000
+    - 08ed3b62cbfb3384095b26268e9d824f: 21300000
+    - 01fcf382231b4574488e2225ce7e14c4: 21300000
+    - bd36d403f871109439cb5a801631a238: 21300000
+    - 945676335af98754995acf15eae5c0e1: 21300000
+    - ad365e44c757df44fae795340305e05c: 21300000
+    - 1df73c84b5e794e4e991a2664c7f7e0b: 21300000
+    - 12640d1582630fd468678d4a5a358856: 21300000
+    - d57275e5bc6f98c44a48718dc07e0de4: 21300000
+    - a9b3d7268b7a24b4396542dc08da485b: 21300000
+    - 4c0a2e578c483a940bc334f5dbe8582f: 21300000
+    - 37eae567b3c4ae0479628b9d911887e0: 21300000
+    - 582576a7c5805ca478a774e793f7760f: 21300000
+    - 3c6f8088501a96c408ad418845423113: 21300000
+    - 56268ce8cd540b34ab44d456b90506a8: 21300000
+    - 3aa8c39c6c574aa47b34ce0f687710d6: 21300000
+    - 19c24c9c5ddb2c14ea60640689453d07: 21300000
+    - 00846cbc49ae2df44a2a93262c17bac1: 21300000
+    - 6531284e7f5326e4c9270b9a3bfce788: 21300000
+    - 1cc3f8bed9d378b4c84a574554bd91f5: 21300000
+    - 71e7d1de51ac16c439f4cef6cb03221b: 21300000
+  m_MasterAtlas: {fileID: 0}
+  m_PackedSprites:
+  - {fileID: 21300000, guid: 027605c11e7865844a65fc5076289da9, type: 3}
+  - {fileID: 21300000, guid: 08ed3b62cbfb3384095b26268e9d824f, type: 3}
+  - {fileID: 21300000, guid: 01fcf382231b4574488e2225ce7e14c4, type: 3}
+  - {fileID: 21300000, guid: bd36d403f871109439cb5a801631a238, type: 3}
+  - {fileID: 21300000, guid: 945676335af98754995acf15eae5c0e1, type: 3}
+  - {fileID: 21300000, guid: ad365e44c757df44fae795340305e05c, type: 3}
+  - {fileID: 21300000, guid: 1df73c84b5e794e4e991a2664c7f7e0b, type: 3}
+  - {fileID: 21300000, guid: 12640d1582630fd468678d4a5a358856, type: 3}
+  - {fileID: 21300000, guid: d57275e5bc6f98c44a48718dc07e0de4, type: 3}
+  - {fileID: 21300000, guid: a9b3d7268b7a24b4396542dc08da485b, type: 3}
+  - {fileID: 21300000, guid: 4c0a2e578c483a940bc334f5dbe8582f, type: 3}
+  - {fileID: 21300000, guid: 37eae567b3c4ae0479628b9d911887e0, type: 3}
+  - {fileID: 21300000, guid: 582576a7c5805ca478a774e793f7760f, type: 3}
+  - {fileID: 21300000, guid: 3c6f8088501a96c408ad418845423113, type: 3}
+  - {fileID: 21300000, guid: 56268ce8cd540b34ab44d456b90506a8, type: 3}
+  - {fileID: 21300000, guid: 3aa8c39c6c574aa47b34ce0f687710d6, type: 3}
+  - {fileID: 21300000, guid: 19c24c9c5ddb2c14ea60640689453d07, type: 3}
+  - {fileID: 21300000, guid: 00846cbc49ae2df44a2a93262c17bac1, type: 3}
+  - {fileID: 21300000, guid: 6531284e7f5326e4c9270b9a3bfce788, type: 3}
+  - {fileID: 21300000, guid: 1cc3f8bed9d378b4c84a574554bd91f5, type: 3}
+  - {fileID: 21300000, guid: 71e7d1de51ac16c439f4cef6cb03221b, type: 3}
+  m_PackedSpriteNamesToIndex:
+  - T_Luckdraw21040013_UI
+  - T_Luckdraw21040023_UI
+  - T_Luckdraw21030024_UI
+  - T_Luckdraw21050064_UI
+  - T_Luckdraw21040024_UI
+  - T_Luckdraw21050015_UI
+  - T_Luckdraw21040044_UI
+  - T_Luckdraw21030043_UI
+  - T_Luckdraw21050013_UI
+  - T_Luckdraw21050043_UI
+  - T_Luckdraw21040064_UI
+  - T_Luckdraw21040015_UI
+  - T_Luckdraw21050016_UI
+  - T_Luckdraw21030064_UI
+  - T_Luckdraw21030044_UI
+  - T_Luckdraw21030015_UI
+  - T_Luckdraw21050044_UI
+  - T_Luckdraw21050024_UI
+  - T_Luckdraw21050023_UI
+  - T_Luckdraw21030023_UI
+  - T_Luckdraw21040043_UI
+  m_RenderDataMap: {}
+  m_Tag: "\u6B66\u5668"
+  m_IsVariant: 0

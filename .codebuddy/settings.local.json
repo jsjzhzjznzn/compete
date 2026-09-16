@@ -1,7 +1,7 @@
 {
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
-    "unity"
+    "unityMCP"
   ],
   "disabledMcpjsonServers": []
 }
