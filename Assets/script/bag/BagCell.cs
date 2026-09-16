@@ -48,6 +48,9 @@ public class BagCell : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragH
 
     private int _slotIndex = -1;
 
+    /// <summary>图标请求代号：每次重绑 +1，异步回来的旧请求对不上号就丢弃（防格子串味）</summary>
+    private int _iconToken;
+
     private void Awake()
     {
         if (_button != null) _button.onClick.AddListener(OnButtonClick);
@@ -69,12 +72,8 @@ public class BagCell : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragH
 
         bool hasItem = slot != null && !slot.IsEmpty;
 
-        if (_icon != null)
-        {
-            var sprite = config != null ? config.icon : null;
-            _icon.enabled = sprite != null;
-            if (sprite != null) _icon.sprite = sprite;
-        }
+        // 图标是异步来的：先取 token，再发起请求（缓存命中时回调是同步触发的）
+        ApplyIcon(config != null && config.hasIcon ? config.iconPath : null);
 
         if (_countText != null)
         {
@@ -94,6 +93,44 @@ public class BagCell : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragH
     }
 
     private void OnButtonClick() => OnClicked?.Invoke(_slotIndex);
+
+    /// <summary>
+    /// 贴图标。缓存命中就同步贴好；没命中就异步加载 —— 加载回来时用 token 校验这一格有没有被重绑过。
+    /// 格子是复用的，不做这个校验就会出现"药水的图突然变成零件"的串味。
+    /// </summary>
+    private void ApplyIcon(string path)
+    {
+        int token = ++_iconToken;   // ★ 必须在发起请求之前取，缓存命中时回调是同步的
+
+        if (_icon == null) return;
+
+        if (string.IsNullOrEmpty(path))
+        {
+            _icon.enabled = false;
+            return;
+        }
+
+        var cached = ItemIconLoader.Get(path);
+        if (cached != null)
+        {
+            _icon.sprite = cached;
+            _icon.enabled = true;
+            return;
+        }
+
+        // 先清掉旧图，避免加载期间显示上一个物品的图标
+        _icon.sprite = null;
+        _icon.enabled = false;
+
+        ItemIconLoader.Request(path, sprite =>
+        {
+            if (token != _iconToken) return;    // 这一格已经绑了别的东西，丢弃
+            if (_icon == null) return;          // 格子被销毁了
+
+            _icon.sprite = sprite;
+            _icon.enabled = sprite != null;
+        });
+    }
 
     // ==================== 拖拽 ====================
 

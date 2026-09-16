@@ -53,6 +53,10 @@ public static class BagUIBuilder
     private const string FontPath = "Assets/Resource/字体/晴圆 (Windows 8.1)_爱给网_aigei_com SDF.asset";
     private const string DbPath = "Assets/Resources/ItemDatabase.asset";
     private const string ItemFolder = "Assets/Resources/BagItems";
+    /// <summary>
+    /// 图标目录（散图全路径写进 SO，走 YooAsset 加载）。
+    /// 这两个目录已在 YooAsset 收集器里，所以不用额外配置。
+    /// </summary>
     private const string IconItemFolder = "Assets/Resource/ui/mingchao/道具";
     private const string IconWeaponFolder = "Assets/Resource/ui/mingchao/武器";
 
@@ -440,9 +444,9 @@ public static class BagUIBuilder
             AssetDatabase.CreateAsset(item, path);
         }
 
-        var icon = AssetDatabase.LoadAssetAtPath<Sprite>(iconPath);
-        if (icon == null)
-            Debug.LogWarning($"[BagUIBuilder] 图标加载失败：{iconPath}（格子会没有图）");
+        // 搭建时顺手校验图标路径 —— 路径写错时编辑器里立刻能看见，不用等运行时
+        if (AssetDatabase.LoadAssetAtPath<Sprite>(iconPath) == null)
+            Debug.LogWarning($"[BagUIBuilder] 图标路径找不到 Sprite：{iconPath}（\"{displayName}\" 的格子会没有图）");
 
         var so = new SerializedObject(item);
         so.FindProperty("_itemId").stringValue = id;
@@ -450,7 +454,7 @@ public static class BagUIBuilder
         so.FindProperty("_itemType").enumValueIndex = (int)type;
         so.FindProperty("_maxStack").intValue = maxStack;
         so.FindProperty("_desc").stringValue = desc;
-        so.FindProperty("_icon").objectReferenceValue = icon;
+        so.FindProperty("_iconPath").stringValue = iconPath;
 
         var statsProp = so.FindProperty("_stats");
         statsProp.arraySize = stats.Length;

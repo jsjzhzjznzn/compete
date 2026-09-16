@@ -15,7 +15,7 @@ MonoBehaviour:
   _itemId: item.gear
   _itemName: "\u9F7F\u8F6E\u96F6\u4EF6"
   _itemType: 0
-  _icon: {fileID: 21300000, guid: 0fcc8c27c0bb1f54793d8d59c04a57d4, type: 3}
+  _iconPath: "Assets/Resource/ui/mingchao/\u9053\u5177/T_IconA80_04_UI.png"
   _desc: "\u968F\u5904\u53EF\u89C1\u7684\u5C0F\u96F6\u4EF6\u3002\uFF08\u793A\u4F8B\u914D\u7F6E\uFF0C\u7528\u6765\u8BD5\u53E0\u5F88\u591A\u4E2A\uFF09"
   _maxStack: 999
   _stats: []

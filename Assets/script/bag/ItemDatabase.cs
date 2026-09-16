@@ -45,15 +45,33 @@ public class ItemDatabase : ScriptableObject
         return db._map.TryGetValue(itemIdHash, out var data) ? data : null;
     }
 
+    /// <summary>
+    /// 懒建 id → 配置 的映射。
+    /// 遇到 id 冲突会报错并**保留先注册的那条**（原来的写法是后写的静默覆盖前者，
+    /// 表现成"某个道具的图标/名字莫名其妙变成了另一个道具的"，极难排查）。
+    /// </summary>
     private void EnsureMap()
     {
         if (_map != null) return;
         _map = new Dictionary<int, ItemData>();
+
         for (int i = 0; i < _items.Count; i++)
         {
             var item = _items[i];
             if (item == null) continue;
-            _map[item.itemIdHash] = item;
+
+            int hash = item.itemIdHash;
+
+            if (_map.TryGetValue(hash, out var exist))
+            {
+                Debug.LogError(
+                    $"[ItemDatabase] id 冲突：\"{item.name}\" 与 \"{exist.name}\" 的 itemIdHash 相同（{hash}）。" +
+                    "两种可能：① 两条配置填了同一个 _itemId；② 有配置没填 _itemId，退化成了用资产名当 id。" +
+                    $"本次保留 \"{exist.name}\"，\"{item.name}\" 被忽略。", item);
+                continue;
+            }
+
+            _map[hash] = item;
         }
     }
 

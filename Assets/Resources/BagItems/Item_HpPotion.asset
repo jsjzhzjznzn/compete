@@ -15,7 +15,7 @@ MonoBehaviour:
   _itemId: item.hp_potion
   _itemName: "\u56DE\u590D\u836F\u6C34"
   _itemType: 0
-  _icon: {fileID: 21300000, guid: 427b6cfe34de27e4b823950874cfb87e, type: 3}
+  _iconPath: "Assets/Resource/ui/mingchao/\u9053\u5177/T_IconA80_02_UI.png"
   _desc: "\u559D\u4E0B\u53BB\u56DE\u4E00\u70B9\u4F53\u529B\u3002\uFF08\u793A\u4F8B\u914D\u7F6E\uFF09"
   _maxStack: 99
   _stats: []

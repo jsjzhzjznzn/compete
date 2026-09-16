@@ -15,7 +15,7 @@ MonoBehaviour:
   _itemId: item.mana_potion
   _itemName: "\u80FD\u91CF\u996E\u6599"
   _itemType: 0
-  _icon: {fileID: 21300000, guid: 23a162d9a59d1764fb07a3eef461dc9b, type: 3}
+  _iconPath: "Assets/Resource/ui/mingchao/\u9053\u5177/T_IconA80_03_UI.png"
   _desc: "\u704C\u4E00\u53E3\u63D0\u795E\u3002\uFF08\u793A\u4F8B\u914D\u7F6E\uFF09"
   _maxStack: 99
   _stats: []

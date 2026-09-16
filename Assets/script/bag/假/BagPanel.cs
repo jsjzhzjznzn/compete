@@ -64,6 +64,7 @@ public class BagPanel : MonoBehaviour
     private BagData _bag;
     private int _selectedSlot = -1;
     private int _draggingSlot = -1;
+    private int _detailIconToken;
     private bool _subscribed;
     private bool _warnedMissingCell;
 
@@ -261,7 +262,9 @@ public class BagPanel : MonoBehaviour
         if (_dragGhost != null)
         {
             var config = ItemDatabase.Resolve(slot.itemId);
-            var sprite = config != null ? config.icon : null;
+
+            // 这一格已经显示着图标了，所以缓存里基本一定有；拿不到就只是幽灵图没图，不影响拖拽功能
+            var sprite = config != null ? ItemIconLoader.Get(config.iconPath) : null;
 
             _dragGhost.sprite = sprite;
             _dragGhost.enabled = sprite != null;
@@ -395,13 +398,7 @@ public class BagPanel : MonoBehaviour
 
         if (!hasItem) return;
 
-        if (_detailIcon != null)
-        {
-            var sprite = config != null ? config.icon : null;
-            _detailIcon.enabled = sprite != null;
-            if (sprite != null) _detailIcon.sprite = sprite;
-        }
-
+        ApplyDetailIcon(config);
         if (_detailName != null)
             _detailName.text = config != null ? config.itemName : $"未知物品({slot.itemId})";
 
@@ -410,6 +407,40 @@ public class BagPanel : MonoBehaviour
 
         if (_detailStat != null)
             _detailStat.text = BuildStatText(config);
+    }
+
+    /// <summary>详情图标也走异步加载，同样用 token 防串味（连续点不同格子时会把旧请求丢掉）</summary>
+    private void ApplyDetailIcon(ItemData config)
+    {
+        int token = ++_detailIconToken;   // ★ 必须在发起请求之前取
+
+        if (_detailIcon == null) return;
+
+        if (config == null || !config.hasIcon)
+        {
+            _detailIcon.enabled = false;
+            return;
+        }
+
+        var cached = ItemIconLoader.Get(config.iconPath);
+        if (cached != null)
+        {
+            _detailIcon.sprite = cached;
+            _detailIcon.enabled = true;
+            return;
+        }
+
+        _detailIcon.sprite = null;
+        _detailIcon.enabled = false;
+
+        ItemIconLoader.Request(config.iconPath, sprite =>
+        {
+            if (token != _detailIconToken) return;
+            if (_detailIcon == null) return;
+
+            _detailIcon.sprite = sprite;
+            _detailIcon.enabled = sprite != null;
+        });
     }
 
     /// <summary>把 ItemData.stats 拼成几行属性文本（武器加成在本轮的可见出口，穿戴逻辑还没做）</summary>

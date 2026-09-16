@@ -23,8 +23,8 @@ public class ItemData : ScriptableObject
     [SerializeField, Header("类型：决定归道具背包还是武器背包")]
     private ItemType _itemType = ItemType.Item;
 
-    [SerializeField, Header("图标（直接拖 Sprite；不走路径加载，所以不用配 BundleCollector）")]
-    private Sprite _icon;
+    [SerializeField, Header("图标路径（散图全路径，例：Assets/Resource/ui/mingchao/道具/T_IconA80_02_UI.png）")]
+    private string _iconPath;
 
     [SerializeField, TextArea(2, 4), Header("描述")]
     private string _desc;
@@ -54,8 +54,11 @@ public class ItemData : ScriptableObject
     /// <summary>类型（道具 / 武器）</summary>
     public ItemType itemType => _itemType;
 
-    /// <summary>图标（未配置时为 null，UI 需自行处理）</summary>
-    public Sprite icon => _icon;
+    /// <summary>图标路径（散图全路径，走 YooAsset 加载，对应 ItemIconLoader）</summary>
+    public string iconPath => _iconPath;
+
+    /// <summary>配了图标路径没有</summary>
+    public bool hasIcon => !string.IsNullOrEmpty(_iconPath);
 
     /// <summary>描述文案</summary>
     public string desc => _desc;
@@ -79,6 +82,10 @@ public class ItemData : ScriptableObject
 
         if (_itemType == ItemType.Weapon && _maxStack > 1)
             Debug.LogWarning($"[ItemData] \"{name}\" 是武器但 maxStack={_maxStack}，武器应当不可堆叠", this);
+
+        // 图标路径提醒：填了就得是工程内的资产路径，写错了运行时才报（格子会没图）
+        if (!string.IsNullOrEmpty(_iconPath) && !_iconPath.StartsWith("Assets/"))
+            Debug.LogWarning($"[ItemData] \"{name}\" 的图标路径不是 Assets/ 开头的工程内路径：{_iconPath}", this);
     }
 #endif
 }
