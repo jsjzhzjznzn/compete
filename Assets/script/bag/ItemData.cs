@@ -60,6 +60,9 @@ public class ItemData : ScriptableObject
     /// <summary>类型（道具 / 武器）</summary>
     public ItemType itemType => _itemType;
 
+    /// <summary>稀有度（只影响表现，不影响数值）</summary>
+    public ItemRarity rarity => _rarity;
+
     /// <summary>图标路径（散图全路径，走 YooAsset 加载，对应 ItemIconLoader）</summary>
     public string iconPath => _iconPath;
 
