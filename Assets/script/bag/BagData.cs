@@ -140,6 +140,72 @@ public class BagData
     }
 
     /// <summary>
+    /// 放入物品，但**要么全放进去、要么一个都不放**（Add 的原子版本）。
+    ///
+    /// 与 <see cref="Add"/> 唯一的区别：Add 是"能放多少放多少"（部分放入也算改了数据），
+    /// 这里空间不够时**直接拒绝、一个槽位都不碰**。
+    /// 需要它的场合：拾取 / 购买 / 任务奖励这类"装不下就整个失败"的入口 ——
+    /// 用 Add 会出现"地上的东西销毁了，但没进包"的掉件。
+    ///
+    /// 【事件约定与 Add 完全一致】只有"空间不够"才发 <see cref="OnAddOverflow"/>
+    ///   （remain = 全部 count）；配置查不到 / 类型收不对只 LogError、不发事件 ——
+    ///   否则 UI 会把配置 bug 提示成"背包已满"。
+    ///
+    /// 所以调用方只关心一件事：要不要销毁地面物件；"背包已满"的提示照样由 UI 订阅事件拿到。
+    /// </summary>
+    /// <returns>true = 全部放入；false = 一个都没放</returns>
+    public bool TryAdd(int itemId, int count = 1)
+    {
+        // 空物品 / 数量非法：什么都没发生，视为成功（与 Add 返回 0 的口径一致）
+        if (itemId == 0 || count <= 0) return true;
+
+        var config = ItemDatabase.Resolve(itemId);
+        if (config == null)
+        {
+            Debug.LogError($"[BagData] 找不到 itemId={itemId} 的配置，未放入 {count} 个（这是配置错误，不是背包满）");
+            return false;
+        }
+        if (config.itemType != acceptItemType)
+        {
+            Debug.LogError($"[BagData] {bagType} 包不收 {config.itemType} 类型的 \"{config.itemName}\"，未放入（这是配置/调用错误，不是背包满）");
+            return false;
+        }
+
+        if (!HasRoomFor(itemId, config.maxStack, count))
+        {
+            OnAddOverflow?.Invoke(itemId, count);
+            return false;
+        }
+
+        // 前面已经确认装得下，单线程下这里不会再变成部分放入
+        Add(itemId, count);
+        return true;
+    }
+
+    /// <summary>
+    /// 还能不能再放进 count 个（按 Add 的叠放规则算：已有同类堆的余量 + 空槽 × maxStack）。
+    /// 只判够不够，所以够了就提前退出，不用扫完整个包。
+    /// </summary>
+    private bool HasRoomFor(int itemId, int maxStack, int count)
+    {
+        int space = 0;
+
+        for (int i = 0; i < _slots.Count; i++)
+        {
+            var slot = _slots[i];
+
+            if (slot.IsEmpty)
+                space += maxStack;                                    // 空槽能放满一整叠
+            else if (maxStack > 1 && slot.itemId == itemId && slot.count < maxStack)
+                space += maxStack - slot.count;                        // 已有堆的余量（maxStack==1 时没有余量）
+
+            if (space >= count) return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// 从指定槽移除若干个（不够就只移除现有的）。
     /// 返回是否真的产生了变化。
     /// </summary>

@@ -132,6 +132,37 @@ public class BagManager : SingletonMono<BagManager>
         return bag.Add(itemId, count);
     }
 
+    /// <summary>
+    /// 统一入口的原子版：按物品类型路由到对应的背包，装不下就**一个都不放**。
+    ///
+    /// 与 <see cref="Add"/> 的关系，就等于 BagData.TryAdd 与 BagData.Add 的关系，
+    /// 路由规则完全共用（同一个 GetBagFor）—— 拾取 / 购买 / 任务奖励这类
+    /// "装不下就整个失败"的入口用它：调用方不需要知道东西该进哪个包，也不用自己算空间。
+    ///
+    /// 【满的时候背包面板会弹提示吗】会，但**只在面板开着时**：
+    ///   BagPanel 是 OnEnable 订阅、OnDisable 退订的，面板关着时没人收到 OnAddOverflow。
+    ///   所以调用方必须处理 false 分支（自己给个提示），不能指望面板。
+    /// </summary>
+    /// <returns>true = 全部放入；false = 一个都没放</returns>
+    public bool TryAdd(int itemId, int count = 1)
+    {
+        var config = ItemDatabase.Resolve(itemId);
+        if (config == null)
+        {
+            Debug.LogWarning($"[BagManager] 找不到 itemId={itemId} 的配置，未放入 {count} 个");
+            return false;
+        }
+
+        var bag = GetBagFor(itemId);
+        if (bag == null)
+        {
+            Debug.LogWarning($"[BagManager] 没有任何背包收 {config.itemType} 类型的 \"{config.itemName}\"，未放入");
+            return false;
+        }
+
+        return bag.TryAdd(itemId, count);
+    }
+
     /// <summary>指定放进哪个背包（不预检类型，收不收由 BagData.Add 自己拒绝）</summary>
     public int AddTo(BagType bagType, int itemId, int count = 1)
     {
