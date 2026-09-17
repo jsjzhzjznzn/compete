@@ -70,7 +70,6 @@ public static class BagUIBuilder
 
     // ==================== 配色 ====================
     private static readonly Color ColWindow = new Color(0.12f, 0.13f, 0.16f, 0.98f);
-    private static readonly Color ColCell = new Color(0.21f, 0.23f, 0.28f, 1f);
     private static readonly Color ColDetail = new Color(0.17f, 0.18f, 0.22f, 1f);
     private static readonly Color ColSelect = new Color(1f, 0.78f, 0.20f, 1f);
     private static readonly Color ColText = new Color(0.93f, 0.94f, 0.96f, 1f);
@@ -93,6 +92,16 @@ public static class BagUIBuilder
     [MenuItem("Tools/背包/在场景里搭背包 UI")]
     public static void BuildBagUI()
     {
+        // 播放模式下干这件事有三个坑，所以直接拒绝：
+        //   1) AddComponent 会立刻触发 Awake，此时 SerializedObject 还没接线 → 一堆"必填字段没连"的误报
+        //   2) MarkSceneDirty 在播放模式下直接抛 InvalidOperationException，流程走不完
+        //   3) 最坑的是：播放模式下建的场景物体，退出播放时会被整体还原 → 白干一场
+        if (Application.isPlaying)
+        {
+            Debug.LogError("[BagUIBuilder] 当前处于播放模式，搭建已中止。请先退出 Play 模式再执行本菜单。");
+            return;
+        }
+
         var font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontPath);
         if (font == null)
             Debug.LogWarning($"[BagUIBuilder] 没找到中文字体 {FontPath}，文字可能显示不出来");
@@ -258,6 +267,27 @@ public static class BagUIBuilder
                   $"进 Play 模式后格子才会生成（按容量铺）。");
     }
 
+    /// <summary>
+    /// 只重建**配置资产**（物品表 + 操作策略资产 + 类型默认表），**完全不动场景**。
+    ///
+    /// 【为什么单独开一个菜单】
+    ///   加/改物品配置是高频操作，而"搭场景"会把 BagCanvas 删掉重建 ——
+    ///   每改一条配置就重建整个场景太浪费，还会把手工调好的面板设置（背包类型、标题、布局）冲掉。
+    /// </summary>
+    [MenuItem("Tools/背包/重建配置资产（不动场景）")]
+    public static void RebuildConfigAssets()
+    {
+        if (Application.isPlaying)
+        {
+            Debug.LogError("[BagUIBuilder] 当前处于播放模式，重建配置已中止。请先退出 Play 模式。");
+            return;
+        }
+
+        CreateItemAssets();
+        CreateItemActionAssets();
+        Debug.Log("[BagUIBuilder] 配置资产已重建（场景未改动）。");
+    }
+
     // ==================== 滚动区（背包和选择器共用这一套） ====================
 
     /// <summary>
@@ -314,7 +344,8 @@ public static class BagUIBuilder
 
         // 格子的底框：空槽也要看得见"这里有个格子"，所以底框挂在根节点上
         var templateImage = template.AddComponent<Image>();
-        templateImage.color = ColCell;
+        // 初始色用"普通"品质的底色（单一来源在 ItemRarityUtil）；运行时由 BagCell 按稀有度覆盖
+        templateImage.color = ItemRarityUtil.CellBaseColor;
         templateImage.raycastTarget = true;
 
         var cellButton = template.AddComponent<Button>();
@@ -359,6 +390,7 @@ public static class BagUIBuilder
         cellSo.FindProperty("_countText").objectReferenceValue = count;
         cellSo.FindProperty("_button").objectReferenceValue = cellButton;
         cellSo.FindProperty("_selectFrame").objectReferenceValue = select;
+        cellSo.FindProperty("_frame").objectReferenceValue = templateImage;
         cellSo.FindProperty("_emptyMask").objectReferenceValue = null;   // 有底框就够了
         cellSo.ApplyModifiedPropertiesWithoutUndo();
 
@@ -423,12 +455,12 @@ public static class BagUIBuilder
     /// 产出：
     ///   Assets/Resources/BagActions/ItemAction_Use.asset       使用（参数：回血量、消耗数）
     ///   Assets/Resources/BagActions/ItemAction_Discard.asset   丢弃
-    ///   Assets/Resources/BagActions/ItemAction_Merge.asset     合并（合并散堆）
+    ///   Assets/Resources/BagActions/ItemAction_Tidy.asset      整理（合并散堆 + 按品质排序）
     ///   Assets/Resources/ItemActionDefaults.asset              类型 → 默认操作集
     ///
     /// 默认集：
-    ///   道具 Item   → 使用、丢弃、合并
-    ///   武器 Weapon → 丢弃、合并         （穿戴要等 instanceId，还没做）
+    ///   道具 Item   → 使用、丢弃、整理
+    ///   武器 Weapon → 丢弃、整理         （穿戴要等 instanceId，还没做）
     ///
     /// 加一种新行为 = 写一个 ItemAction 子类 + 这里多建一个资产 + 挂进默认表（或某件物品的 _actions）。
     /// 加一个新类型 / 给某件特例物品换操作集 = 只改配置，代码不动。
@@ -440,12 +472,12 @@ public static class BagUIBuilder
 
         var discard = CreateOrLoadAsset<ItemActionDiscard>($"{ActionFolder}/ItemAction_Discard.asset");
         var use = CreateOrLoadAsset<ItemActionUse>($"{ActionFolder}/ItemAction_Use.asset");
-        var merge = CreateOrLoadAsset<ItemActionMerge>($"{ActionFolder}/ItemAction_Merge.asset");
+        var tidy = CreateOrLoadAsset<ItemActionTidy>($"{ActionFolder}/ItemAction_Tidy.asset");
 
         // 按钮文字（留空会用资产名兜底，但显式写更清楚）
         SetActionName(discard, "丢弃");
         SetActionName(use, "使用");
-        SetActionName(merge, "合并");
+        SetActionName(tidy, "整理");
 
         // 使用策略的参数（配在策略资产上，跟 Buff 的 BuffEffect 一个做法）
         var useSo = new SerializedObject(use);
@@ -460,9 +492,9 @@ public static class BagUIBuilder
         entries.arraySize = 2;
 
         FillDefaultsEntry(entries.GetArrayElementAtIndex(0), ItemType.Item,
-            new ItemAction[] { use, discard, merge });
+            new ItemAction[] { use, discard, tidy });
         FillDefaultsEntry(entries.GetArrayElementAtIndex(1), ItemType.Weapon,
-            new ItemAction[] { discard, merge });
+            new ItemAction[] { discard, tidy });
 
         dso.ApplyModifiedPropertiesWithoutUndo();
         AssetDatabase.SaveAssets();
@@ -514,23 +546,64 @@ public static class BagUIBuilder
 
         var items = new List<ItemData>
         {
-            CreateItem("Item_HpPotion", "item.hp_potion", "回复药水", ItemType.Item, 99,
+            // ---------- 道具 ----------
+            CreateItem("Item_HpPotion", "item.hp_potion", "回复药水", ItemType.Item, ItemRarity.Common, 99,
                 $"{IconItemFolder}/T_IconA80_02_UI.png", "喝下去回一点体力。（示例配置）"),
 
-            CreateItem("Item_ManaPotion", "item.mana_potion", "能量饮料", ItemType.Item, 99,
+            CreateItem("Item_ManaPotion", "item.mana_potion", "能量饮料", ItemType.Item, ItemRarity.Rare, 99,
                 $"{IconItemFolder}/T_IconA80_03_UI.png", "灌一口提神。（示例配置）"),
 
-            CreateItem("Item_Gear", "item.gear", "齿轮零件", ItemType.Item, 999,
+            CreateItem("Item_Gear", "item.gear", "齿轮零件", ItemType.Item, ItemRarity.Common, 999,
                 $"{IconItemFolder}/T_IconA80_04_UI.png", "随处可见的小零件。（示例配置，用来试叠很多个）"),
 
-            CreateItem("Weapon_Blade01", "weapon.blade_01", "试作长刃", ItemType.Weapon, 1,
-                $"{IconWeaponFolder}/T_Luckdraw21030015_UI.png", "还没开刃的刀。（示例武器，走武器背包）",
+            // ---------- 武器（共 12 把，正好填满武器背包的 12 格，方便测"背包满"）----------
+            CreateItem("Weapon_Blade01", "weapon.blade_01", "试作长刃", ItemType.Weapon, ItemRarity.Epic, 1,
+                $"{IconWeaponFolder}/T_Luckdraw21030015_UI.png", "还没开刃的刀。（示例武器）",
                 (AttrType.Attack, ModType.Add, 20f)),
 
-            CreateItem("Weapon_Blade02", "weapon.blade_02", "试作双刃", ItemType.Weapon, 1,
+            CreateItem("Weapon_Blade02", "weapon.blade_02", "试作双刃", ItemType.Weapon, ItemRarity.Legendary, 1,
                 $"{IconWeaponFolder}/T_Luckdraw21030023_UI.png", "双持用的刀。（示例武器）",
                 (AttrType.Attack, ModType.Multiply, 1.15f),
                 (AttrType.DamageUp, ModType.Add, 0.1f)),
+
+            CreateItem("Weapon_Blade03", "weapon.blade_03", "制式短刀", ItemType.Weapon, ItemRarity.Common, 1,
+                $"{IconWeaponFolder}/T_Luckdraw21030024_UI.png", "配发的基础武器。（示例武器）"),
+
+            CreateItem("Weapon_Blade04", "weapon.blade_04", "铁卫大剑", ItemType.Weapon, ItemRarity.Rare, 1,
+                $"{IconWeaponFolder}/T_Luckdraw21030043_UI.png", "结实但笨重。（示例武器）",
+                (AttrType.Attack, ModType.Add, 12f)),
+
+            CreateItem("Weapon_Blade05", "weapon.blade_05", "锯齿直刀", ItemType.Weapon, ItemRarity.Common, 1,
+                $"{IconWeaponFolder}/T_Luckdraw21030044_UI.png", "刃口全是豁牙。（示例武器）"),
+
+            CreateItem("Weapon_Blade06", "weapon.blade_06", "猎手匕首", ItemType.Weapon, ItemRarity.Rare, 1,
+                $"{IconWeaponFolder}/T_Luckdraw21030064_UI.png", "轻快，适合补刀。（示例武器）",
+                (AttrType.Attack, ModType.Add, 8f),
+                (AttrType.DamageUp, ModType.Add, 0.05f)),
+
+            CreateItem("Weapon_Blade07", "weapon.blade_07", "淬火长枪", ItemType.Weapon, ItemRarity.Rare, 1,
+                $"{IconWeaponFolder}/T_Luckdraw21040013_UI.png", "枪尖带着余温。（示例武器）",
+                (AttrType.Attack, ModType.Add, 15f)),
+
+            CreateItem("Weapon_Blade08", "weapon.blade_08", "熔金巨斧", ItemType.Weapon, ItemRarity.Epic, 1,
+                $"{IconWeaponFolder}/T_Luckdraw21040015_UI.png", "一斧下去地面都会裂。（示例武器）",
+                (AttrType.Attack, ModType.Add, 28f)),
+
+            CreateItem("Weapon_Blade09", "weapon.blade_09", "双生短刃", ItemType.Weapon, ItemRarity.Common, 1,
+                $"{IconWeaponFolder}/T_Luckdraw21040023_UI.png", "成对打造的短刃。（示例武器）"),
+
+            CreateItem("Weapon_Blade10", "weapon.blade_10", "影缝细剑", ItemType.Weapon, ItemRarity.Epic, 1,
+                $"{IconWeaponFolder}/T_Luckdraw21040024_UI.png", "细得像一道缝。（示例武器）",
+                (AttrType.Attack, ModType.Multiply, 1.12f)),
+
+            CreateItem("Weapon_Blade11", "weapon.blade_11", "断罪重锤", ItemType.Weapon, ItemRarity.Legendary, 1,
+                $"{IconWeaponFolder}/T_Luckdraw21040043_UI.png", "锤身上的铭文已经磨平了。（示例武器）",
+                (AttrType.Attack, ModType.Add, 35f),
+                (AttrType.DamageUp, ModType.Add, 0.15f)),
+
+            CreateItem("Weapon_Blade12", "weapon.blade_12", "潮汐弯刀", ItemType.Weapon, ItemRarity.Rare, 1,
+                $"{IconWeaponFolder}/T_Luckdraw21040044_UI.png", "刀身泛着水色。（示例武器）",
+                (AttrType.Attack, ModType.Add, 10f)),
         };
 
         var dbSo = new SerializedObject(database);
@@ -547,7 +620,7 @@ public static class BagUIBuilder
 
     /// <summary>建（或更新）一条配置。已存在就复用不删 —— 避免换 guid 把引用弄断</summary>
     private static ItemData CreateItem(string fileName, string id, string displayName, ItemType type,
-        int maxStack, string iconPath, string desc,
+        ItemRarity rarity, int maxStack, string iconPath, string desc,
         params (AttrType attr, ModType modType, float value)[] stats)
     {
         string path = $"{ItemFolder}/{fileName}.asset";
@@ -567,6 +640,7 @@ public static class BagUIBuilder
         so.FindProperty("_itemId").stringValue = id;
         so.FindProperty("_itemName").stringValue = displayName;
         so.FindProperty("_itemType").enumValueIndex = (int)type;
+        so.FindProperty("_rarity").enumValueIndex = (int)rarity;
         so.FindProperty("_maxStack").intValue = maxStack;
         so.FindProperty("_desc").stringValue = desc;
         so.FindProperty("_iconPath").stringValue = iconPath;

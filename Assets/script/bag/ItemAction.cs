@@ -32,6 +32,14 @@ public abstract class ItemAction : ScriptableObject
     public virtual bool CanRun(BagData bag, int slotIndex) => true;
 
     /// <summary>
+    /// 这个操作会不会**打乱槽位顺序**（排序/整理类操作为 true）。
+    ///
+    /// BagPanel 据此在操作完成后清掉选中态 —— 选中是按"槽位号"记的，
+    /// 顺序一变它就会指到另一个物品上（现在还没有 instanceId，追不回去）。
+    /// </summary>
+    public virtual bool invalidatesSelection => false;
+
+    /// <summary>
     /// 执行。返回**是否真的改了数据**（UI 据此决定要不要刷新）。
     /// 注意：数据修改一律走 BagData，不要直接动 BagSlot。
     /// </summary>

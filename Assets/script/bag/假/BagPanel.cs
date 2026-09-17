@@ -74,6 +74,9 @@ public class BagPanel : MonoBehaviour
     private bool _warnedMissingCell;
     private float _noticeHideAt;
 
+    /// <summary>详情名的原始颜色（Awake 时从预制体记下，配置缺失时还原用）</summary>
+    private Color _detailNameDefaultColor = Color.white;
+
     /// <summary>这个面板显示哪个背包</summary>
     public BagType bagType => _bagType;
 
@@ -110,6 +113,9 @@ public class BagPanel : MonoBehaviour
 
         SetGhostActive(false);
         if (_pickerRoot != null) _pickerRoot.SetActive(false);
+
+        // 记下详情名在预制体里配的原始颜色 —— 稀有度着色后要能还原（免得重复定义颜色常量）
+        if (_detailName != null) _detailNameDefaultColor = _detailName.color;
     }
 
     private void OnEnable()
@@ -211,6 +217,10 @@ public class BagPanel : MonoBehaviour
         if (action == null || bag == null) return false;
 
         bool changed = action.Run(bag, slotIndex);
+
+        // 排序/整理这类会重排槽位的操作：选中是按槽位号记的，排完就指到别的物品上了 → 清掉
+        // （以后有了 instanceId 才能做"排序后选中跟着物品走"）
+        if (action.invalidatesSelection) _selectedSlot = -1;
 
         // 改了数据的话 BagData 已经发过通知（OnSlotChanged 刷过一次）；
         // 没改数据的操作（比如只回血）这里补一次，保证按钮的可点状态是最新的
@@ -459,7 +469,13 @@ public class BagPanel : MonoBehaviour
 
         ApplyDetailIcon(config);
         if (_detailName != null)
+        {
             _detailName.text = config != null ? config.itemName : $"未知物品({slot.itemId})";
+
+            // 名字颜色也**无条件写**：配置缺失（config == null）时还原成预制体的原始色，
+            // 否则会留着上一次选中物品的稀有度颜色
+            _detailName.color = config != null ? config.rarity.ToTextColor() : _detailNameDefaultColor;
+        }
 
         if (_detailDesc != null)
             _detailDesc.text = config != null ? config.desc : "找不到这条配置，检查 ItemDatabase 里有没有它";

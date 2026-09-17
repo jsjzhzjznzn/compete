@@ -49,6 +49,9 @@ public class BagData
 
     private readonly List<BagSlot> _slots;
 
+    /// <summary>排序用的快照缓冲区（只增不减，反复复用，避免每次排序产生垃圾）</summary>
+    private readonly List<BagSlot> _sortBuffer = new List<BagSlot>();
+
     public BagData(BagType bagType, int capacity, ItemType acceptItemType)
     {
         this.bagType = bagType;
@@ -267,6 +270,68 @@ public class BagData
                 from.Clear();
                 changed = true;
             }
+        }
+
+        if (changed) Notify(-1);
+        return changed;
+    }
+
+    /// <summary>
+    /// 按比较器重排整个背包：非空槽按序排在前，空槽全部沉底。返回是否发生了变化。
+    ///
+    /// 【为什么整批重排，而不是逐个 Swap】
+    ///   逐个 Swap 每一步都会发一次 OnSlotChanged，UI 要重刷几十遍（还会疯狂重绑格子）。
+    ///   这里把非空堆快照到缓冲区 → 排序 → 一次写回 → 只发**一次** Notify(-1)。
+    ///
+    /// 【排的是"堆"不是"物品"】
+    ///   同一种物品占两格（99 + 51）是两个独立的堆，排序后相邻但不会自动合并。
+    ///   想先聚拢再排，调用方先调 MergeAll()（ItemActionTidy 就是"合并 + 排序"）。
+    ///
+    /// ⚠ 排序会改变"第 N 格是什么"。按槽位号记的东西（比如 UI 的选中态）排完就指偏了，
+    ///   调用方必须自己处理 —— ItemAction 上有 invalidatesSelection 标记干这件事。
+    /// </summary>
+    public bool Sort(Comparison<BagSlot> compare)
+    {
+        if (compare == null) return false;
+
+        // ① 非空堆快照进缓冲区（BagSlot 对象复用；缓冲区长度调到正好等于这次的堆数）
+        int count = 0;
+        for (int i = 0; i < _slots.Count; i++)
+        {
+            var slot = _slots[i];
+            if (slot.IsEmpty) continue;
+
+            if (_sortBuffer.Count <= count) _sortBuffer.Add(new BagSlot());
+            var buffer = _sortBuffer[count];
+            buffer.itemId = slot.itemId;
+            buffer.count = slot.count;
+            count++;
+        }
+
+        if (count <= 1) return false;      // 0 或 1 堆，排序没有意义
+
+        // 上次排得更多时缓冲区会长出来，截掉尾巴，保证只排有效部分
+        if (_sortBuffer.Count > count) _sortBuffer.RemoveRange(count, _sortBuffer.Count - count);
+
+        // ② 排序（只排快照，不动 _slots）
+        _sortBuffer.Sort(compare);
+
+        // ③ 写回：前 count 个槽按序填，剩下的槽全部清空（空槽自然沉底）
+        bool changed = false;
+        for (int i = 0; i < _slots.Count; i++)
+        {
+            int newItemId = 0;
+            int newCount = 0;
+            if (i < count)
+            {
+                newItemId = _sortBuffer[i].itemId;
+                newCount = _sortBuffer[i].count;
+            }
+
+            var slot = _slots[i];
+            if (slot.itemId != newItemId || slot.count != newCount) changed = true;
+            slot.itemId = newItemId;
+            slot.count = newCount;
         }
 
         if (changed) Notify(-1);

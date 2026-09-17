@@ -59,7 +59,7 @@ public class BagManager : SingletonMono<BagManager>
     private readonly BagDef[] Defs =
     {
         new BagDef(BagType.Item,   120, ItemType.Item),    // 6 列 x 20 行
-        new BagDef(BagType.Weapon,  12, ItemType.Weapon),  // 6 列 x 2 行
+        new BagDef(BagType.Weapon, 102, ItemType.Weapon),  // 6 列 x 17 行（必须是 6 的整数倍，否则最后一行残缺）
     };
 
     /// <summary>已创建的背包（懒创建后缓存）</summary>

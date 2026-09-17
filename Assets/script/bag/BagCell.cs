@@ -22,6 +22,9 @@ public class BagCell : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragH
     [SerializeField] private TextMeshProUGUI _countText;
     [SerializeField] private Button _button;
 
+    /// <summary>格子底框（模板根上那个 Image）。稀有度就是靠改它的颜色来表现的</summary>
+    [SerializeField] private Image _frame;
+
     /// <summary>选中高亮框（默认应为 inactive）</summary>
     [SerializeField] private GameObject _selectFrame;
 
@@ -71,6 +74,12 @@ public class BagCell : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragH
         _slotIndex = slotIndex;
 
         bool hasItem = slot != null && !slot.IsEmpty;
+
+        // 底框按稀有度上色。
+        // ⚠ 必须**无条件写**（包括空槽写回基础色）：格子是复用的，
+        //    只在有物品时改色的话，空格子会留着上一个物品的稀有度底色。
+        if (_frame != null)
+            _frame.color = (hasItem && config != null) ? config.rarity.ToCellColor() : ItemRarityUtil.CellBaseColor;
 
         // 图标是异步来的：先取 token，再发起请求（缓存命中时回调是同步触发的）
         ApplyIcon(config != null && config.hasIcon ? config.iconPath : null);

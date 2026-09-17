@@ -15,10 +15,12 @@ MonoBehaviour:
   _itemId: weapon.blade_01
   _itemName: "\u8BD5\u4F5C\u957F\u5203"
   _itemType: 1
+  _rarity: 2
   _iconPath: "Assets/Resource/ui/mingchao/\u6B66\u5668/T_Luckdraw21030015_UI.png"
-  _desc: "\u8FD8\u6CA1\u5F00\u5203\u7684\u5200\u3002\uFF08\u793A\u4F8B\u6B66\u5668\uFF0C\u8D70\u6B66\u5668\u80CC\u5305\uFF09"
+  _desc: "\u8FD8\u6CA1\u5F00\u5203\u7684\u5200\u3002\uFF08\u793A\u4F8B\u6B66\u5668\uFF09"
   _maxStack: 1
   _stats:
   - attr: 3
     modType: 0
     value: 20
+  _actions: []

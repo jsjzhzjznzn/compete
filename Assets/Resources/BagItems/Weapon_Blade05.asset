@@ -10,20 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0d6416d913afd7748b3db5ca16e37076, type: 3}
-  m_Name: Weapon_Blade02
+  m_Name: Weapon_Blade05
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
-  _itemId: weapon.blade_02
-  _itemName: "\u8BD5\u4F5C\u53CC\u5203"
+  _itemId: weapon.blade_05
+  _itemName: "\u952F\u9F7F\u76F4\u5200"
   _itemType: 1
-  _rarity: 3
-  _iconPath: "Assets/Resource/ui/mingchao/\u6B66\u5668/T_Luckdraw21030023_UI.png"
-  _desc: "\u53CC\u6301\u7528\u7684\u5200\u3002\uFF08\u793A\u4F8B\u6B66\u5668\uFF09"
+  _rarity: 0
+  _iconPath: "Assets/Resource/ui/mingchao/\u6B66\u5668/T_Luckdraw21030044_UI.png"
+  _desc: "\u5203\u53E3\u5168\u662F\u8C41\u7259\u3002\uFF08\u793A\u4F8B\u6B66\u5668\uFF09"
   _maxStack: 1
-  _stats:
-  - attr: 3
-    modType: 1
-    value: 1.15
-  - attr: 0
-    modType: 0
-    value: 0.1
+  _stats: []
   _actions: []
