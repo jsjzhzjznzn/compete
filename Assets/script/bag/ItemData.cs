@@ -41,6 +41,9 @@ public class ItemData : ScriptableObject
     [SerializeField, Header("本物品特有的操作（留空 = 用 ItemActionDefaults 里该类型的默认操作集）")]
     private List<ItemAction> _actions = new List<ItemAction>();
 
+    [SerializeField, Header("可穿戴到哪个槽（None = 不可穿戴）")]
+    private EquipSlotType _equipSlot = EquipSlotType.None;
+
     #region 只读属性封装（外部仅读取，禁止修改配置数据）
     /// <summary>配置里填的原始标识（可能为空字符串）</summary>
     public string itemId => _itemId;
@@ -77,6 +80,12 @@ public class ItemData : ScriptableObject
 
     /// <summary>是否可堆叠</summary>
     public bool stackable => maxStack > 1;
+
+    /// <summary>是否可穿戴（装备栏系统用；不可穿戴的物品不会出现【装备】操作）</summary>
+    public bool equippable => _equipSlot != EquipSlotType.None;
+
+    /// <summary>穿戴到哪个槽（不可穿戴时是 None）</summary>
+    public EquipSlotType equipSlot => _equipSlot;
 
     /// <summary>属性加成列表（不穿戴时只是展示数据）</summary>
     public IReadOnlyList<ItemStatEntry> stats => _stats;
